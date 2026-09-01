@@ -137,6 +137,11 @@ function migrateLegacyJSON() {
 }
 function seedIfEmpty() {
   if (db.prepare('SELECT COUNT(*) AS c FROM users').get().c > 0) return;
+   /* v7.2: demo data ab sirf SEED_DEMO=1 pe — production fresh+empty rahega, wizard dikhega */
+  if (process.env.SEED_DEMO !== '1') {
+    console.log('  ℹ️ DB khaali hai — demo seed skip (SEED_DEMO=1 env se on karo). Setup wizard se pehla admin banao.');
+    return;
+  }
   if (migrateLegacyJSON()) { console.log('  ✅ migration done.'); return; }
   console.log('  🆕 Fresh DB — GL Bajaj demo data seed kar raha hoon...');
   const users = [
