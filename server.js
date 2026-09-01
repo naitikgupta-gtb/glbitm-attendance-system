@@ -1,8 +1,9 @@
 /**
- * GL Bajaj Attendance System — v7 COMPLETE EDITION
- * Rotating QR · Settings · Holidays · Date-range · i18n-ready · Monthly Register ·
- * Parent Portal · Marks · Workload · Subject stats · Substitution · Certificate ·
- * Face Recognition · RFID hardware hook · Edit-lock · Search-friendly
+ * GL Bajaj Attendance System — v7.1 COMPLETE EDITION (login-fix)
+ * Fix: seed passwords ab properly scrypt-hashed + self-heal for old raw-password rows
+ * Rotating QR · Settings · Holidays · Date-range · Monthly Register ·
+ * Parent Portal · Marks · Workload · Substitution · Certificate ·
+ * Face Recognition · RFID hardware hook · Edit-lock
  */
 const express = require('express');
 const fs = require('fs');
@@ -154,9 +155,10 @@ function seedIfEmpty() {
     ['S7','student','Kabir Khan','kabir','stud123','BCA','General',1,'A','2401642010017','','[]','','','','0'],
     ['S8','student','Nikhil Raj','nikhil','stud123','MBA','General',1,'A','2501644010023','','[]','','','','0'],
   ];
+  /* FIX v7.1: passwords ab properly hashed store hote hain */
   for (const u of users) {
-  const [id, role, name, un, pw] = u;
-  insUser.run(id, role, name, un, hashPassword(pw), ...u.slice(5, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
+    const [id, role, name, un, pw] = u;
+    insUser.run(id, role, name, un, hashPassword(pw), ...u.slice(5, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
   }
   const recs = [
     [daysAgo(3),'B.Tech','CSE',3,'A','Data Structures','T1','Arrays & Big-O',[['S1','present'],['S2','present'],['S3','absent'],['S6','present']]],
@@ -179,7 +181,9 @@ function seedIfEmpty() {
   mk.run('S3','Data Structures','MST-1','26','30',nowISO()); mk.run('S6','Data Structures','MST-1','29','30',nowISO());
 }
 seedIfEmpty();
-/* v7.1 self-heal: agar kisi purane seed ne raw password store kiya tha to ab hash kar do */
+
+/* FIX v7.1 self-heal: agar kisi purane seed ne raw password store kiya tha
+   (hash me hamesha ':' hota hai, raw me nahi) to ab hash kar do */
 for (const u of db.prepare('SELECT id, password_hash FROM users').all()) {
   if (u.password_hash && !String(u.password_hash).includes(':')) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(u.password_hash), u.id);
@@ -283,6 +287,7 @@ app.post('/api/me/face', requireAuth, (req, res) => {
   addAudit('FACE_REG', req.user.username);
   res.json({ ok: true, message: 'Face registered ✅ — ab self-mark par face match hoga.' });
 });
+app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
 /* ================= SETTINGS & HOLIDAYS ================= */
 app.get('/api/settings', requireAuth, (req, res) => res.json({ threshold: getThreshold() }));
@@ -441,7 +446,7 @@ app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), (req, 
 
   const old = db.prepare(`SELECT * FROM records WHERE date=? AND program=? AND branch=? AND semester=? AND section=? AND subject=?`).get(date, program, branch, semester, section, subject);
   if (old && Date.now() - Date.parse(old.created_at) > EDIT_LOCK_MS && req.user.role !== 'admin')
-    return res.status(403).json({ error: '🔒 24 ghante se purana session — edit lock hai. Admin se contact karo.' });
+    return res.status(403).json({ error: '🔒 24h+ purana session — edit lock hai. Admin se contact karo.' });
   if (old) { db.prepare('DELETE FROM entries WHERE record_id = ?').run(old.id); db.prepare('DELETE FROM records WHERE id = ?').run(old.id); if (req.user.role === 'admin') addAudit('ATT_EDIT_LATE', req.user.username, `record ${old.id}`); }
   const info = insRec.run(date, program, branch, semester, section, subject, req.user.id, note, nowISO());
   for (const e of clean) insEntry.run(Number(info.lastInsertRowid), e.studentId, e.status);
@@ -737,7 +742,7 @@ app.get('/api/reports/correlation', requireAuth, requireRole('admin'), (req, res
 /* monthly register */
 app.get('/api/register', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
   const { program, branch, semester, section, subject } = req.query;
-  const month = String(req.query.month || ''); // YYYY-MM
+  const month = String(req.query.month || '');
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Month YYYY-MM chuno.' });
   const like = `${month}%`;
   const dates = db.prepare(`SELECT DISTINCT date FROM records WHERE program=? AND branch=? AND semester=? AND section=? AND subject=? AND date LIKE ? ORDER BY date`)
@@ -813,7 +818,26 @@ app.post('/api/announcements', requireAuth, requireRole('admin'), async (req, re
 });
 app.delete('/api/announcements/:id', requireAuth, requireRole('admin'), (req, res) => {
   db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
+  addAudit('ANN_DEL', req.user.username, req.params.id);
   res.json({ ok: true });
+});
+
+/* ================= TEACHER SESSIONS ================= */
+app.get('/api/me/sessions', requireAuth, requireRole('teacher'), (req, res) => {
+  const list = db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)
+    .map((r) => {
+      const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
+      return { id: r.id, date: r.date, program: r.program, branch: r.branch, semester: r.semester, section: r.section, subject: r.subject, note: r.note || '', total: entries.length, present: entries.filter((e) => e.status === 'present').length, late: entries.filter((e) => e.status === 'late').length };
+    });
+  res.json({ sessions: list });
+});
+app.get('/api/me/sessions/export', requireAuth, requireRole('teacher'), (req, res) => {
+  const rows = [['Date','Program','Branch','Semester','Section','Subject','Present','Late','Total']];
+  for (const r of db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)) {
+    const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
+    rows.push([r.date, r.program, r.branch, r.semester, r.section, r.subject, entries.filter((e) => e.status === 'present').length, entries.filter((e) => e.status === 'late').length, entries.length]);
+  }
+  sendCSV(res, `my-sessions-${todayStamp()}.csv`, rows);
 });
 
 /* ================= CERTIFICATE ================= */
@@ -841,7 +865,7 @@ app.get('/verify/:id', (req, res) => {
   ${c.program}${c.branch && c.branch !== 'General' ? ' · ' + c.branch : ''}, Semester ${c.semester ?? '—'},</p>
   <p>has an overall attendance of <strong style="font-size:1.6em;color:#1d4ed8">${c.pct}%</strong></p>
   <p>(${c.present} present · ${c.late} late · ${c.absent} absent of ${c.total} sessions)</p>
-  <small>Issued ${c.created_at.slice(0, 10)} · Certificate ID: <strong>${c.id}</strong></small><br/>
+  <small>Issued ${String(c.created_at).slice(0, 10)} · Certificate ID: <strong>${c.id}</strong></small><br/>
   <span class="valid">✔ VERIFIED — issued by GLBITM Attendance System</span>
   </div></body></html>`);
 });
@@ -864,36 +888,18 @@ app.post('/api/hardware/rfid', (req, res) => {
   res.status(201).json({ ok: true, message: `${stu.name} marked present via RFID.` });
 });
 
-/* ================= teacher sessions ================= */
-app.get('/api/me/sessions', requireAuth, requireRole('teacher'), (req, res) => {
-  const list = db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)
-    .map((r) => {
-      const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
-      return { id: r.id, date: r.date, program: r.program, branch: r.branch, semester: r.semester, section: r.section, subject: r.subject, note: r.note || '', total: entries.length, present: entries.filter((e) => e.status === 'present').length, late: entries.filter((e) => e.status === 'late').length };
-    });
-  res.json({ sessions: list });
-});
-app.get('/api/me/sessions/export', requireAuth, requireRole('teacher'), (req, res) => {
-  const rows = [['Date','Program','Branch','Semester','Section','Subject','Present','Late','Total']];
-  for (const r of db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)) {
-    const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
-    rows.push([r.date, r.program, r.branch, r.semester, r.section, r.subject, entries.filter((e) => e.status === 'present').length, entries.filter((e) => e.status === 'late').length, entries.length]);
-  }
-  sendCSV(res, `my-sessions-${todayStamp()}.csv`, rows);
-});
-
-/* ---------------- fallback & smart port ---------------- */
+/* ---------------- fallbacks & smart port ---------------- */
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Server error.' }); });
 
 function printBanner(port) {
   console.log('──────────────────────────────────────────────');
-  console.log('  🎓 GL Bajaj Attendance System v7 — COMPLETE');
+  console.log('  🎓 GL Bajaj Attendance System v7.1 — COMPLETE (login-fix)');
   console.log(`  ➜  http://localhost:${port}`);
   console.log('──────────────────────────────────────────────');
   console.log(`  Email: ${mailer ? '✅ SMTP active' : 'console mode'} · RFID key: ${process.env.HARDWARE_KEY || 'demo-hardware-key'}`);
-  console.log('  Demo: admin/admin123 · arjun/teach123 · riya/stud123');
+  console.log('  Demo logins: admin/admin123 · arjun/teach123 · riya/stud123');
   console.log('──────────────────────────────────────────────');
 }
 function startServer(port, tries = 10) {
