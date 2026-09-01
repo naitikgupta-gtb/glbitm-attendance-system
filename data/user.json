@@ -1,0 +1,14 @@
+{
+  "users": [
+    { "id": "A1", "role": "admin", "name": "Dr. Meera Kapoor", "username": "admin", "password": "admin123" },
+
+    { "id": "T1", "role": "teacher", "name": "Prof. Arjun Rao", "username": "arjun", "password": "teach123", "branch": "CSE" },
+    { "id": "T2", "role": "teacher", "name": "Prof. Neha Verma", "username": "neha", "password": "teach123", "branch": "ECE" },
+
+    { "id": "S1", "role": "student", "name": "Riya Sharma", "username": "riya", "password": "stud123", "branch": "CSE", "semester": 3, "rollNo": "CSE-3-01" },
+    { "id": "S2", "role": "student", "name": "Aman Gupta", "username": "aman", "password": "stud123", "branch": "CSE", "semester": 3, "rollNo": "CSE-3-02" },
+    { "id": "S3", "role": "student", "name": "Sara Khan", "username": "sara", "password": "stud123", "branch": "CSE", "semester": 3, "rollNo": "CSE-3-03" },
+    { "id": "S4", "role": "student", "name": "Dev Patel", "username": "dev", "password": "stud123", "branch": "CSE", "semester": 5, "rollNo": "CSE-5-01" },
+    { "id": "S5", "role": "student", "name": "Ishita Nair", "username": "ishita", "password": "stud123", "branch": "ECE", "semester": 3, "rollNo": "ECE-3-01" }
+  ]
+}

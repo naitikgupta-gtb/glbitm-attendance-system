@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Dashboard · AttendEase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">🎓</span> AttendEase</div>
+      <nav class="nav">
+        <button class="nav-link active">📊 My Attendance</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar" id="avatar">S</div>
+          <div>
+            <div class="user-name" id="userName">—</div>
+            <div class="user-role">Student</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" id="logoutBtn">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1>My Attendance</h1>
+        <span class="badge-soft" id="classBadge">—</span>
+      </header>
+
+      <div class="student-grid">
+        <div class="card ring-card">
+          <h2>Overall</h2>
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle class="ring-bg" cx="60" cy="60" r="52" pathLength="100"></circle>
+              <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52" pathLength="100"></circle>
+            </svg>
+            <div class="ring-center"><span id="ringPct">—</span><small>attendance</small></div>
+          </div>
+          <p class="muted small center" id="ringMsg"></p>
+          <div class="ring-stats">
+            <div><strong id="statPresent">0</strong><span>Present</span></div>
+            <div><strong id="statAbsent">0</strong><span>Absent</span></div>
+            <div><strong id="statTotal">0</strong><span>Classes</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Subject-wise Breakdown</h2>
+          <div id="subjectList" class="subject-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Recent Log</h2>
+        <div class="table-wrap">
+          <table id="logTable">
+            <thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/student.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+| Role | Username | Password | Details |
+|------|----------|----------|---------|
+| 👑 Admin | `admin` | `admin123` | Full console |
+| 🧑‍🏫 Teacher | `arjun` | `teach123` | CSE (also `neha` / `teach123` for ECE) |
+| 🧑‍🎓 Student | `riya` | `stud123` | CSE, Sem 3 — has seeded attendance |
+
+
+1. Log in as arjun (teacher) → select CSE / Sem 3 / a subject / today's date → Load Students → toggle a few to Absent → Save.
+2. Log in as riya (student) → her ring chart, subject bars, and log update instantly.
+3. Log in as admin → check the Overview stats and the Reports tab — percentages reflect step 1.
+
+Notes:-
+. Persistence: all changes are written straight into data/users.json and data/attendance.json. Delete/restore those files to reset the demo data.
+. Port conflict? Run with a different port: PORT=4000 npm start (Windows PowerShell: $env:PORT=4000; npm start).
+. Production caveat: this is intentionally simple for learning — passwords are plain text, sessions are in-memory, and the DB is JSON files. For production you'd swap in bcrypt, 
+  JWT/express-session, and a real database (MongoDB/PostgreSQL). The API structure stays the same, so that upgrade is straightforward.

@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Database & private data — NEVER push these
+data/*.db
+data/*.db-*
+data/*.db.broken-*
+data/selfies/
+data/users.json
+data/attendance.json
+data/audit.json
+data/announcements.json
+
+# Secrets
+.env
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db

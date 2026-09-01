@@ -1,0 +1,13 @@
+{
+  "name": "GL Bajaj Attendance System",
+  "short_name": "GLBITM Att",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#04070f",
+  "theme_color": "#1d4ed8",
+  "description": "GL Bajaj Institute of Technology & Management — Attendance Intelligence System",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

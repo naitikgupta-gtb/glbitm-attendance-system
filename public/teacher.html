@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teacher Dashboard · AttendEase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">🎓</span> AttendEase</div>
+      <nav class="nav" id="teacherNav">
+        <button class="nav-link active" data-section="mark">✏️ Mark Attendance</button>
+        <button class="nav-link" data-section="sessions">🗂️ My Sessions</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar" id="avatar">T</div>
+          <div>
+            <div class="user-name" id="userName">—</div>
+            <div class="user-role">Teacher</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" id="logoutBtn">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Mark Attendance</h1>
+        <span class="badge-soft">Teacher Portal</span>
+      </header>
+
+      <!-- Mark Attendance -->
+      <section class="section active" id="section-mark">
+        <div class="card">
+          <h2>Class &amp; Session Details</h2>
+          <div class="filter-grid">
+            <label>Branch
+              <select class="input" id="tBranch">
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="IT">IT</option>
+                <option value="MECH">MECH</option>
+              </select>
+            </label>
+            <label>Semester
+              <select class="input" id="tSem">
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3" selected>3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option>
+              </select>
+            </label>
+            <label>Subject
+              <input class="input" id="tSubject" list="subjectList" placeholder="e.g. Data Structures" />
+              <datalist id="subjectList">
+                <option>Data Structures</option><option>DBMS</option><option>Operating Systems</option>
+                <option>Computer Networks</option><option>Digital Electronics</option><option>Engineering Mathematics</option>
+              </datalist>
+            </label>
+            <label>Date
+              <input class="input" type="date" id="tDate" />
+            </label>
+            <button class="btn btn-primary" id="loadBtn">Load Students</button>
+          </div>
+        </div>
+
+        <div class="card" id="markCard" hidden>
+          <div class="mark-header">
+            <div>
+              <h2 id="classListTitle">Students</h2>
+              <span class="muted small" id="classListDate"></span>
+            </div>
+            <div class="mark-actions">
+              <span id="markCounts"></span>
+              <button class="btn btn-ghost btn-sm" id="allPresentBtn">All Present</button>
+              <button class="btn btn-primary" id="submitBtn">Save Attendance</button>
+            </div>
+          </div>
+          <div id="studentList" class="student-list"></div>
+        </div>
+      </section>
+
+      <!-- My Sessions -->
+      <section class="section" id="section-sessions">
+        <div class="card">
+          <h2>My Marked Sessions</h2>
+          <div class="table-wrap">
+            <table id="sessionsTable">
+              <thead><tr><th>Date</th><th>Class</th><th>Subject</th><th>Present / Total</th><th>Class %</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/teacher.js"></script>
+</body>
+</html>

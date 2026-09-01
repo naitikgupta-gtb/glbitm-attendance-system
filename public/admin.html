@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard · AttendEase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">🎓</span> AttendEase</div>
+      <nav class="nav" id="adminNav">
+        <button class="nav-link active" data-section="overview">📊 Overview</button>
+        <button class="nav-link" data-section="students">🧑‍🎓 Students</button>
+        <button class="nav-link" data-section="teachers">🧑‍🏫 Teachers</button>
+        <button class="nav-link" data-section="reports">📈 Reports</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar" id="avatar">A</div>
+          <div>
+            <div class="user-name" id="userName">—</div>
+            <div class="user-role">Administrator</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" id="logoutBtn">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Overview</h1>
+        <span class="badge-soft">Admin Console</span>
+      </header>
+
+      <!-- Overview -->
+      <section class="section active" id="section-overview">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-icon blue">🧑‍🎓</div><div><div class="stat-value" id="statStudents">—</div><div class="stat-label">Total Students</div></div></div>
+          <div class="stat-card"><div class="stat-icon purple">🧑‍🏫</div><div><div class="stat-value" id="statTeachers">—</div><div class="stat-label">Total Teachers</div></div></div>
+          <div class="stat-card"><div class="stat-icon amber">🗂️</div><div><div class="stat-value" id="statSessions">—</div><div class="stat-label">Sessions Marked</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="statOverall">—</div><div class="stat-label">Overall Attendance</div></div></div>
+        </div>
+        <div class="card">
+          <h2>Welcome back 👋</h2>
+          <p class="muted">Manage students and teachers from the sidebar. The <strong>Reports</strong> tab shows live attendance for every student — percentages refresh automatically as teachers mark sessions.</p>
+        </div>
+      </section>
+
+      <!-- Students -->
+      <section class="section" id="section-students">
+        <div class="card">
+          <h2>Add a Student</h2>
+          <form id="addStudentForm" class="form-grid">
+            <input class="input" id="stName" placeholder="Full name" required />
+            <input class="input" id="stRoll" placeholder="Roll no (e.g. CSE-3-06)" />
+            <select class="input" id="stBranch" required>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="IT">IT</option>
+              <option value="MECH">MECH</option>
+            </select>
+            <select class="input" id="stSem" required>
+              <option value="1">Sem 1</option><option value="2">Sem 2</option>
+              <option value="3">Sem 3</option><option value="4">Sem 4</option>
+              <option value="5">Sem 5</option><option value="6">Sem 6</option>
+              <option value="7">Sem 7</option><option value="8">Sem 8</option>
+            </select>
+            <input class="input" id="stUsername" placeholder="Username" required />
+            <input class="input" id="stPassword" placeholder="Password" required />
+            <button class="btn btn-primary">Add Student</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Enrolled Students</h2>
+          <div class="table-wrap">
+            <table id="studentsTable">
+              <thead><tr><th>Roll No</th><th>Name</th><th>Username</th><th>Branch</th><th>Semester</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Teachers -->
+      <section class="section" id="section-teachers">
+        <div class="card">
+          <h2>Add a Teacher</h2>
+          <form id="addTeacherForm" class="form-grid">
+            <input class="input" id="tcName" placeholder="Full name" required />
+            <select class="input" id="tcBranch">
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="IT">IT</option>
+              <option value="MECH">MECH</option>
+            </select>
+            <input class="input" id="tcUsername" placeholder="Username" required />
+            <input class="input" id="tcPassword" placeholder="Password" required />
+            <button class="btn btn-primary">Add Teacher</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Teaching Staff</h2>
+          <div class="table-wrap">
+            <table id="teachersTable">
+              <thead><tr><th>Name</th><th>Username</th><th>Branch</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reports -->
+      <section class="section" id="section-reports">
+        <div class="card">
+          <h2>Global Attendance Report</h2>
+          <p class="muted" style="margin-bottom: 14px;">Minimum requirement: <strong>75%</strong>. Percentage = present ÷ total sessions marked.</p>
+          <div class="table-wrap">
+            <table id="reportTable">
+              <thead><tr><th>Roll No</th><th>Name</th><th>Class</th><th>Sessions</th><th>P / A</th><th>Attendance</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
