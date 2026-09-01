@@ -154,7 +154,10 @@ function seedIfEmpty() {
     ['S7','student','Kabir Khan','kabir','stud123','BCA','General',1,'A','2401642010017','','[]','','','','0'],
     ['S8','student','Nikhil Raj','nikhil','stud123','MBA','General',1,'A','2501644010023','','[]','','','','0'],
   ];
-  for (const u of users) insUser.run(...u.slice(0, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
+  for (const u of users) {
+  const [id, role, name, un, pw] = u;
+  insUser.run(id, role, name, un, hashPassword(pw), ...u.slice(5, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
+  }
   const recs = [
     [daysAgo(3),'B.Tech','CSE',3,'A','Data Structures','T1','Arrays & Big-O',[['S1','present'],['S2','present'],['S3','absent'],['S6','present']]],
     [daysAgo(2),'B.Tech','CSE',3,'A','Data Structures','T1','Linked Lists',[['S1','late'],['S2','absent'],['S3','present'],['S6','present']]],
@@ -176,6 +179,13 @@ function seedIfEmpty() {
   mk.run('S3','Data Structures','MST-1','26','30',nowISO()); mk.run('S6','Data Structures','MST-1','29','30',nowISO());
 }
 seedIfEmpty();
+/* v7.1 self-heal: agar kisi purane seed ne raw password store kiya tha to ab hash kar do */
+for (const u of db.prepare('SELECT id, password_hash FROM users').all()) {
+  if (u.password_hash && !String(u.password_hash).includes(':')) {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(u.password_hash), u.id);
+    console.log(`  🔧 ${u.id}: raw password → hashed (self-heal)`);
+  }
+}
 
 /* ---------------- helpers ---------------- */
 const getUsers = () => db.prepare('SELECT * FROM users ORDER BY role, name').all();
