@@ -108,5 +108,5 @@ MIT — free to use, modify aur apne college me deploy karne ke liye.
 👨‍💻 Author
 Your Name — GL Bajaj Institute of Technology & Management, Greater Noida
 
-GitHub: @YOUR-USERNAME
-LinkedIn: your-profile
+GitHub: @naitikgupta-gtb
+LinkedIn: Naitik Kumar Gupta
