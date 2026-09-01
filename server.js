@@ -1,9 +1,7 @@
 /**
- * GL Bajaj Attendance System — v7.1 COMPLETE EDITION (login-fix)
- * Fix: seed passwords ab properly scrypt-hashed + self-heal for old raw-password rows
- * Rotating QR · Settings · Holidays · Date-range · Monthly Register ·
- * Parent Portal · Marks · Workload · Substitution · Certificate ·
- * Face Recognition · RFID hardware hook · Edit-lock
+ * GL Bajaj Attendance System — v7.2 (Security Edition)
+ * FIX: demo creds production me hidden · first-run admin setup wizard
+ * Rotating QR · Geo-fence · Face · Parent Portal · Marks · Register · Certificate · RFID
  */
 const express = require('express');
 const fs = require('fs');
@@ -70,7 +68,6 @@ CREATE TABLE IF NOT EXISTS certs ( id TEXT PRIMARY KEY, student_id TEXT, name TE
 CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
 CREATE TABLE IF NOT EXISTS holidays ( date TEXT PRIMARY KEY, title TEXT );
 `);
-db.exec('DROP TABLE IF EXISTS markcodes'); // v6 schema → v7 rotating-session schema
 db.exec(`CREATE TABLE IF NOT EXISTS markcodes ( id TEXT PRIMARY KEY, secret TEXT, teacher_id TEXT, program TEXT, branch TEXT, semester INTEGER, section TEXT DEFAULT '', subject TEXT, date TEXT, geo TEXT DEFAULT '', expires_at INTEGER );
 CREATE TABLE IF NOT EXISTS selfmarks ( id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT, student_id TEXT, device TEXT, ip TEXT, flagged INTEGER DEFAULT 0, ts TEXT );
 CREATE TABLE IF NOT EXISTS otps ( username TEXT PRIMARY KEY, code TEXT, expires_at INTEGER, attempts INTEGER DEFAULT 0 );`);
@@ -141,7 +138,7 @@ function migrateLegacyJSON() {
 function seedIfEmpty() {
   if (db.prepare('SELECT COUNT(*) AS c FROM users').get().c > 0) return;
   if (migrateLegacyJSON()) { console.log('  ✅ migration done.'); return; }
-  console.log('  🆕 Fresh DB — GL Bajaj demo seed...');
+  console.log('  🆕 Fresh DB — GL Bajaj demo data seed kar raha hoon...');
   const users = [
     ['A1','admin','Dr. Meera Kapoor','admin','admin123','','',null,'','','meera@glbitm.ac.in','[]','','','','0'],
     ['T1','teacher','Prof. Arjun Rao','arjun','teach123','B.Tech','CSE',null,'','','arjun@glbitm.ac.in','["Data Structures","DBMS","Operating Systems"]','','','','0'],
@@ -155,7 +152,6 @@ function seedIfEmpty() {
     ['S7','student','Kabir Khan','kabir','stud123','BCA','General',1,'A','2401642010017','','[]','','','','0'],
     ['S8','student','Nikhil Raj','nikhil','stud123','MBA','General',1,'A','2501644010023','','[]','','','','0'],
   ];
-  /* FIX v7.1: passwords ab properly hashed store hote hain */
   for (const u of users) {
     const [id, role, name, un, pw] = u;
     insUser.run(id, role, name, un, hashPassword(pw), ...u.slice(5, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
@@ -182,8 +178,7 @@ function seedIfEmpty() {
 }
 seedIfEmpty();
 
-/* FIX v7.1 self-heal: agar kisi purane seed ne raw password store kiya tha
-   (hash me hamesha ':' hota hai, raw me nahi) to ab hash kar do */
+/* self-heal: agar kisi purane seed ne raw password store kiya tha */
 for (const u of db.prepare('SELECT id, password_hash FROM users').all()) {
   if (u.password_hash && !String(u.password_hash).includes(':')) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(u.password_hash), u.id);
@@ -223,7 +218,28 @@ const requireRole = (...roles) => (req, res, next) => { if (!roles.includes(req.
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-/* ================= AUTH ================= */
+/* ================= FIRST-RUN SETUP WIZARD =================
+   Pehla admin khud bana sakta hai — sirf jab tak koi admin na ho.
+   Uske baad ye route hamesha 403 dega. (WordPress-style first-run) */
+app.get('/api/setup/status', (req, res) => {
+  const { c } = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`).get();
+  res.json({ needsSetup: c === 0, canShowDemo: process.env.SHOW_DEMO_HINTS === '1' });
+});
+app.post('/api/setup/admin', (req, res) => {
+  const { c } = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`).get();
+  if (c > 0) return res.status(403).json({ error: 'Setup already completed — admin exists. Naya admin existing admin hi bana sakta hai.' });
+  const { name, username, password, email } = req.body || {};
+  if (!name || !username || !password) return res.status(400).json({ error: 'Name, username, password required.' });
+  if (String(password).length < 8) return res.status(400).json({ error: 'Admin password min 8 characters ka rakho.' });
+  const un = String(username).trim().toLowerCase();
+  if (db.prepare('SELECT id FROM users WHERE username = ?').get(un)) return res.status(409).json({ error: 'Username taken.' });
+  const id = 'A' + Date.now().toString(36).toUpperCase();
+  insUser.run(id, 'admin', String(name).trim(), un, hashPassword(password), '', '', null, '', '', String(email || '').trim(), '[]', '', '', '', 0, nowISO());
+  addAudit('SETUP_ADMIN', un, 'first admin created via setup wizard');
+  res.status(201).json({ ok: true, message: 'Admin created! Ab login karo.' });
+});
+
+/* ================= AUTH ROUTES ================= */
 app.post('/api/login', async (req, res) => {
   const ip = req.socket.remoteAddress || 'unknown';
   const e = fails.get(ip);
@@ -325,7 +341,7 @@ app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
   if (!un || !password) return res.status(400).json({ error: 'Username aur password required.' });
   if (db.prepare('SELECT id FROM users WHERE username = ?').get(un)) return res.status(409).json({ error: 'Username already taken.' });
 
-  let id = role[0].toUpperCase() + Date.now().toString(36).toUpperCase();
+  const id = role[0].toUpperCase() + Date.now().toString(36).toUpperCase();
   if (role === 'parent') {
     const child = db.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(String(parentOf || ''), 'student');
     if (!child) return res.status(400).json({ error: 'Valid student select karo jiska parent bana hai.' });
@@ -413,7 +429,7 @@ app.delete('/api/users/:id', requireAuth, requireRole('admin'), (req, res) => {
   res.json({ ok: true, removedId: row.id });
 });
 
-/* ================= TEACHER: roster & attendance (edit-lock) ================= */
+/* ================= TEACHER: roster & attendance ================= */
 app.get('/api/students', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
   let sql = `SELECT * FROM users WHERE role = 'student'`; const params = [];
   if (req.query.program) { sql += ' AND program = ?'; params.push(req.query.program); }
@@ -454,7 +470,7 @@ app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), (req, 
   res.status(201).json({ ok: true, message: `Saved for ${clean.length} students.` });
 });
 
-/* ================= TIMETABLE (+ substitution via PATCH) ================= */
+/* ================= TIMETABLE ================= */
 app.get('/api/timetable', requireAuth, (req, res) => {
   let program, branch, semester, section;
   if (req.user.role === 'student') ({ program, branch, semester, section } = req.user);
@@ -489,7 +505,7 @@ app.delete('/api/timetable/:id', requireAuth, requireRole('admin'), (req, res) =
   res.json({ ok: true });
 });
 
-/* ================= LEAVES (parent read) ================= */
+/* ================= LEAVES ================= */
 app.post('/api/leaves', requireAuth, requireRole('student'), (req, res) => {
   const date = String((req.body || {}).date || ''), type = String((req.body || {}).type || 'casual'), reason = String((req.body || {}).reason || '').slice(0, 300);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Valid date.' });
@@ -572,7 +588,7 @@ app.get('/api/marks/class', requireAuth, requireRole('teacher', 'admin'), (req, 
   res.json({ items: db.prepare(`SELECT m.student_id, m.score, m.max FROM marks m JOIN users u ON u.id = m.student_id WHERE m.subject=? AND m.exam=? AND u.program=? AND u.branch=? AND u.semester=? AND u.section=?`).all(String(req.query.subject), String(req.query.exam), String(req.query.program), String(req.query.branch || ''), Number(req.query.semester), String(req.query.section || '')) });
 });
 
-/* ================= ROTATING QR SELF-MARK (+face+geo+proxy) ================= */
+/* ================= ROTATING QR SELF-MARK ================= */
 app.post('/api/selfmark/open', requireAuth, requireRole('teacher'), (req, res) => {
   const { program, branch, semester, section, subject, date, useGeo } = req.body || {};
   if (!program || !semester || !subject || !date) return res.status(400).json({ error: 'Class details missing.' });
@@ -586,8 +602,7 @@ app.post('/api/selfmark/open', requireAuth, requireRole('teacher'), (req, res) =
 app.get('/api/selfmark/rotate', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
   const row = db.prepare('SELECT * FROM markcodes WHERE id = ?').get(String(req.query.session || ''));
   if (!row || row.expires_at < Date.now()) return res.status(400).json({ error: 'Session invalid/expired.' });
-  const win = Math.floor(Date.now() / 30000);
-  res.json({ code: rotCode(row.secret, win) });
+  res.json({ code: rotCode(row.secret, Math.floor(Date.now() / 30000)) });
 });
 app.get('/api/selfmark/status', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
   const row = db.prepare('SELECT * FROM markcodes WHERE id = ?').get(String(req.query.session || ''));
@@ -606,7 +621,7 @@ app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) =
   if (!mc || mc.expires_at < Date.now()) return res.status(400).json({ error: 'Session invalid ya expire.' });
   const win = Math.floor(Date.now() / 30000);
   if (![rotCode(mc.secret, win), rotCode(mc.secret, win - 1), rotCode(mc.secret, win + 1)].includes(code))
-    return res.status(401).json({ error: '⏱️ Code galat/purana — teacher ki screen ka CURRENT code lo (har 30s badalta hai).' });
+    return res.status(401).json({ error: '⏱️ Code galat/purana — CURRENT code lo (har 30s badalta hai).' });
   const me = req.user;
   if (me.program !== mc.program || me.semester !== mc.semester || (me.branch || '') !== (mc.branch || '') || (me.section || '') !== (mc.section || ''))
     return res.status(403).json({ error: 'Ye class tumhari nahi hai.' });
@@ -627,7 +642,6 @@ app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) =
     const dist = haversine(lat, lng, clat, clng);
     if (dist > crad) return res.status(403).json({ error: `📍 Campus ke bahar (${dist}m). Radius ${crad}m.` });
   }
-  /* face verification (agar registered hai) */
   const faceStored = db.prepare('SELECT face FROM users WHERE id = ?').get(me.id).face;
   if (faceStored) {
     const fd = (req.body || {}).face;
@@ -654,7 +668,7 @@ app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) =
   res.status(201).json({ ok: true, message: '✅ Self-marked present!' });
 });
 
-/* ================= ANALYTICS (holiday-aware, range-aware) ================= */
+/* ================= ANALYTICS ================= */
 function studentStats(studentId, opts = {}) {
   const holidays = getHolidaySet();
   let sql = `SELECT r.date, r.subject, e.status, e.id AS entryId FROM entries e JOIN records r ON r.id = e.record_id WHERE e.student_id = ?`;
@@ -685,7 +699,7 @@ function studentStats(studentId, opts = {}) {
 app.get('/api/me/attendance', requireAuth, requireRole('student'), (req, res) => res.json(studentStats(req.user.id, { from: req.query.from, to: req.query.to })));
 app.get('/api/parent/child', requireAuth, requireRole('parent'), (req, res) => {
   const child = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.parent_of);
-  if (!child) return res.status(404).json({ error: 'Child link missing — admin se contact karo.' });
+  if (!child) return res.status(404).json({ error: 'Child link missing.' });
   res.json({ user: publicUser(child), stats: studentStats(child.id) });
 });
 app.get('/api/leaderboard', requireAuth, (req, res) => {
@@ -739,7 +753,6 @@ app.get('/api/reports/correlation', requireAuth, requireRole('admin'), (req, res
   }
   res.json({ items: out.filter((o) => o.marksPct != null) });
 });
-/* monthly register */
 app.get('/api/register', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
   const { program, branch, semester, section, subject } = req.query;
   const month = String(req.query.month || '');
@@ -855,22 +868,18 @@ app.get('/verify/:id', (req, res) => {
   res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Verify · ${c.id}</title>
   <style>body{font-family:Georgia,serif;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;margin:0}
   .cert{background:#fff;border:3px double #1d4ed8;padding:48px 56px;max-width:640px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.12)}
-  h1{color:#1d4ed8;letter-spacing:.04em}small{color:#666}.valid{display:inline-block;background:#059669;color:#fff;padding:6px 20px;border-radius:999px;font-family:sans-serif;font-weight:700;margin-top:12px}</style></head>
-  <body><div class="cert">
-  <h1>GL Bajaj Institute of Technology &amp; Management</h1>
-  <small>Approved by AICTE · Affiliated to AKTU Lucknow · Greater Noida</small>
-  <hr style="margin:20px 0;border:none;border-top:1px solid #ddd"/>
+  h1{color:#1d4ed8}small{color:#666}.valid{display:inline-block;background:#059669;color:#fff;padding:6px 20px;border-radius:999px;font-family:sans-serif;font-weight:700;margin-top:12px}</style></head>
+  <body><div class="cert"><h1>GL Bajaj Institute of Technology &amp; Management</h1>
+  <small>Approved by AICTE · Affiliated to AKTU Lucknow</small><hr style="margin:20px 0;border:none;border-top:1px solid #ddd"/>
   <h2>Attendance Certificate</h2>
-  <p>This is to certify that <strong>${c.name}</strong> (Roll No. ${c.roll || '—'}),<br/>
-  ${c.program}${c.branch && c.branch !== 'General' ? ' · ' + c.branch : ''}, Semester ${c.semester ?? '—'},</p>
-  <p>has an overall attendance of <strong style="font-size:1.6em;color:#1d4ed8">${c.pct}%</strong></p>
-  <p>(${c.present} present · ${c.late} late · ${c.absent} absent of ${c.total} sessions)</p>
-  <small>Issued ${String(c.created_at).slice(0, 10)} · Certificate ID: <strong>${c.id}</strong></small><br/>
-  <span class="valid">✔ VERIFIED — issued by GLBITM Attendance System</span>
-  </div></body></html>`);
+  <p>This certifies that <strong>${c.name}</strong> (${c.roll || '—'}), ${c.program}${c.branch && c.branch !== 'General' ? ' · ' + c.branch : ''}, Semester ${c.semester ?? '—'},</p>
+  <p>has attendance of <strong style="font-size:1.6em;color:#1d4ed8">${c.pct}%</strong></p>
+  <p>(${c.present} present · ${c.late} late · ${c.absent} absent of ${c.total})</p>
+  <small>Issued ${String(c.created_at).slice(0, 10)} · ID: <strong>${c.id}</strong></small><br/>
+  <span class="valid">✔ VERIFIED — GLBITM Attendance System</span></div></body></html>`);
 });
 
-/* ================= RFID / BIOMETRIC HARDWARE HOOK ================= */
+/* ================= RFID HOOK ================= */
 app.post('/api/hardware/rfid', (req, res) => {
   if (req.headers['x-device-key'] !== (process.env.HARDWARE_KEY || 'demo-hardware-key'))
     return res.status(403).json({ error: 'Invalid device key.' });
@@ -888,18 +897,18 @@ app.post('/api/hardware/rfid', (req, res) => {
   res.status(201).json({ ok: true, message: `${stu.name} marked present via RFID.` });
 });
 
-/* ---------------- fallbacks & smart port ---------------- */
+/* ================= fallbacks & smart port ================= */
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
 app.use((req, res) => res.status(404).sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Server error.' }); });
 
 function printBanner(port) {
   console.log('──────────────────────────────────────────────');
-  console.log('  🎓 GL Bajaj Attendance System v7.1 — COMPLETE (login-fix)');
+  console.log('  🎓 GL Bajaj Attendance System v7.2 — Security Edition');
   console.log(`  ➜  http://localhost:${port}`);
   console.log('──────────────────────────────────────────────');
   console.log(`  Email: ${mailer ? '✅ SMTP active' : 'console mode'} · RFID key: ${process.env.HARDWARE_KEY || 'demo-hardware-key'}`);
-  console.log('  Demo logins: admin/admin123 · arjun/teach123 · riya/stud123');
+  console.log(`  Demo hints: ${process.env.SHOW_DEMO_HINTS === '1' ? 'visible' : 'hidden (production) — SHOW_DEMO_HINTS=1 se dikhao'}`);
   console.log('──────────────────────────────────────────────');
 }
 function startServer(port, tries = 10) {
