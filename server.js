@@ -676,35 +676,81 @@ app.get('/api/parent/child', requireAuth, requireRole('parent'), H(async (req, r
   res.json({ user: publicUser(child), stats: await studentStats(child.id) });
 }));
 app.get('/api/leaderboard', requireAuth, H(async (req, res) => {
-  const students = await sql`SELECT * FROM users WHERE role = 'student'`;
+  const stats = await batchStats();
   const list = [];
-  for (const s of students) { const st = await studentStats(s.id); if (st.total > 0) list.push({ id: s.id, name: s.name, label: classLabel(s), semester: s.semester, pct: st.percentage, total: st.total }); }
+  for (const st of stats.values()) { if (st.total > 0) list.push({ id: st.id, name: st.name, label: classLabel(st), semester: st.semester, pct: st.percentage, total: st.total }); }
   list.sort((a, b) => b.pct - a.pct);
   const meIdx = list.findIndex((r) => r.id === req.user.id);
   res.json({ top: list.slice(0, 5), myRank: meIdx >= 0 ? meIdx + 1 : null, classSize: list.length });
 }));
 
-/* ================= ADMIN REPORTS ================= */
+/* ================= ADMIN REPORTS (v8.5 batch — 500+ students pe bhi fast) ================= */
+
+/* Ek hi query me saare students ka attendance — N+1 problem khatam */
+async function batchStats(opts = {}) {
+  const holidays = new Set((await sql`SELECT date FROM holidays`).map((h) => h.date));
+  const conds = [sql`u.role = 'student'`];
+  if (opts.from) conds.push(sql`r.date >= ${opts.from}`);
+  if (opts.to) conds.push(sql`r.date <= ${opts.to}`);
+  const rows = await sql`SELECT u.id AS sid, u.name, u.roll_no AS "rollNo", u.program, u.branch, u.semester, u.section, r.date, r.subject, e.status
+    FROM entries e
+    JOIN records r ON r.id = e.record_id
+    JOIN users u ON u.id = e.student_id
+    WHERE ${sql.join(conds, sql` AND `)}`;
+  const map = new Map();
+  for (const r of rows) {
+    if (holidays.has(r.date)) continue;
+    let st = map.get(r.sid);
+    if (!st) {
+      st = { id: r.sid, name: r.name, rollNo: r.rollNo, program: r.program, branch: r.branch, semester: r.semester, section: r.section, total: 0, present: 0, late: 0, subjectMap: {}, logs: [] };
+      map.set(r.sid, st);
+    }
+    st.total += 1;
+    if (r.status === 'present') st.present += 1; else if (r.status === 'late') st.late += 1;
+    const sb = st.subjectMap[r.subject] || (st.subjectMap[r.subject] = { total: 0, present: 0, late: 0 });
+    sb.total += 1;
+    if (r.status === 'present') sb.present += 1; else if (r.status === 'late') sb.late += 1;
+    st.logs.push({ date: r.date, subject: r.subject, status: r.status });
+  }
+  const pct = (p, l, t) => (t ? Math.round(((p + l) / t) * 100) : 0);
+  const th = await getThreshold();
+  const out = new Map();
+  for (const st of map.values()) {
+    st.absent = st.total - st.present - st.late;
+    st.attended = st.present + st.late;
+    st.percentage = pct(st.present, st.late, st.total);
+    st.threshold = th;
+    st.subjects = Object.entries(st.subjectMap).map(([subject, s]) => ({ subject, total: s.total, present: s.present, late: s.late, percentage: pct(s.present, s.late, s.total) }));
+    delete st.subjectMap;
+    st.logs.sort((a, b) => b.date.localeCompare(a.date));
+    out.set(st.id, st);
+  }
+  return out;
+}
+const EMPTY_STATS = () => ({ total: 0, present: 0, late: 0, absent: 0, attended: 0, percentage: 0, subjects: [], logs: [] });
+
 app.get('/api/reports/summary', requireAuth, requireRole('admin'), H(async (req, res) => {
-  const students = await sql`SELECT id FROM users WHERE role = 'student'`;
+  const stats = await batchStats();
   let total = 0, attended = 0;
-  for (const s of students) { const st = await studentStats(s.id); total += st.total; attended += st.attended; }
+  for (const st of stats.values()) { total += st.total; attended += st.attended; }
+  const [{ c: students }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'student'`;
   const [{ c: teachers }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'teacher'`;
   const [{ c: sessions }] = await sql`SELECT COUNT(*)::int AS c FROM records`;
-  res.json({ totalStudents: students.length, totalTeachers: teachers, sessionsMarked: sessions, overallPercentage: total ? Math.round((attended / total) * 100) : 0, threshold: await getThreshold() });
+  res.json({ totalStudents: students, totalTeachers: teachers, sessionsMarked: sessions, overallPercentage: total ? Math.round((attended / total) * 100) : 0, threshold: await getThreshold() });
 }));
 app.get('/api/reports/overall', requireAuth, requireRole('admin'), H(async (req, res) => {
   const range = { from: req.query.from, to: req.query.to };
+  const stats = await batchStats(range);
   const students = await sql`SELECT * FROM users WHERE role = 'student' ORDER BY roll_no, name`;
-  const report = [];
-  for (const s of students) report.push({ id: s.id, name: s.name, rollNo: s.roll_no, program: s.program, branch: s.branch, semester: s.semester, section: s.section, ...(await studentStats(s.id, range)) });
+  const report = students.map((s) => ({ id: s.id, name: s.name, rollNo: s.roll_no, program: s.program, branch: s.branch, semester: s.semester, section: s.section, ...(stats.get(s.id) || EMPTY_STATS()) }));
   res.json({ report });
 }));
 app.get('/api/reports/export', requireAuth, requireRole('admin'), H(async (req, res) => {
   const range = { from: req.query.from, to: req.query.to };
+  const stats = await batchStats(range);
   const rows = [['Roll No','Name','Program','Branch','Semester','Section','Total','Present','Late','Absent','%']];
   for (const s of await sql`SELECT * FROM users WHERE role = 'student' ORDER BY roll_no`) {
-    const st = await studentStats(s.id, range);
+    const st = stats.get(s.id) || EMPTY_STATS();
     rows.push([s.roll_no, s.name, s.program, s.branch, s.semester ?? '', s.section || '', st.total, st.present, st.late, st.absent, st.percentage]);
   }
   sendCSV(res, `attendance-${range.from || 'all'}-${range.to || todayStamp()}.csv`, rows);
@@ -718,12 +764,12 @@ app.get('/api/reports/subjects', requireAuth, requireRole('admin'), H(async (req
   res.json({ items: rows.map((r) => ({ ...r, pct: r.total ? Math.round((r.attended / r.total) * 100) : 0 })) });
 }));
 app.get('/api/reports/correlation', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const stats = await batchStats();
+  const mkRows = await sql`SELECT student_id, ROUND(AVG(score * 100.0 / max))::int AS m FROM marks GROUP BY student_id`;
+  const mkMap = new Map(mkRows.map((m) => [m.student_id, m.m]));
   const out = [];
-  for (const s of await sql`SELECT * FROM users WHERE role = 'student'`) {
-    const st = await studentStats(s.id);
-    if (!st.total) continue;
-    const mk = (await sql`SELECT AVG(score * 100.0 / max) AS m FROM marks WHERE student_id = ${s.id}`)[0];
-    if (mk.m != null) out.push({ name: s.name, pct: st.percentage, marksPct: Math.round(mk.m) });
+  for (const st of stats.values()) {
+    if (mkMap.has(st.id)) out.push({ name: st.name, pct: st.percentage, marksPct: mkMap.get(st.id) });
   }
   res.json({ items: out });
 }));
@@ -746,11 +792,12 @@ app.get('/api/register', requireAuth, requireRole('teacher', 'admin'), H(async (
 }));
 app.post('/api/reports/email-defaulters', requireAuth, requireRole('admin'), H(async (req, res) => {
   const th = await getThreshold(); let sent = 0, skipped = 0;
-  for (const s of await sql`SELECT * FROM users WHERE role = 'student'`) {
-    const st = await studentStats(s.id);
-    if (st.total > 0 && st.percentage < th) {
-      if (!s.email) { skipped++; continue; }
-      (await sendMail(s.email, '⚠️ Low Attendance — GLBITM', `Attendance: ${st.percentage}% (min ${th}%)`)) ? sent++ : skipped++;
+  const stats = await batchStats();
+  for (const st of stats.values()) {
+    if (st.percentage < th) {
+      const row = (await sql`SELECT email FROM users WHERE id = ${st.id}`)[0];
+      if (!row || !row.email) { skipped++; continue; }
+      (await sendMail(row.email, '⚠️ Low Attendance — GLBITM', `Attendance: ${st.percentage}% (min ${th}%)`)) ? sent++ : skipped++;
     }
   }
   await addAudit('MAIL_DEFAULTERS', req.user.username, `${sent} sent`);
@@ -784,7 +831,6 @@ app.post('/api/admin/restore', requireAuth, requireRole('admin'), H(async (req, 
   await addAudit('RESTORE', req.user.username, `${b.users.length} users`);
   res.json({ ok: true, message: `Restored ${b.users.length} users.` });
 }));
-
 /* ================= ANNOUNCEMENTS ================= */
 app.get('/api/announcements', requireAuth, H(async (req, res) => res.json({ items: await sql`SELECT * FROM announcements ORDER BY ts DESC LIMIT 10` })));
 app.post('/api/announcements', requireAuth, requireRole('admin'), H(async (req, res) => {
