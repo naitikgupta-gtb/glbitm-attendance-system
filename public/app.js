@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-/* ============ helpers ============ */
+/* ================= helpers ================= */
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -17,7 +17,7 @@ const PROGRAMS = {
   'M.Tech': { sems: 4, branches: ['CSE','Electronics and Communication Engineering','Mechanical Engineering'] },
 };
 
-/* ============ i18n ============ */
+/* ================= i18n ================= */
 const LANG = {
   en: { overview:'Overview', students:'Students', teachers:'Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Fixes', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark (QR)', leave:'Apply Leave', child:'My Child', save:'Save', load:'Load Students', allPresent:'All Present', print:'Print', export:'Export', threshold:'Attendance Threshold', present:'Present', late:'Late', absent:'Absent', date:'Date', subject:'Subject', program:'Program', branch:'Branch', semester:'Semester', section:'Section' },
   hi: { overview:'अवलोकन', students:'छात्र', teachers:'शिक्षक', timetable:'समय-सारणी', reports:'रिपोर्ट', requests:'अवकाश व सुधार', announce:'सूचनाएँ', audit:'ऑडिट लॉग', mark:'उपस्थिति लगाएँ', marks:'अंक प्रविष्टि', sessions:'मेरे सत्र', attendance:'मेरी उपस्थिति', selfmark:'स्वयं उपस्थित (QR)', leave:'अवकाश लगाएँ', child:'मेरा बच्चा', save:'सहेजें', load:'छात्र लोड करें', allPresent:'सब उपस्थित', print:'प्रिंट', export:'एक्सपोर्ट', threshold:'उपस्थिति सीमा', present:'उपस्थित', late:'देर', absent:'अनुपस्थित', date:'दिनांक', subject:'विषय', program:'प्रोग्राम', branch:'शाखा', semester:'सेमेस्टर', section:'वर्ग' },
@@ -49,7 +49,7 @@ function confetti() {
 }
 const DEVICE_ID = (() => { let d = localStorage.getItem('ams_device'); if (!d) { d = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()); localStorage.setItem('ams_device', d); } return d; })();
 
-/* ============ logo & campus ============ */
+/* ================= logo & campus ================= */
 const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#1d4ed8" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
 function mountLogo(el) {
   const img = document.createElement('img');
@@ -61,7 +61,7 @@ function mountLogo(el) {
 ['brandLogoBig','brandLogoSmall','brandLogoSide'].forEach((id) => { const el = document.getElementById(id); if (el) mountLogo(el); });
 (() => { const t2 = new Image(); t2.onload = () => { $('#campusBg').style.backgroundImage = 'url(assets/campus.jpg)'; }; t2.src = 'assets/campus.jpg'; })();
 
-/* ============ theme ============ */
+/* ================= theme ================= */
 function setTheme(dark) {
   document.body.classList.toggle('dark', dark);
   localStorage.setItem('ams_theme', dark ? 'dark' : 'light');
@@ -70,11 +70,11 @@ function setTheme(dark) {
 document.querySelectorAll('.themeToggle').forEach((b) => b.addEventListener('click', () => setTheme(!document.body.classList.contains('dark'))));
 setTheme(localStorage.getItem('ams_theme') ? localStorage.getItem('ams_theme') === 'dark' : true);
 
-/* ============ state & api ============ */
+/* ================= state & api ================= */
 const state = {
   token: localStorage.getItem('ams_token') || null, user: null, roster: [], marks: new Map(),
   section: null, focusIdx: 0, smSession: null, smTimer: null, smRotTimer: null,
-  voiceOn: false, settings: { threshold: 75 },
+  voiceOn: false, settings: { threshold: 75 }, sections: ['A', 'B', 'C'],
   lang: localStorage.getItem('ams_lang') || 'en',
   smStream: null,
 };
@@ -113,7 +113,7 @@ async function downloadFile(url, filename) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-/* ============ login (2FA + setup wizard + demo-hide) ============ */
+/* ================= login (2FA + setup wizard + demo-hide) ================= */
 let pending2fa = null;
 function bindLogin() {
   const err = $('#loginError'), btn = $('#loginBtn');
@@ -156,7 +156,6 @@ function bindLogin() {
     if (!pending2fa) btn.textContent = 'Sign in →';
   });
 
-  /* v7.2: first-run setup wizard + demo-box visibility */
   fetch('/api/setup/status').then((r) => r.json()).then((st) => {
     if (st.needsSetup) {
       const box = document.createElement('div');
@@ -170,8 +169,6 @@ function bindLogin() {
     if (!st.canShowDemo && !isLocal) { const d = document.querySelector('.demo-box'); if (d) d.hidden = true; }
   }).catch(() => {});
 }
-
-/* ============ SETUP WIZARD ============ */
 function openSetupWizard() {
   if ($('#setupModal')) return;
   const host = $('.auth-card');
@@ -204,7 +201,7 @@ function openSetupWizard() {
   }));
 }
 
-/* ============ navigation ============ */
+/* ================= navigation ================= */
 const NAVS = {
   admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['reports','📈'],['requests','📥'],['announce','📢'],['audit','📜'] ],
   teacher: [ ['mark','✏️'],['marks','📝'],['timetable','🗓️'],['sessions','🗂️'] ],
@@ -222,7 +219,10 @@ function buildNav() {
 }
 async function startApp() {
   $('#view-login').hidden = true; $('#view-app').hidden = false;
-  try { state.settings = await api('/api/settings'); } catch {}
+  try {
+    state.settings = await api('/api/settings');
+    state.sections = (state.settings && state.settings.sections) || ['A', 'B', 'C'];
+  } catch {}
   $('#avatar').textContent = state.user.name.charAt(0).toUpperCase();
   $('#userName').textContent = state.user.name;
   $('#userRole').textContent = { admin:'Administrator', teacher:'Teacher', student:'Student', parent:'Parent' }[state.user.role];
@@ -257,7 +257,7 @@ document.addEventListener('keydown', (e) => {
   if (n >= 1 && n <= NAVS[state.user.role].length) go(NAVS[state.user.role][n-1][0]);
 });
 
-/* ============ notifications & announcements ============ */
+/* ================= notifications & announcements ================= */
 async function checkNotifications() {
   if (!('Notification' in window) || Notification.permission === 'denied') return;
   if (Notification.permission === 'default') { try { await Notification.requestPermission(); } catch {} if (Notification.permission !== 'granted') return; }
@@ -284,7 +284,7 @@ async function renderAnnouncements() {
   } catch {}
 }
 
-/* ============ pickers & utils ============ */
+/* ================= pickers & utils ================= */
 function wireProgramPicker(pSel, bSel, sSel, semPrefix = 'Sem ') {
   const fillBranches = () => {
     const bs = PROGRAMS[pSel.value].branches;
@@ -297,7 +297,8 @@ function wireProgramPicker(pSel, bSel, sSel, semPrefix = 'Sem ') {
   if (sSel) bSel.addEventListener('change', fillSems);
   return { set(p, b, s) { pSel.value = PROGRAMS[p] ? p : 'B.Tech'; fillBranches(); if (b && PROGRAMS[pSel.value].branches.includes(b)) bSel.value = b; fillSems(); if (sSel && s && Number(s) <= PROGRAMS[pSel.value].sems) sSel.value = String(Number(s)); } };
 }
-const secOptions = (all) => (all ? '<option value="">All Sections</option>' : '<option value="">No Section</option>') + ['A','B','C'].map((s) => `<option>${s}</option>`).join('');
+const secOptions = (all) => (all ? '<option value="">All Sections</option>' : '<option value="">No Section</option>') +
+  (state.sections && state.sections.length ? state.sections : ['A','B','C']).map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
 function wireSearch(inputSel, tbodySel) {
   const inp = $(inputSel); if (!inp) return;
   inp.addEventListener('input', () => {
@@ -308,7 +309,76 @@ function wireSearch(inputSel, tbodySel) {
 const abbr = (s) => s === 'present' ? 'P' : s === 'late' ? 'L' : s === 'absent' ? 'A' : '·';
 const cellCls = (s) => s === 'present' ? 'pill-good' : s === 'late' ? 'pill-warn' : s === 'absent' ? 'pill-bad' : '';
 
-/* ============ SECTIONS ============ */
+/* ================= Excel helpers (v8.3) ================= */
+const normKeys = (r) => { const o = {}; Object.keys(r || {}).forEach((k) => { o[String(k).toLowerCase().replace(/[\s_]/g, '')] = String(r[k] ?? '').trim(); }); return o; };
+function parseExcelOrCSV(file) {
+  return new Promise((resolve, reject) => {
+    if (/\.xlsx$|\.xls$/i.test(file.name)) {
+      if (!window.XLSX) return reject(new Error('Excel library load nahi hui — internet check karo (CDN).'));
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const wb = XLSX.read(new Uint8Array(reader.result), { type: 'array' });
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+          resolve(rows.map(normKeys));
+        } catch (e) { reject(e); }
+      };
+      reader.onerror = () => reject(new Error('File read fail.'));
+      reader.readAsArrayBuffer(file);
+    } else {
+      file.text().then((text) => {
+        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && l.replace(/,/g, '').trim());
+        const parseLine = (line) => { const out = []; let cur = '', q = false; for (const ch of line) { if (ch === '"') { q = !q; continue; } if (ch === ',' && !q) { out.push(cur); cur = ''; continue; } cur += ch; } out.push(cur); return out.map((s) => s.trim()); };
+        let header = lines.length ? parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[\s_]/g, '')) : [];
+        let start = 1;
+        if (!header.includes('name') || !header.includes('username')) { header = ['name','rollno','program','branch','semester','section','email','username','password']; start = 0; }
+        const rows = [];
+        for (let i = start; i < lines.length; i++) {
+          const cells = parseLine(lines[i]); const o = {};
+          header.forEach((h, j) => { o[h] = cells[j] || ''; });
+          rows.push(o);
+        }
+        resolve(rows);
+      }).catch(reject);
+    }
+  });
+}
+function downloadStudentTemplate() {
+  if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
+  const sample = [
+    { name: 'Riya Sharma', rollNo: '2301641520001', program: 'B.Tech', branch: 'CSE', semester: '3', section: 'A', email: 'riya@student.glbitm.ac.in', username: 'riya', password: 'pass123' },
+    { name: 'Aman Gupta', rollNo: '2301641520002', program: 'B.Tech', branch: 'CSE (Artificial Intelligence)', semester: '5', section: 'B', email: 'aman@student.glbitm.ac.in', username: 'aman', password: 'pass456' },
+  ];
+  const ws = XLSX.utils.json_to_sheet(sample);
+  ws['!cols'] = [{wch:22},{wch:16},{wch:10},{wch:42},{wch:10},{wch:10},{wch:34},{wch:14},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Students');
+  const help = [
+    ['GLBITM Bulk Student Import — Instructions'], [],
+    ['RULES:'],
+    ['1. "Students" sheet ki pehli row (headers) EXACTLY aise hi rakho:'],
+    ['   name | rollNo | program | branch | semester | section | email | username | password'],
+    ['2. Sample rows delete karke apne students bharo. Ek row = ek student.'],
+    ['3. program — sirf ye values (case-sensitive):'],
+    ...Object.keys(PROGRAMS).map((p) => [`   ${p}`, `semesters: 1–${PROGRAMS[p].sems}`]),
+    [],
+    ['4. branch — program ke hisaab se EXACT spelling (niche list):'],
+    ...Object.entries(PROGRAMS).flatMap(([p, v]) => v.branches.map((b) => [`${p}  →  ${b}`])),
+    [],
+    ['5. semester: program ki range me (1–8 B.Tech, 1–6 BCA/BBA/PGDM, 1–4 MCA/MBA/M.Tech).'],
+    ['6. section: admin ne jo sections set kiye hain (default A, B, C). Khaali chhod sakte ho.'],
+    ['7. email optional. username UNIQUE hona chahiye. password min 4 chars.'],
+    [],
+    ['Save karo (.xlsx) → Admin → Students → Import.'],
+  ];
+  const hws = XLSX.utils.aoa_to_sheet(help);
+  hws['!cols'] = [{ wch: 60 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, hws, 'Instructions');
+  XLSX.writeFile(wb, 'GLBITM-student-import-template.xlsx');
+  toast('Template downloaded — Instructions sheet zaroor padhna!');
+}
+
+/* ================= SECTIONS ================= */
 const SECTIONS = {
 
 admin: {
@@ -326,6 +396,14 @@ admin: {
             <input class="input" type="number" id="setTh" min="40" max="95" style="max-width:130px;" /></label>
           <button class="btn btn-primary btn-sm" id="setSave">${t('save')}</button>
           <span class="muted small">Yahi % eligibility, defaulters, colors — sab jagah use hota hai.</span>
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🏫 Sections (comma-separated — koi bhi naam allowed)</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input class="input" id="setSecs" style="max-width:360px;" placeholder="e.g. A, B, C, AI-1, CSE-STAR" />
+            <button class="btn btn-primary btn-sm" id="secSave">Save Sections</button>
+          </div>
+          <p class="muted small" style="margin-top:6px;">Ye dropdowns sab jagah apply honge — Add Student, filters, Timetable, Excel import. Uppercase auto hota hai.</p>
         </div></div>
       <div class="card def-card"><div class="card-head"><h2>🚨 Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
@@ -347,6 +425,11 @@ admin: {
       $('#setSave').addEventListener('click', safe(async () => {
         const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value) }) });
         state.settings.threshold = r.threshold; toast(r.message); loadDefaulters();
+      }));
+      $('#setSecs').value = (state.sections || []).join(', ');
+      $('#secSave').addEventListener('click', safe(async () => {
+        const r = await api('/api/admin/sections', { method:'PUT', body: JSON.stringify({ sections: $('#setSecs').value }) });
+        state.sections = r.sections; toast(r.message); refresh();
       }));
       loadDefaulters();
       $('#mailDefBtn').addEventListener('click', safe(async () => toast((await api('/api/reports/email-defaulters', { method:'POST' })).message, 'info')));
@@ -375,11 +458,14 @@ admin: {
           <input class="input" id="stPassword" placeholder="Password" required />
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
-      <div class="card"><h2>📥 Bulk Import (CSV)</h2>
-        <p class="muted small">Columns: <code>name,rollNo,program,branch,semester,section,email,username,password</code></p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <input type="file" id="bulkFile" class="input" style="max-width:280px;" accept=".csv" />
-          <button class="btn btn-primary" id="bulkBtn">📥 Import</button></div>
+      <div class="card"><h2>📥 Bulk Import — Excel (.xlsx) ya CSV</h2>
+        <p class="muted small">Best tarika: pehle <strong>⬇️ Template download</strong> karo → usme "Instructions" sheet hai (allowed programs/branches/semesters sab likha) → Students sheet me bharo → upload. Galat values khud reject ho jati hain with reason.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ Excel Template Download</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="file" id="bulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
+          <button class="btn btn-primary" id="bulkBtn">📥 Import Students</button></div>
         <div id="bulkResult" class="muted small" style="margin-top:10px;"></div></div>
       <div class="card"><h2>🎓 Enrolled Students</h2>
         <input class="input search-input" id="stSearch" placeholder="🔍 Search name / roll / class…" />
@@ -389,7 +475,8 @@ admin: {
     init: () => {
       wireProgramPicker($('#stProgram'), $('#stBranch'), $('#stSem'));
       $('#addStudentForm').addEventListener('submit', safe(addStudent));
-      $('#bulkBtn').addEventListener('click', safe(bulkImport));
+      $('#tplBtn').addEventListener('click', downloadStudentTemplate);
+      $('#bulkBtn').addEventListener('click', safe(bulkImportStudents));
       return loadAdminStudents();
     },
   },
@@ -617,8 +704,13 @@ teacher: {
           <label>${t('subject')}<input class="input" id="mkSubject" placeholder="e.g. DBMS" /></label>
           <label>Exam<input class="input" id="mkExam" placeholder="e.g. MST-1" /></label>
           <label>Max<input class="input" type="number" id="mkMax" value="30" min="1" /></label>
-          <button class="btn btn-primary" id="mkLoad">${t('load')} →</button></div></div>
+          <button class="btn btn-primary" id="mkLoad">${t('load')} →</button></div>
+        <p class="muted small" style="margin-top:10px;">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> (rollNo prefilled milega) → Excel me sirf score bharo → 📥 Import → 💾 Save.</p></div>
       <div class="card" id="mkCard" hidden><h2 id="mkTitle">Scores</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+          <button class="btn btn-ghost btn-sm" id="mkTemplate">⬇️ Template (rollNo prefilled)</button>
+          <input type="file" id="mkFile" class="input" style="max-width:260px;" accept=".xlsx,.xls,.csv" />
+          <button class="btn btn-ghost btn-sm" id="mkImport">📥 Import scores from file</button></div>
         <div id="mkList" class="student-list"></div>
         <button class="btn btn-primary" id="mkSave" style="margin-top:14px;">💾 ${t('save')} Marks</button></div>`,
     init: () => {
@@ -626,6 +718,8 @@ teacher: {
       picker.set(state.user.program || 'B.Tech', state.user.branch || 'CSE', 1);
       $('#mkLoad').addEventListener('click', safe(loadMarksRoster));
       $('#mkSave').addEventListener('click', safe(saveMarks));
+      $('#mkTemplate').addEventListener('click', downloadMarksTemplate);
+      $('#mkImport').addEventListener('click', safe(importMarksFile));
     },
   },
   timetable: {
@@ -766,7 +860,7 @@ parent: {
 },
 };
 
-/* ============ admin actions ============ */
+/* ================= admin actions ================= */
 let studentCache = [], teacherCache = [];
 async function addStudent(e) {
   e.preventDefault();
@@ -785,25 +879,21 @@ async function addTeacher(e) {
     username: $('#tcUsername').value.trim(), password: $('#tcPassword').value }) });
   toast('Teacher added ✅'); e.target.reset(); refresh();
 }
-async function bulkImport() {
+async function bulkImportStudents() {
   const f = $('#bulkFile').files[0];
-  if (!f) return toast('CSV select karo.', 'error');
-  const lines = (await f.text()).split(/\r?\n/).map((l)=>l.trim()).filter(Boolean);
-  const parseLine = (line) => { const out = []; let cur = '', q = false; for (const ch of line) { if (ch === '"') { q = !q; continue; } if (ch === ',' && !q) { out.push(cur); cur = ''; continue; } cur += ch; } out.push(cur); return out.map((s)=>s.trim()); };
-  let header = parseLine(lines[0]).map((h)=>h.toLowerCase().replace(/\s/g,''));
-  let start = 1;
-  if (!header.includes('name') || !header.includes('username')) { header = ['name','rollno','program','branch','semester','section','email','username','password']; start = 0; }
-  const students = [];
-  for (let i = start; i < lines.length; i++) {
-    const cells = parseLine(lines[i]); const row = {};
-    header.forEach((h, j) => { row[h] = cells[j] || ''; });
-    students.push({ name: row.name, rollNo: row.rollno || '', program: row.program, branch: row.branch, semester: row.semester, section: row.section || '', email: row.email || '', username: row.username, password: row.password });
-  }
-  if (!students.length) return toast('Koi row nahi.', 'error');
-  if (!confirm(`${students.length} import?`)) return;
+  if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
+  let raw;
+  try { raw = await parseExcelOrCSV(f); }
+  catch (e) { return toast('File read fail: ' + e.message, 'error'); }
+  const students = raw
+    .map((o) => ({ name: o.name || '', rollNo: o.rollno || o.roll || '', program: o.program || '', branch: o.branch || '', semester: o.semester || '', section: o.section || '', email: o.email || '', username: o.username || o.user || '', password: o.password || o.pass || '' }))
+    .filter((s) => s.name || s.username || s.password || s.rollNo);
+  if (!students.length) return toast('File me koi valid row nahi mili (sirf khaali rows hain).', 'error');
+  if (!confirm(`${students.length} students import karna hai. Continue?`)) return;
   const res = await api('/api/users/bulk', { method:'POST', body: JSON.stringify({ students }) });
-  $('#bulkResult').innerHTML = `<strong>${esc(res.message)}</strong>` + (res.errors.length ? `<br/>${res.errors.map(esc).join('<br/>')}` : '');
-  toast(res.message, res.added ? 'success' : 'error'); loadAdminStudents();
+  $('#bulkResult').innerHTML = `<strong>${esc(res.message)}</strong>` + (res.errors.length ? `<br/>Errors:<br/>${res.errors.map(esc).join('<br/>')}` : '');
+  toast(res.message, res.added ? 'success' : 'error');
+  loadAdminStudents();
 }
 async function removeUser(id) {
   if (!confirm('Remove permanently?')) return;
@@ -814,7 +904,7 @@ async function editStudent(id) {
   const name = prompt('Name:', u.name); if (name === null) return;
   const roll = prompt('Roll no:', u.rollNo); if (roll === null) return;
   const sem = prompt(`Semester (1–${(PROGRAMS[u.program]||{}).sems||8}):`, u.semester); if (sem === null) return;
-  const sec = prompt('Section (A/B/C, blank=none):', u.section); if (sec === null) return;
+  const sec = prompt(`Section (${(state.sections||[]).join('/')} ya blank):`, u.section); if (sec === null) return;
   const email = prompt('Email:', u.email); if (email === null) return;
   const card = prompt('RFID Card ID:', u.cardId); if (card === null) return;
   await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ name, rollNo: roll, semester: sem, section: sec, email, cardId: card }) });
@@ -1099,7 +1189,7 @@ const AUDIT_STYLE = {
   BACKUP:['pill-soft','💾 Backup'], RESTORE:['pill-warn','📤 Restore'], CHANGE_PW:['pill-warn','🔑 PW'],
   MAIL_DEFAULTERS:['pill-soft','📧 Mail'], RFID:['pill-soft','📶 RFID'], CERT:['pill-soft','🧾 Cert'],
   HOLIDAY_ADD:['pill-soft','🏛️ Holiday'], HOLIDAY_DEL:['pill-warn','🗑 Holiday'], SETTINGS:['pill-warn','⚙️ Settings'],
-  SETUP_ADMIN:['pill-good','👑 First admin'],
+  SECTIONS:['pill-warn','🏫 Sections'], SETUP_ADMIN:['pill-good','👑 First admin'],
 };
 async function loadAudit() {
   const { logs } = await api('/api/admin/audit');
@@ -1109,7 +1199,7 @@ async function loadAudit() {
   }).join('');
 }
 
-/* ============ teacher: mark ============ */
+/* ================= teacher: mark ================= */
 function getSubject() { return mySubjects().length ? $('#tSubjectSelect').value : $('#tSubject').value.trim(); }
 async function loadRoster() {
   const subject = getSubject(), date = $('#tDate').value;
@@ -1239,6 +1329,7 @@ async function loadSessions() {
     <td>${s.present}/${s.late}/${s.total}</td><td><span class="pill pill-${pctClass(pct)}">${pct}%</span></td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">None yet.</td></tr>';
 }
+/* ============ teacher: marks + Excel import ============ */
 async function loadMarksRoster() {
   const subject = $('#mkSubject').value.trim(), exam = $('#mkExam').value.trim(), max = Number($('#mkMax').value);
   if (!subject || !exam || !max) return toast('Subject, exam aur max daalo.', 'error');
@@ -1255,6 +1346,65 @@ async function loadMarksRoster() {
     <input class="input" style="max-width:110px;text-align:center;font-weight:700;" type="number" min="0" max="${max}" step="0.5"
       data-mk="${s.id}" value="${existing.get(s.id) ?? ''}" placeholder="—" /></div>`).join('');
 }
+function downloadMarksTemplate() {
+  if (!state.roster.length) return toast('Pehle Load Students karo — template me rollNo prefilled milte hain.', 'error');
+  if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
+  const rows = state.roster.map((s) => ({ rollNo: s.rollNo || s.username, name: s.name, score: '' }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 10 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Marks');
+  const help = XLSX.utils.aoa_to_sheet([
+    ['Marks Import Template — Instructions'], [],
+    ['1. rollNo column ko EDIT MAT karo — wahi student match hota hai.'],
+    ['2. Sirf "score" column me number bharo (max ' + ($('#mkMax').value || 30) + ').'],
+    ['3. Khaali score = us student ka skip.'],
+    ['4. Save (.xlsx) → 📥 Import scores from file → 💾 Save Marks.'],
+  ]);
+  XLSX.utils.book_append_sheet(wb, help, 'Instructions');
+  XLSX.writeFile(wb, `marks-${($('#mkSubject').value.trim() || 'subject')}-${($('#mkExam').value.trim() || 'exam')}.xlsx`);
+  toast('Template downloaded — rollNo already bhare hain!');
+}
+async function importMarksFile() {
+  const f = $('#mkFile').files[0];
+  if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
+  if (!state.roster.length) return toast('Pehle Load Students karo.', 'error');
+  let raw;
+  try {
+    if (/\.xlsx$|\.xls$/i.test(f.name)) {
+      if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }).map(normKeys);
+    } else {
+      const text = await f.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const parseLine = (line) => { const out = []; let cur = '', q = false; for (const ch of line) { if (ch === '"') { q = !q; continue; } if (ch === ',' && !q) { out.push(cur); cur = ''; continue; } cur += ch; } out.push(cur); return out.map((s) => s.trim()); };
+      let header = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[\s_]/g, ''));
+      let start = 1;
+      if (!header.includes('rollno') && !header.includes('username')) { header = ['rollno', 'score']; start = 0; }
+      raw = [];
+      for (let i = start; i < lines.length; i++) { const c = parseLine(lines[i]); const o = {}; header.forEach((h, j) => { o[h] = c[j] || ''; }); raw.push(o); }
+    }
+  } catch (e) { return toast('File read fail: ' + e.message, 'error'); }
+  const byRoll = new Map(state.roster.map((s) => [String(s.rollNo || '').toLowerCase(), s]));
+  const byUser = new Map(state.roster.map((s) => [String(s.username).toLowerCase(), s]));
+  let matched = 0, noScore = 0; const missing = [];
+  for (const o of raw) {
+    const key = String(o.rollno || o.roll || o.username || '').toLowerCase();
+    if (!key) continue;
+    const stu = byRoll.get(key) || byUser.get(key);
+    if (!stu) { missing.push(key); continue; }
+    const score = String(o.score ?? o.marks ?? o.marksobtained ?? '').trim();
+    const inp = $(`#mkList [data-mk="${stu.id}"]`);
+    if (!inp) continue;
+    if (score === '') { noScore++; continue; }
+    inp.value = Number(score); matched++;
+  }
+  const missMsg = missing.length ? ` · ⚠️ ${missing.length} rollNo class me nahi mile (${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''})` : '';
+  toast(`✅ ${matched} scores fill hue${noScore ? ` · ${noScore} khaali score skip` : ''}${missMsg}`, matched ? 'success' : 'error');
+  if (matched) $('#bulkResult') && 0;
+}
 async function saveMarks() {
   const entries = [...$('#mkList').querySelectorAll('[data-mk]')]
     .filter((i) => i.value !== '')
@@ -1265,7 +1415,7 @@ async function saveMarks() {
   toast(res.message);
 }
 
-/* ============ student: selfmark + face ============ */
+/* ================= student: selfmark + face ================= */
 function stopSMStream() { if (state.smStream) { state.smStream.getTracks().forEach((t2) => t2.stop()); state.smStream = null; } }
 const loadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
 async function ensureFaceLib() {
@@ -1337,7 +1487,7 @@ async function doSelfMark() {
   } catch (e) { statusEl.innerHTML = `<strong style="color:var(--red)">${esc(e.message)}</strong>`; toast(e.message, 'error'); }
 }
 
-/* ============ student: dashboard ============ */
+/* ================= student: dashboard ================= */
 function dayMap(logs) {
   const m = new Map();
   for (const l of logs) { const d = m.get(l.date) || { a: 0, t: 0 }; d.t++; if (l.status !== 'absent') d.a++; m.set(l.date, d); }
@@ -1495,7 +1645,7 @@ async function makeCertificate() {
   if (window.QRCode) { try { await QRCode.toCanvas($('#certQR'), location.origin + r.url, { width: 80, margin: 0 }); } catch {} }
 }
 
-/* ============ parent ============ */
+/* ================= parent ================= */
 async function loadParentChild() {
   const { user: child, stats } = await api('/api/parent/child');
   const th = stats.threshold || state.settings.threshold;
@@ -1525,7 +1675,7 @@ async function loadParentChild() {
   } catch {}
 }
 
-/* ============ command palette ============ */
+/* ================= command palette ================= */
 let cmdSel = 0;
 function cmdItems() {
   const nav = NAVS[state.user.role].map(([id, icon]) => ({ icon, label: `Go to ${navLabel(id)}`, run: () => go(id) }));
@@ -1575,7 +1725,7 @@ document.addEventListener('keydown', (e) => {
 });
  $('#cmdk').addEventListener('click', (e) => { if (e.target.id === 'cmdk') $('#cmdk').hidden = true; });
 
-/* ============ ID card ============ */
+/* ================= ID card ================= */
 async function showIDCard(id) {
   const u = studentCache.find((x) => x.id === id); if (!u) return;
   const logoHTML = $('#brandLogoSide').innerHTML || GL_SVG;
@@ -1604,13 +1754,13 @@ function printHTML(html) {
  $('#certClose').addEventListener('click', () => { $('#certModal').hidden = true; });
  $('#certModal').addEventListener('click', (e) => { if (e.target.id === 'certModal') $('#certModal').hidden = true; });
 
-/* ============ PWA ============ */
+/* ================= PWA ================= */
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; $('#installBtn').hidden = false; });
  $('#installBtn').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; $('#installBtn').hidden = true; });
 
-/* ============ bootstrap ============ */
+/* ================= bootstrap ================= */
  $('#logoutBtn').addEventListener('click', async () => {
   try { await api('/api/logout', { method:'POST' }); } catch {}
   stopSMStream(); clearSession(); location.href = '/';
