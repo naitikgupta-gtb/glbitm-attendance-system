@@ -1,29 +1,20 @@
 /**
- * GL Bajaj Attendance System — v7.2 (Security Edition)
- * FIX: demo creds production me hidden · first-run admin setup wizard
- * Rotating QR · Geo-fence · Face · Parent Portal · Marks · Register · Certificate · RFID
+ * GL Bajaj Attendance System — v8.1 (Render + Supabase Postgres Edition)
+ * PERSISTENT CLOUD DB — restart/redeploy/cold-start pe data kabhi nahi udega.
+ * Saare features: rotating QR · geo-fence · face · parent portal · marks ·
+ * register · certificate · RFID · edit-lock · setup wizard · SEED_DEMO gate
  */
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const postgres = require('postgres');
 
-let DatabaseSync;
-try { ({ DatabaseSync } = require('node:sqlite')); }
-catch { console.error(`❌ node:sqlite needs Node 22.5+ (you have ${process.version})`); process.exit(1); }
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('\n❌ DATABASE_URL missing! Supabase ka connection string (pooler, port 6543) env me daalo.\n');
+  process.exit(1);
+}
+const sql = postgres(DATABASE_URL, { prepare: false, max: 5, ssl: 'require', connect_timeout: 30 });
 
-let mailer = null;
-try {
-  if (process.env.SMTP_HOST) {
-    const nd = require('nodemailer');
-    mailer = nd.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: process.env.SMTP_SECURE === '1', auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined });
-  }
-} catch { console.log('  ℹ️ nodemailer nahi hai — emails console mode me.'); }
-
-const app = express();
-const BASE_PORT = Number(process.env.PORT) || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'glbajaj-attendance.db');
 const VALID_STATUSES = ['present', 'late', 'absent'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const EDIT_LOCK_MS = 24 * 3600 * 1000;
@@ -37,48 +28,8 @@ const PROGRAMS = {
   'M.Tech': { sems: 4, branches: ['CSE','Electronics and Communication Engineering','Mechanical Engineering'] },
 };
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(path.join(DATA_DIR, 'selfies'), { recursive: true });
-const db = new DatabaseSync(DB_FILE);
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL,
-  username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
-  program TEXT DEFAULT '', branch TEXT DEFAULT '', semester INTEGER, section TEXT DEFAULT '',
-  roll_no TEXT DEFAULT '', email TEXT DEFAULT '', subjects TEXT DEFAULT '[]',
-  face TEXT DEFAULT '', card_id TEXT DEFAULT '', parent_of TEXT DEFAULT '',
-  twofa INTEGER DEFAULT 0, created_at TEXT
-);
-CREATE TABLE IF NOT EXISTS records (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL,
-  program TEXT NOT NULL, branch TEXT DEFAULT '', semester INTEGER NOT NULL, section TEXT DEFAULT '',
-  subject TEXT NOT NULL, teacher_id TEXT, note TEXT DEFAULT '', created_at TEXT
-);
-CREATE TABLE IF NOT EXISTS entries ( id INTEGER PRIMARY KEY AUTOINCREMENT, record_id INTEGER NOT NULL, student_id TEXT NOT NULL, status TEXT NOT NULL );
-CREATE INDEX IF NOT EXISTS idx_entries_student ON entries(student_id);
-CREATE TABLE IF NOT EXISTS sessions ( token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL );
-CREATE TABLE IF NOT EXISTS announcements ( id TEXT PRIMARY KEY, title TEXT, body TEXT, ts TEXT, by TEXT );
-CREATE TABLE IF NOT EXISTS audit ( id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, action TEXT, who TEXT, detail TEXT );
-CREATE TABLE IF NOT EXISTS timetable ( id INTEGER PRIMARY KEY AUTOINCREMENT, program TEXT, branch TEXT, semester INTEGER, section TEXT DEFAULT '', day TEXT NOT NULL, period INTEGER NOT NULL, subject TEXT NOT NULL, teacher_id TEXT DEFAULT '' );
-CREATE TABLE IF NOT EXISTS leaves ( id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, date TEXT NOT NULL, type TEXT DEFAULT 'casual', reason TEXT DEFAULT '', status TEXT DEFAULT 'pending', decided_by TEXT DEFAULT '', ts TEXT );
-CREATE TABLE IF NOT EXISTS corrections ( id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, entry_id INTEGER NOT NULL, requested TEXT NOT NULL, reason TEXT DEFAULT '', status TEXT DEFAULT 'pending', decided_by TEXT DEFAULT '', ts TEXT );
-CREATE TABLE IF NOT EXISTS marks ( id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, subject TEXT NOT NULL, exam TEXT NOT NULL, score REAL NOT NULL, max REAL NOT NULL, ts TEXT );
-CREATE TABLE IF NOT EXISTS certs ( id TEXT PRIMARY KEY, student_id TEXT, name TEXT, roll TEXT, program TEXT, branch TEXT, semester INTEGER, pct INTEGER, total INTEGER, present INTEGER, late INTEGER, absent INTEGER, created_at TEXT );
-CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
-CREATE TABLE IF NOT EXISTS holidays ( date TEXT PRIMARY KEY, title TEXT );
-`);
-db.exec(`CREATE TABLE IF NOT EXISTS markcodes ( id TEXT PRIMARY KEY, secret TEXT, teacher_id TEXT, program TEXT, branch TEXT, semester INTEGER, section TEXT DEFAULT '', subject TEXT, date TEXT, geo TEXT DEFAULT '', expires_at INTEGER );
-CREATE TABLE IF NOT EXISTS selfmarks ( id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT, student_id TEXT, device TEXT, ip TEXT, flagged INTEGER DEFAULT 0, ts TEXT );
-CREATE TABLE IF NOT EXISTS otps ( username TEXT PRIMARY KEY, code TEXT, expires_at INTEGER, attempts INTEGER DEFAULT 0 );`);
-const safeAlter = (sql) => { try { db.exec(sql); } catch {} };
-safeAlter(`ALTER TABLE users ADD COLUMN section TEXT DEFAULT ''`);
-safeAlter(`ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''`);
-safeAlter(`ALTER TABLE users ADD COLUMN twofa INTEGER DEFAULT 0`);
-safeAlter(`ALTER TABLE records ADD COLUMN section TEXT DEFAULT ''`);
-safeAlter(`ALTER TABLE users ADD COLUMN face TEXT DEFAULT ''`);
-safeAlter(`ALTER TABLE users ADD COLUMN card_id TEXT DEFAULT ''`);
-safeAlter(`ALTER TABLE users ADD COLUMN parent_of TEXT DEFAULT ''`);
+const app = express();
+app.use(express.json({ limit: '4mb' }));
 
 /* ---------------- passwords ---------------- */
 function hashPassword(pw) { const salt = crypto.randomBytes(16).toString('hex'); return `${salt}:${crypto.scryptSync(String(pw), salt, 64).toString('hex')}`; }
@@ -88,12 +39,11 @@ function verifyPassword(pw, stored) {
   return hb.length === h.length && crypto.timingSafeEqual(h, hb);
 }
 
-/* ---------------- mail / geo / misc ---------------- */
+/* ---------------- misc helpers ---------------- */
 async function sendMail(to, subject, text) {
   if (!to) return false;
-  if (!mailer) { console.log(`  📧 [console] to=${to} | ${subject}`); return false; }
-  try { await mailer.sendMail({ from: process.env.SMTP_FROM || 'GLBITM Attendance <no-reply@glbitm.ac.in>', to, subject, text }); return true; }
-  catch (e) { console.log('  ✉️ mail error:', e.message); return false; }
+  console.log(`  📧 [email hook] to=${to} | ${subject} | ${String(text).slice(0, 80)}`);
+  return false;
 }
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371000, r = Math.PI / 180;
@@ -116,34 +66,45 @@ function rotCode(secret, win) {
 }
 const classLabel = (u) => `${u.program || '—'}${u.branch && u.branch !== 'General' ? ' · ' + u.branch : ''}`;
 
-/* ---------------- seed / migrate ---------------- */
-const insUser = db.prepare(`INSERT OR IGNORE INTO users (id, role, name, username, password_hash, program, branch, semester, section, roll_no, email, subjects, face, card_id, parent_of, twofa, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-const insRec = db.prepare(`INSERT INTO records (date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?)`);
-const insEntry = db.prepare(`INSERT INTO entries (record_id, student_id, status) VALUES (?,?,?)`);
+/* ---------------- schema + seed (idempotent, boot/cold-start safe) ---------------- */
+const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, program TEXT DEFAULT '', branch TEXT DEFAULT '', semester INTEGER, section TEXT DEFAULT '', roll_no TEXT DEFAULT '', email TEXT DEFAULT '', subjects TEXT DEFAULT '[]', face TEXT DEFAULT '', card_id TEXT DEFAULT '', parent_of TEXT DEFAULT '', twofa INTEGER DEFAULT 0, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS records (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, date TEXT NOT NULL, program TEXT NOT NULL, branch TEXT DEFAULT '', semester INTEGER NOT NULL, section TEXT DEFAULT '', subject TEXT NOT NULL, teacher_id TEXT, note TEXT DEFAULT '', created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS entries (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, record_id BIGINT NOT NULL, student_id TEXT NOT NULL, status TEXT NOT NULL)`,
+  `CREATE INDEX IF NOT EXISTS idx_entries_student ON entries(student_id)`,
+  `CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS announcements (id TEXT PRIMARY KEY, title TEXT, body TEXT, ts TEXT, by TEXT)`,
+  `CREATE TABLE IF NOT EXISTS audit (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, ts TEXT, action TEXT, who TEXT, detail TEXT)`,
+  `CREATE TABLE IF NOT EXISTS timetable (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, program TEXT, branch TEXT, semester INTEGER, section TEXT DEFAULT '', day TEXT NOT NULL, period INTEGER NOT NULL, subject TEXT NOT NULL, teacher_id TEXT DEFAULT '')`,
+  `CREATE TABLE IF NOT EXISTS leaves (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, type TEXT DEFAULT 'casual', reason TEXT DEFAULT '', status TEXT DEFAULT 'pending', decided_by TEXT DEFAULT '', ts TEXT)`,
+  `CREATE TABLE IF NOT EXISTS corrections (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, student_id TEXT NOT NULL, entry_id BIGINT NOT NULL, requested TEXT NOT NULL, reason TEXT DEFAULT '', status TEXT DEFAULT 'pending', decided_by TEXT DEFAULT '', ts TEXT)`,
+  `CREATE TABLE IF NOT EXISTS marks (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, student_id TEXT NOT NULL, subject TEXT NOT NULL, exam TEXT NOT NULL, score REAL NOT NULL, max REAL NOT NULL, ts TEXT)`,
+  `CREATE TABLE IF NOT EXISTS certs (id TEXT PRIMARY KEY, student_id TEXT, name TEXT, roll TEXT, program TEXT, branch TEXT, semester INTEGER, pct INTEGER, total INTEGER, present INTEGER, late INTEGER, absent INTEGER, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`,
+  `CREATE TABLE IF NOT EXISTS holidays (date TEXT PRIMARY KEY, title TEXT)`,
+  `CREATE TABLE IF NOT EXISTS markcodes (id TEXT PRIMARY KEY, secret TEXT, teacher_id TEXT, program TEXT, branch TEXT, semester INTEGER, section TEXT DEFAULT '', subject TEXT, date TEXT, geo TEXT DEFAULT '', expires_at BIGINT)`,
+  `CREATE TABLE IF NOT EXISTS selfmarks (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, session TEXT, student_id TEXT, device TEXT, ip TEXT, flagged INTEGER DEFAULT 0, ts TEXT)`,
+  `CREATE TABLE IF NOT EXISTS otps (username TEXT PRIMARY KEY, code TEXT, expires_at BIGINT, attempts INTEGER DEFAULT 0)`,
+];
 
-function migrateLegacyJSON() {
-  let users = [], records = [];
-  try { users = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'users.json'), 'utf-8')).users || []; } catch {}
-  try { records = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'attendance.json'), 'utf-8')).records || []; } catch {}
-  if (!users.length) return false;
-  console.log('  🔄 JSON → SQLite migrate...');
-  for (const u of users)
-    insUser.run(u.id, u.role, u.name, u.username, hashPassword(u.password), u.program || 'B.Tech', u.branch || '', u.semester ?? null, '', u.rollNo || '', u.email || '', JSON.stringify(u.subjects || []), '', '', '', 0, nowISO());
-  for (const r of records) {
-    const info = insRec.run(r.date, r.program || 'B.Tech', r.branch || '', Number(r.semester), '', r.subject, r.teacherId || null, r.note || '', nowISO());
-    for (const e of r.entries || []) insEntry.run(Number(info.lastInsertRowid), e.studentId, e.status);
+let readyPromise = null;
+function ready() {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      for (const stmt of SCHEMA) await sql.unsafe(stmt);
+      const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM users`;
+      if (c === 0) {
+        if (process.env.SEED_DEMO === '1') await seedDemo();
+        else console.log('  ℹ️ DB khaali — demo seed off (SEED_DEMO=1 se on hota hai). Setup wizard se pehla admin banao.');
+      }
+      console.log('  ✅ Database ready (Supabase Postgres) — data PERSISTENT ab!');
+    })().catch((e) => { readyPromise = null; throw e; });
   }
-  return true;
+  return readyPromise;
 }
-function seedIfEmpty() {
-  if (db.prepare('SELECT COUNT(*) AS c FROM users').get().c > 0) return;
-  /* v7.3: demo data sirf SEED_DEMO=1 pe — production fresh+empty rahega, wizard dikhega */
-  if (process.env.SEED_DEMO !== '1') {
-    console.log('  ℹ️ DB khaali — demo seed off (SEED_DEMO=1 se on hota hai). Setup wizard se pehla admin banao.');
-    return;
-  }
-  if (migrateLegacyJSON()) { console.log('  ✅ migration done.'); return; }
-  console.log('  🆕 Fresh DB — GL Bajaj demo data seed kar raha hoon...');
+
+async function seedDemo() {
+  console.log('  🆕 SEED_DEMO=1 — GL Bajaj demo data seed...');
   const users = [
     ['A1','admin','Dr. Meera Kapoor','admin','admin123','','',null,'','','meera@glbitm.ac.in','[]','','','','0'],
     ['T1','teacher','Prof. Arjun Rao','arjun','teach123','B.Tech','CSE',null,'','','arjun@glbitm.ac.in','["Data Structures","DBMS","Operating Systems"]','','','','0'],
@@ -159,7 +120,7 @@ function seedIfEmpty() {
   ];
   for (const u of users) {
     const [id, role, name, un, pw] = u;
-    insUser.run(id, role, name, un, hashPassword(pw), ...u.slice(5, 12), u[12] ?? '', u[13] ?? '', u[14] ?? '', 0, nowISO());
+    await sql`INSERT INTO users (id, role, name, username, password_hash, program, branch, semester, section, roll_no, email, subjects, face, card_id, parent_of, twofa, created_at) VALUES (${id}, ${role}, ${name}, ${un}, ${hashPassword(pw)}, ${u[5]}, ${u[6]}, ${u[7]}, ${u[8]}, ${u[9]}, ${u[10]}, ${u[11]}, '', ${u[13] ?? ''}, '', 0, ${nowISO()}) ON CONFLICT DO NOTHING`;
   }
   const recs = [
     [daysAgo(3),'B.Tech','CSE',3,'A','Data Structures','T1','Arrays & Big-O',[['S1','present'],['S2','present'],['S3','absent'],['S6','present']]],
@@ -171,188 +132,181 @@ function seedIfEmpty() {
     [daysAgo(3),'MBA','General',1,'A','Organisational Behaviour','T2','',[['S8','present']]],
   ];
   for (const [date, prog, br, sem, sec, sub, tid, note, entries] of recs) {
-    const info = insRec.run(date, prog, br, sem, sec, sub, tid, note, nowISO());
-    for (const [sid, st] of entries) insEntry.run(Number(info.lastInsertRowid), sid, st);
+    const [rec] = await sql`INSERT INTO records (date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (${date}, ${prog}, ${br}, ${sem}, ${sec}, ${sub}, ${tid}, ${note}, ${nowISO()}) RETURNING id`;
+    for (const [sid, st] of entries) await sql`INSERT INTO entries (record_id, student_id, status) VALUES (${rec.id}, ${sid}, ${st})`;
   }
-  const tt = db.prepare(`INSERT INTO timetable (program, branch, semester, section, day, period, subject, teacher_id) VALUES (?,?,?,?,?,?,?,?)`);
-  [['Data Structures',1,'T1'],['DBMS',3,'T1'],['Operating Systems',5,'T1']].forEach(([sub, per, tid]) => { for (const d of ['Monday','Wednesday','Friday']) tt.run('B.Tech','CSE',3,'A',d,per,sub,tid); });
-  const mk = db.prepare(`INSERT INTO marks (student_id, subject, exam, score, max, ts) VALUES (?,?,?,?,?,?)`);
-  mk.run('S1','Data Structures','MST-1','28','30',nowISO()); mk.run('S1','DBMS','MST-1','24','30',nowISO());
-  mk.run('S2','Data Structures','MST-1','22','30',nowISO()); mk.run('S2','DBMS','MST-1','25','30',nowISO());
-  mk.run('S3','Data Structures','MST-1','26','30',nowISO()); mk.run('S6','Data Structures','MST-1','29','30',nowISO());
-}
-seedIfEmpty();
-
-/* self-heal: agar kisi purane seed ne raw password store kiya tha */
-for (const u of db.prepare('SELECT id, password_hash FROM users').all()) {
-  if (u.password_hash && !String(u.password_hash).includes(':')) {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(u.password_hash), u.id);
-    console.log(`  🔧 ${u.id}: raw password → hashed (self-heal)`);
-  }
+  for (const [sub, per, tid] of [['Data Structures',1,'T1'],['DBMS',3,'T1'],['Operating Systems',5,'T1']])
+    for (const d of ['Monday','Wednesday','Friday'])
+      await sql`INSERT INTO timetable (program, branch, semester, section, day, period, subject, teacher_id) VALUES ('B.Tech','CSE',3,'A',${d},${per},${sub},${tid})`;
+  for (const [sid, sub, sc] of [['S1','Data Structures',28],['S1','DBMS',24],['S2','Data Structures',22],['S2','DBMS',25],['S3','Data Structures',26],['S6','Data Structures',29]])
+    await sql`INSERT INTO marks (student_id, subject, exam, score, max, ts) VALUES (${sid}, ${sub}, 'MST-1', ${sc}, 30, ${nowISO()})`;
 }
 
 /* ---------------- helpers ---------------- */
-const getUsers = () => db.prepare('SELECT * FROM users ORDER BY role, name').all();
+async function addAudit(action, who, detail = '') {
+  await sql`INSERT INTO audit (ts, action, who, detail) VALUES (${nowISO()}, ${action}, ${who}, ${String(detail).slice(0, 200)})`;
+}
+async function getThreshold() {
+  const r = await sql`SELECT value FROM settings WHERE key = 'threshold'`;
+  const v = Number(r[0]?.value ?? 75);
+  return v >= 40 && v <= 95 ? v : 75;
+}
 function publicUser(u) {
   if (!u) return null;
   let subjects = []; try { subjects = JSON.parse(u.subjects || '[]'); } catch {}
   return { id: u.id, role: u.role, name: u.name, username: u.username, program: u.program || '', branch: u.branch || '', semester: u.semester ?? null, section: u.section || '', rollNo: u.roll_no || '', email: u.email || '', subjects, hasFace: !!u.face, cardId: u.card_id || '', parentOf: u.parent_of || '', twofa: !!u.twofa };
 }
-function addAudit(action, who, detail = '') { db.prepare('INSERT INTO audit (ts, action, who, detail) VALUES (?,?,?,?)').run(nowISO(), action, who, String(detail).slice(0, 200)); }
-const getSetting = (k, d) => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
-const getThreshold = () => { const v = Number(getSetting('threshold', 75)); return v >= 40 && v <= 95 ? v : 75; };
-function getHolidaySet() { return new Set(db.prepare('SELECT date FROM holidays').all().map((h) => h.date)); }
 
-/* ---------------- auth ---------------- */
+/* ---------------- auth middleware ---------------- */
 const SESSION_DAYS = 7;
 const fails = new Map();
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  const sess = token ? db.prepare('SELECT * FROM sessions WHERE token = ?').get(token) : null;
+  const sess = token ? (await sql`SELECT * FROM sessions WHERE token = ${token}`)[0] : null;
   if (!sess || sess.expires_at <= nowISO()) {
-    if (sess) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+    if (sess) await sql`DELETE FROM sessions WHERE token = ${token}`;
     return res.status(401).json({ error: 'Session expired. Please log in again.' });
   }
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(sess.user_id);
+  const user = (await sql`SELECT * FROM users WHERE id = ${sess.user_id}`)[0];
   if (!user) return res.status(401).json({ error: 'Session expired.' });
   req.token = token; req.user = user; next();
 }
 const requireRole = (...roles) => (req, res, next) => { if (!roles.includes(req.user.role)) return res.status(403).json({ error: `Access denied. (${roles.join(' or ')} only)` }); next(); };
+const H = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e); res.status(500).json({ error: 'Server error — logs dekho.' }); });
 
-app.use(express.json({ limit: '4mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+/* ================= HEALTH (DB ping — cron isse Supabase+Render dono warm rakhta hai) ================= */
+app.get('/health', H(async (req, res) => {
+  await sql`SELECT 1`;
+  res.json({ ok: true, db: 'connected', uptime: Math.round(process.uptime()) });
+}));
 
-/* ================= FIRST-RUN SETUP WIZARD =================
-   Pehla admin khud bana sakta hai — sirf jab tak koi admin na ho.
-   Uske baad ye route hamesha 403 dega. (WordPress-style first-run) */
-app.get('/api/setup/status', (req, res) => {
-  const { c } = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`).get();
+/* ================= FIRST-RUN SETUP WIZARD ================= */
+app.get('/api/setup/status', H(async (req, res) => {
+  const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`;
   res.json({ needsSetup: c === 0, canShowDemo: process.env.SHOW_DEMO_HINTS === '1' });
-});
-app.post('/api/setup/admin', (req, res) => {
-  const { c } = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`).get();
+}));
+app.post('/api/setup/admin', H(async (req, res) => {
+  const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`;
   if (c > 0) return res.status(403).json({ error: 'Setup already completed — admin exists. Naya admin existing admin hi bana sakta hai.' });
   const { name, username, password, email } = req.body || {};
   if (!name || !username || !password) return res.status(400).json({ error: 'Name, username, password required.' });
   if (String(password).length < 8) return res.status(400).json({ error: 'Admin password min 8 characters ka rakho.' });
   const un = String(username).trim().toLowerCase();
-  if (db.prepare('SELECT id FROM users WHERE username = ?').get(un)) return res.status(409).json({ error: 'Username taken.' });
+  if ((await sql`SELECT id FROM users WHERE username = ${un}`).length) return res.status(409).json({ error: 'Username taken.' });
   const id = 'A' + Date.now().toString(36).toUpperCase();
-  insUser.run(id, 'admin', String(name).trim(), un, hashPassword(password), '', '', null, '', '', String(email || '').trim(), '[]', '', '', '', 0, nowISO());
-  addAudit('SETUP_ADMIN', un, 'first admin created via setup wizard');
+  await sql`INSERT INTO users (id, role, name, username, password_hash, email, created_at) VALUES (${id}, 'admin', ${String(name).trim()}, ${un}, ${hashPassword(password)}, ${String(email || '').trim()}, ${nowISO()})`;
+  await addAudit('SETUP_ADMIN', un, 'first admin created via setup wizard');
   res.status(201).json({ ok: true, message: 'Admin created! Ab login karo.' });
-});
+}));
 
-/* ================= AUTH ROUTES ================= */
-app.post('/api/login', async (req, res) => {
+/* ================= AUTH ================= */
+app.post('/api/login', H(async (req, res) => {
+  await ready();
   const ip = req.socket.remoteAddress || 'unknown';
   const e = fails.get(ip);
   if (e && e.until > Date.now()) return res.status(429).json({ error: `Locked ${Math.ceil((e.until - Date.now()) / 60000)} more minute(s).` });
   const { username, password } = req.body || {};
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username || '').trim().toLowerCase());
+  const user = (await sql`SELECT * FROM users WHERE username = ${String(username || '').trim().toLowerCase()}`)[0];
   if (!user || !verifyPassword(password || '', user.password_hash)) {
     const n = (e && e.until <= Date.now() ? 0 : (e ? e.n : 0)) + 1;
-    if (n >= 5) { fails.set(ip, { n: 0, until: Date.now() + 15 * 60 * 1000 }); addAudit('LOCKED', String(username || '?'), ip); } else fails.set(ip, { n, until: 0 });
-    addAudit('LOGIN_FAIL', String(username || '?'), ip);
+    if (n >= 5) { fails.set(ip, { n: 0, until: Date.now() + 15 * 60 * 1000 }); await addAudit('LOCKED', String(username || '?'), ip); } else fails.set(ip, { n, until: 0 });
+    await addAudit('LOGIN_FAIL', String(username || '?'), ip);
     return res.status(401).json({ error: 'Invalid username or password.' });
   }
   fails.delete(ip);
   if (user.twofa) {
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    db.prepare('INSERT OR REPLACE INTO otps (username, code, expires_at, attempts) VALUES (?,?,?,0)').run(user.username, code, Date.now() + 5 * 60 * 1000);
+    await sql`INSERT INTO otps (username, code, expires_at, attempts) VALUES (${user.username}, ${code}, ${Date.now() + 5 * 60 * 1000}, 0) ON CONFLICT (username) DO UPDATE SET code = EXCLUDED.code, expires_at = EXCLUDED.expires_at, attempts = 0`;
     const emailed = await sendMail(user.email, 'GLBITM Login OTP', `Your OTP: ${code} (5 min)`);
     return res.json({ need2fa: true, username: user.username, devCode: emailed ? undefined : code });
   }
   finishLogin(user, ip, res);
-});
-function finishLogin(user, ip, res) {
+}));
+async function finishLogin(user, ip, res) {
   const token = crypto.randomBytes(24).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)').run(token, user.id, new Date(Date.now() + SESSION_DAYS * 86400000).toISOString());
-  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(nowISO());
-  addAudit('LOGIN_OK', user.username, `ip ${ip} (${user.role})`);
+  await sql`INSERT INTO sessions (token, user_id, expires_at) VALUES (${token}, ${user.id}, ${new Date(Date.now() + SESSION_DAYS * 86400000).toISOString()})`;
+  await sql`DELETE FROM sessions WHERE expires_at <= ${nowISO()}`;
+  await addAudit('LOGIN_OK', user.username, `ip ${ip} (${user.role})`);
   res.json({ token, user: publicUser(user) });
 }
-app.post('/api/login/verify', (req, res) => {
+app.post('/api/login/verify', H(async (req, res) => {
   const { username, code } = req.body || {};
-  const row = db.prepare('SELECT * FROM otps WHERE username = ?').get(String(username || '').toLowerCase());
+  const row = (await sql`SELECT * FROM otps WHERE username = ${String(username || '').toLowerCase()}`)[0];
   if (!row || row.expires_at < Date.now()) return res.status(400).json({ error: 'OTP expire — dobara login karo.' });
   if (row.attempts >= 5) return res.status(429).json({ error: 'Too many wrong OTPs.' });
-  if (String(code).trim() !== row.code) { db.prepare('UPDATE otps SET attempts = attempts + 1 WHERE username = ?').run(row.username); return res.status(401).json({ error: 'Galat OTP.' }); }
-  db.prepare('DELETE FROM otps WHERE username = ?').run(row.username);
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(row.username);
+  if (String(code).trim() !== row.code) { await sql`UPDATE otps SET attempts = attempts + 1 WHERE username = ${row.username}`; return res.status(401).json({ error: 'Galat OTP.' }); }
+  await sql`DELETE FROM otps WHERE username = ${row.username}`;
+  const user = (await sql`SELECT * FROM users WHERE username = ${row.username}`)[0];
   if (!user) return res.status(401).json({ error: 'User not found.' });
   finishLogin(user, req.socket.remoteAddress || 'x', res);
-});
-app.post('/api/logout', requireAuth, (req, res) => { addAudit('LOGOUT', req.user.username); db.prepare('DELETE FROM sessions WHERE token = ?').run(req.token); res.json({ ok: true }); });
+}));
+app.post('/api/logout', requireAuth, H(async (req, res) => { await addAudit('LOGOUT', req.user.username); await sql`DELETE FROM sessions WHERE token = ${req.token}`; res.json({ ok: true }); }));
 app.get('/api/me', requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
-app.post('/api/me/password', requireAuth, (req, res) => {
+app.post('/api/me/password', requireAuth, H(async (req, res) => {
   const { oldPassword, newPassword } = req.body || {};
   if (!verifyPassword(oldPassword || '', req.user.password_hash)) return res.status(400).json({ error: 'Current password galat hai.' });
   if (!newPassword || String(newPassword).length < 4) return res.status(400).json({ error: 'Min 4 characters.' });
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(newPassword), req.user.id);
-  addAudit('CHANGE_PW', req.user.username); res.json({ ok: true, message: 'Password changed.' });
-});
-app.post('/api/me/twofa', requireAuth, (req, res) => {
+  await sql`UPDATE users SET password_hash = ${hashPassword(newPassword)} WHERE id = ${req.user.id}`;
+  await addAudit('CHANGE_PW', req.user.username); res.json({ ok: true, message: 'Password changed.' });
+}));
+app.post('/api/me/twofa', requireAuth, H(async (req, res) => {
   const on = req.body && req.body.on ? 1 : 0;
-  db.prepare('UPDATE users SET twofa = ? WHERE id = ?').run(on, req.user.id);
-  res.json({ ok: true, twofa: !!on, message: on ? '2FA ON — OTP email/console pe.' : '2FA OFF.' });
-});
-app.post('/api/me/face', requireAuth, (req, res) => {
+  await sql`UPDATE users SET twofa = ${on} WHERE id = ${req.user.id}`;
+  res.json({ ok: true, twofa: !!on, message: on ? '2FA ON — OTP console/email pe.' : '2FA OFF.' });
+}));
+app.post('/api/me/face', requireAuth, H(async (req, res) => {
   const b = req.body || {};
-  if (b.clear) { db.prepare('UPDATE users SET face = ? WHERE id = ?').run('', req.user.id); addAudit('FACE_DEL', req.user.username); return res.json({ ok: true, message: 'Face data removed.' }); }
+  if (b.clear) { await sql`UPDATE users SET face = '' WHERE id = ${req.user.id}`; await addAudit('FACE_DEL', req.user.username); return res.json({ ok: true, message: 'Face data removed.' }); }
   const d = b.descriptor;
-  if (!Array.isArray(d) || d.length !== 128 || d.some((x) => typeof x !== 'number' || !Number.isFinite(x)))
-    return res.status(400).json({ error: 'Invalid face descriptor.' });
-  db.prepare('UPDATE users SET face = ? WHERE id = ?').run(JSON.stringify(d), req.user.id);
-  addAudit('FACE_REG', req.user.username);
+  if (!Array.isArray(d) || d.length !== 128 || d.some((x) => typeof x !== 'number' || !Number.isFinite(x))) return res.status(400).json({ error: 'Invalid face descriptor.' });
+  await sql`UPDATE users SET face = ${JSON.stringify(d)} WHERE id = ${req.user.id}`;
+  await addAudit('FACE_REG', req.user.username);
   res.json({ ok: true, message: 'Face registered ✅ — ab self-mark par face match hoga.' });
-});
-app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+}));
 
 /* ================= SETTINGS & HOLIDAYS ================= */
-app.get('/api/settings', requireAuth, (req, res) => res.json({ threshold: getThreshold() }));
-app.patch('/api/admin/settings', requireAuth, requireRole('admin'), (req, res) => {
+app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold() })));
+app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req, res) => {
   const t = Number((req.body || {}).threshold);
   if (!Number.isFinite(t) || t < 40 || t > 95) return res.status(400).json({ error: 'Threshold 40–95 ke beech rakho.' });
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)').run('threshold', String(t));
-  addAudit('SETTINGS', req.user.username, `threshold=${t}`);
+  await sql`INSERT INTO settings (key, value) VALUES ('threshold', ${String(t)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+  await addAudit('SETTINGS', req.user.username, `threshold=${t}`);
   res.json({ ok: true, threshold: t, message: `Threshold set to ${t}%.` });
-});
-app.get('/api/holidays', requireAuth, (req, res) => res.json({ items: db.prepare('SELECT * FROM holidays ORDER BY date').all() }));
-app.post('/api/holidays', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.get('/api/holidays', requireAuth, H(async (req, res) => res.json({ items: await sql`SELECT * FROM holidays ORDER BY date` })));
+app.post('/api/holidays', requireAuth, requireRole('admin'), H(async (req, res) => {
   const date = String((req.body || {}).date || ''), title = String((req.body || {}).title || 'Holiday').slice(0, 80);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Valid date chuno.' });
-  db.prepare('INSERT OR REPLACE INTO holidays (date, title) VALUES (?,?)').run(date, title);
-  addAudit('HOLIDAY_ADD', req.user.username, `${date} ${title}`);
+  await sql`INSERT INTO holidays (date, title) VALUES (${date}, ${title}) ON CONFLICT (date) DO UPDATE SET title = EXCLUDED.title`;
+  await addAudit('HOLIDAY_ADD', req.user.username, `${date} ${title}`);
   res.status(201).json({ ok: true });
-});
-app.delete('/api/holidays/:date', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM holidays WHERE date = ?').run(req.params.date);
-  addAudit('HOLIDAY_DEL', req.user.username, req.params.date);
+}));
+app.delete('/api/holidays/:date', requireAuth, requireRole('admin'), H(async (req, res) => {
+  await sql`DELETE FROM holidays WHERE date = ${req.params.date}`;
+  await addAudit('HOLIDAY_DEL', req.user.username, req.params.date);
   res.json({ ok: true });
-});
+}));
 
 /* ================= ADMIN: users ================= */
-app.get('/api/users', requireAuth, requireRole('admin'), (req, res) => {
-  let users = getUsers().map(publicUser);
-  if (req.query.role) users = users.filter((u) => u.role === req.query.role);
-  res.json({ users });
-});
-app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
+app.get('/api/users', requireAuth, requireRole('admin'), H(async (req, res) => {
+  let rows = await sql`SELECT * FROM users ORDER BY role, name`;
+  if (req.query.role) rows = rows.filter((u) => u.role === req.query.role);
+  res.json({ users: rows.map(publicUser) });
+}));
+app.post('/api/users', requireAuth, requireRole('admin'), H(async (req, res) => {
   const { role, name, username, password, program, branch, semester, rollNo, section, email, parentOf } = req.body || {};
   const un = String(username || '').trim().toLowerCase();
   if (!['student', 'teacher', 'parent'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
   if (!un || !password) return res.status(400).json({ error: 'Username aur password required.' });
-  if (db.prepare('SELECT id FROM users WHERE username = ?').get(un)) return res.status(409).json({ error: 'Username already taken.' });
-
+  if ((await sql`SELECT id FROM users WHERE username = ${un}`).length) return res.status(409).json({ error: 'Username already taken.' });
   const id = role[0].toUpperCase() + Date.now().toString(36).toUpperCase();
   if (role === 'parent') {
-    const child = db.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(String(parentOf || ''), 'student');
+    const child = (await sql`SELECT * FROM users WHERE id = ${String(parentOf || '')} AND role = 'student'`)[0];
     if (!child) return res.status(400).json({ error: 'Valid student select karo jiska parent bana hai.' });
-    insUser.run(id, 'parent', `Parent of ${child.name}`, un, hashPassword(password), '', '', null, '', '', String(email || '').trim(), '[]', '', '', child.id, 0, nowISO());
-    addAudit('USER_ADD', req.user.username, `parent "${un}" → ${child.username}`);
-    return res.status(201).json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)) });
+    await sql`INSERT INTO users (id, role, name, username, password_hash, email, parent_of, created_at) VALUES (${id}, 'parent', ${'Parent of ' + child.name}, ${un}, ${hashPassword(password)}, ${String(email || '').trim()}, ${child.id}, ${nowISO()})`;
+    await addAudit('USER_ADD', req.user.username, `parent "${un}" → ${child.username}`);
+    return res.status(201).json({ user: publicUser((await sql`SELECT * FROM users WHERE id = ${id}`)[0]) });
   }
   if (!name || !program || !PROGRAMS[program]) return res.status(400).json({ error: 'Name aur valid program required.' });
   if (role === 'student') {
@@ -360,97 +314,90 @@ app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
     const s = Number(semester);
     if (!s || s < 1 || s > PROGRAMS[program].sems) return res.status(400).json({ error: `Semester 1–${PROGRAMS[program].sems}.` });
   }
-  insUser.run(id, role, String(name).trim(), un, hashPassword(password), program,
-    role === 'student' ? branch : String(branch || '').trim(),
-    role === 'student' ? Number(semester) : null, String(section || '').trim().toUpperCase(),
-    role === 'student' ? String(rollNo || '').trim() : '', String(email || '').trim(),
-    JSON.stringify(role === 'teacher' ? parseSubjectList(req.body.subjects) : []),
-    '', String(req.body.cardId || '').trim().toUpperCase(), '', 0, nowISO());
-  addAudit('USER_ADD', req.user.username, `${role} "${un}" (${program})`);
-  res.status(201).json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)) });
-});
-app.post('/api/users/bulk', requireAuth, requireRole('admin'), (req, res) => {
+  await sql`INSERT INTO users (id, role, name, username, password_hash, program, branch, semester, section, roll_no, email, subjects, card_id, created_at) VALUES (${id}, ${role}, ${String(name).trim()}, ${un}, ${hashPassword(password)}, ${program}, ${role === 'student' ? branch : String(branch || '').trim()}, ${role === 'student' ? Number(semester) : null}, ${String(section || '').trim().toUpperCase()}, ${role === 'student' ? String(rollNo || '').trim() : ''}, ${String(email || '').trim()}, ${JSON.stringify(role === 'teacher' ? parseSubjectList(req.body.subjects) : [])}, ${String(req.body.cardId || '').trim().toUpperCase()}, ${nowISO()})`;
+  await addAudit('USER_ADD', req.user.username, `${role} "${un}" (${program})`);
+  res.status(201).json({ user: publicUser((await sql`SELECT * FROM users WHERE id = ${id}`)[0]) });
+}));
+app.post('/api/users/bulk', requireAuth, requireRole('admin'), H(async (req, res) => {
   const list = Array.isArray(req.body && req.body.students) ? req.body.students : [];
   if (!list.length) return res.status(400).json({ error: 'Koi row nahi mili.' });
   let added = 0, skipped = 0; const errors = [];
-  list.forEach((s, i) => {
-    const row = i + 2;
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i], row = i + 2;
     const name = String(s.name || '').trim(), un = String(s.username || '').trim().toLowerCase();
     const program = PROGRAMS[s.program] ? s.program : null;
     const branch = String(s.branch || '').trim(), sem = Number(s.semester), pw = String(s.password || '');
-    if (!name || !un || !pw || !program) { errors.push(`Row ${row}: invalid fields`); return; }
-    if (!PROGRAMS[program].branches.includes(branch)) { errors.push(`Row ${row}: invalid branch`); return; }
-    if (!sem || sem < 1 || sem > PROGRAMS[program].sems) { errors.push(`Row ${row}: semester range`); return; }
-    if (db.prepare('SELECT id FROM users WHERE username = ?').get(un)) { skipped++; return; }
-    insUser.run('S' + Date.now().toString(36).toUpperCase() + i, 'student', name, un, hashPassword(pw), program, branch, sem, String(s.section || '').toUpperCase(), String(s.rollNo || '').trim(), String(s.email || '').trim(), '[]', '', '', '', 0, nowISO());
+    if (!name || !un || !pw || !program) { errors.push(`Row ${row}: invalid fields`); continue; }
+    if (!PROGRAMS[program].branches.includes(branch)) { errors.push(`Row ${row}: invalid branch`); continue; }
+    if (!sem || sem < 1 || sem > PROGRAMS[program].sems) { errors.push(`Row ${row}: semester range`); continue; }
+    if ((await sql`SELECT id FROM users WHERE username = ${un}`).length) { skipped++; continue; }
+    await sql`INSERT INTO users (id, role, name, username, password_hash, program, branch, semester, section, roll_no, email, created_at) VALUES (${'S' + Date.now().toString(36).toUpperCase() + i}, 'student', ${name}, ${un}, ${hashPassword(pw)}, ${program}, ${branch}, ${sem}, ${String(s.section || '').toUpperCase()}, ${String(s.rollNo || '').trim()}, ${String(s.email || '').trim()}, ${nowISO()})`;
     added++;
-  });
-  addAudit('USER_BULK', req.user.username, `${added} added`);
+  }
+  await addAudit('USER_BULK', req.user.username, `${added} added`);
   res.json({ ok: true, added, skipped, errors: errors.slice(0, 10), message: `${added} added · ${skipped} skipped · ${errors.length} invalid.` });
-});
-app.post('/api/admin/promote', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.post('/api/admin/promote', requireAuth, requireRole('admin'), H(async (req, res) => {
   const program = String((req.body || {}).program || '');
   if (program && !PROGRAMS[program]) return res.status(400).json({ error: 'Invalid program.' });
-  const info = program
-    ? db.prepare('UPDATE users SET semester = semester + 1 WHERE role = ? AND program = ? AND semester < ?').run('student', program, PROGRAMS[program].sems)
-    : db.prepare(`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND semester < (CASE program ${Object.entries(PROGRAMS).map(([p, v]) => `WHEN '${p}' THEN ${v.sems}`).join(' ')} END)`).run();
-  addAudit('PROMOTE', req.user.username, `${info.changes} students`);
-  res.json({ ok: true, message: `${info.changes} students promoted. 🎓` });
-});
-app.patch('/api/users/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const caseSql = sql.join(Object.entries(PROGRAMS).map(([p, v]) => sql`WHEN ${p} THEN ${v.sems}`), sql` `);
+  const r = program
+    ? await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND program = ${program} AND semester < ${PROGRAMS[program].sems}`
+    : await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND semester < (CASE program ${caseSql} END)`;
+  await addAudit('PROMOTE', req.user.username, `${r.count} students`);
+  res.json({ ok: true, message: `${r.count} students promoted. 🎓` });
+}));
+app.patch('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
   const b = req.body || {};
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  const row = (await sql`SELECT * FROM users WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'User not found.' });
-  const sets = [], vals = [];
-  const prog = b.program || row.program;
-  const put = (col, val) => { sets.push(`${col}=?`); vals.push(val); };
-  if ('name' in b && String(b.name).trim()) put('name', String(b.name).trim());
-  if ('program' in b) { if (!PROGRAMS[b.program]) return res.status(400).json({ error: 'Invalid program.' }); put('program', b.program); }
-  if ('branch' in b) { if (!PROGRAMS[prog] || !PROGRAMS[prog].branches.includes(b.branch)) return res.status(400).json({ error: 'Invalid branch.' }); put('branch', b.branch); }
-  if ('semester' in b) { const s = Number(b.semester); if (PROGRAMS[prog] && (s < 1 || s > PROGRAMS[prog].sems)) return res.status(400).json({ error: 'Semester range galat.' }); put('semester', s); }
-  if ('section' in b) put('section', String(b.section || '').trim().toUpperCase());
-  if ('email' in b) put('email', String(b.email || '').trim());
-  if ('rollNo' in b) put('roll_no', String(b.rollNo || '').trim());
-  if ('cardId' in b) put('card_id', String(b.cardId || '').trim().toUpperCase());
-  if ('subjects' in b) { if (row.role !== 'teacher') return res.status(400).json({ error: 'Teachers only.' }); put('subjects', JSON.stringify(parseSubjectList(b.subjects))); }
-  if ('password' in b) { const p = String(b.password || ''); if (p.length < 4) return res.status(400).json({ error: 'Min 4 chars.' }); put('password_hash', hashPassword(p)); }
-  if ('twofa' in b) put('twofa', b.twofa ? 1 : 0);
+  const sets = [];
+  if ('name' in b && String(b.name).trim()) sets.push(sql`name = ${String(b.name).trim()}`);
+  if ('program' in b) { if (!PROGRAMS[b.program]) return res.status(400).json({ error: 'Invalid program.' }); sets.push(sql`program = ${b.program}`); }
+  if ('branch' in b) { if (!PROGRAMS[b.program || row.program] || !PROGRAMS[b.program || row.program].branches.includes(b.branch)) return res.status(400).json({ error: 'Invalid branch.' }); sets.push(sql`branch = ${b.branch}`); }
+  if ('semester' in b) { const s = Number(b.semester); if (PROGRAMS[b.program || row.program] && (s < 1 || s > PROGRAMS[b.program || row.program].sems)) return res.status(400).json({ error: 'Semester range galat.' }); sets.push(sql`semester = ${s}`); }
+  if ('section' in b) sets.push(sql`section = ${String(b.section || '').trim().toUpperCase()}`);
+  if ('email' in b) sets.push(sql`email = ${String(b.email || '').trim()}`);
+  if ('rollNo' in b) sets.push(sql`roll_no = ${String(b.rollNo || '').trim()}`);
+  if ('cardId' in b) sets.push(sql`card_id = ${String(b.cardId || '').trim().toUpperCase()}`);
+  if ('subjects' in b) { if (row.role !== 'teacher') return res.status(400).json({ error: 'Teachers only.' }); sets.push(sql`subjects = ${JSON.stringify(parseSubjectList(b.subjects))}`); }
+  if ('password' in b) { const p = String(b.password || ''); if (p.length < 4) return res.status(400).json({ error: 'Min 4 chars.' }); sets.push(sql`password_hash = ${hashPassword(p)}`); }
+  if ('twofa' in b) sets.push(sql`twofa = ${b.twofa ? 1 : 0}`);
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
-  vals.push(row.id);
-  db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
-  addAudit('USER_EDIT', req.user.username, row.username);
-  res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(row.id)) });
-});
-app.delete('/api/users/:id', requireAuth, requireRole('admin'), (req, res) => {
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  await sql`UPDATE users SET ${sql.join(sets, sql`, `)} WHERE id = ${row.id}`;
+  await addAudit('USER_EDIT', req.user.username, row.username);
+  res.json({ user: publicUser((await sql`SELECT * FROM users WHERE id = ${row.id}`)[0]) });
+}));
+app.delete('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const row = (await sql`SELECT * FROM users WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'User not found.' });
   if (row.role === 'admin') return res.status(400).json({ error: 'Admin cannot be removed.' });
-  db.prepare('DELETE FROM entries WHERE student_id = ?').run(row.id);
-  db.prepare('DELETE FROM marks WHERE student_id = ?').run(row.id);
-  db.prepare('DELETE FROM leaves WHERE student_id = ?').run(row.id);
-  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.id);
-  db.prepare('DELETE FROM users WHERE id = ?').run(row.id);
-  addAudit('USER_DEL', req.user.username, row.username);
+  await sql`DELETE FROM entries WHERE student_id = ${row.id}`;
+  await sql`DELETE FROM marks WHERE student_id = ${row.id}`;
+  await sql`DELETE FROM leaves WHERE student_id = ${row.id}`;
+  await sql`DELETE FROM sessions WHERE user_id = ${row.id}`;
+  await sql`DELETE FROM users WHERE id = ${row.id}`;
+  await addAudit('USER_DEL', req.user.username, row.username);
   res.json({ ok: true, removedId: row.id });
-});
+}));
 
 /* ================= TEACHER: roster & attendance ================= */
-app.get('/api/students', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
-  let sql = `SELECT * FROM users WHERE role = 'student'`; const params = [];
-  if (req.query.program) { sql += ' AND program = ?'; params.push(req.query.program); }
-  if (req.query.branch) { sql += ' AND branch = ?'; params.push(req.query.branch); }
-  if (req.query.semester) { sql += ' AND semester = ?'; params.push(Number(req.query.semester)); }
-  if (req.query.section) { sql += ' AND section = ?'; params.push(String(req.query.section).toUpperCase()); }
-  sql += ' ORDER BY roll_no, name';
-  res.json({ students: db.prepare(sql).all(...params).map(publicUser) });
-});
-app.get('/api/attendance/class', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
-  const rec = db.prepare(`SELECT * FROM records WHERE date=? AND program=? AND branch=? AND semester=? AND section=? AND subject=?`)
-    .get(String(req.query.date), String(req.query.program), String(req.query.branch || ''), Number(req.query.semester), String(req.query.section || ''), String(req.query.subject));
+app.get('/api/students', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const conds = [sql`role = 'student'`];
+  if (req.query.program) conds.push(sql`program = ${req.query.program}`);
+  if (req.query.branch) conds.push(sql`branch = ${req.query.branch}`);
+  if (req.query.semester) conds.push(sql`semester = ${Number(req.query.semester)}`);
+  if (req.query.section) conds.push(sql`section = ${String(req.query.section).toUpperCase()}`);
+  const rows = await sql`SELECT * FROM users WHERE ${sql.join(conds, sql` AND `)} ORDER BY roll_no, name`;
+  res.json({ students: rows.map(publicUser) });
+}));
+app.get('/api/attendance/class', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const rec = (await sql`SELECT * FROM records WHERE date = ${String(req.query.date)} AND program = ${String(req.query.program)} AND branch = ${String(req.query.branch || '')} AND semester = ${Number(req.query.semester)} AND section = ${String(req.query.section || '')} AND subject = ${String(req.query.subject)}`)[0];
   if (!rec) return res.json({ record: null, locked: false, note: '' });
-  res.json({ record: { ...rec, entries: db.prepare('SELECT student_id AS studentId, status FROM entries WHERE record_id = ?').all(rec.id) }, locked: Date.now() - Date.parse(rec.created_at) > EDIT_LOCK_MS });
-});
-app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
+  const entries = await sql`SELECT student_id AS "studentId", status FROM entries WHERE record_id = ${rec.id}`;
+  res.json({ record: { ...rec, entries }, locked: Date.now() - Date.parse(rec.created_at) > EDIT_LOCK_MS });
+}));
+app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
   const { date } = req.body || {};
   const program = String((req.body || {}).program || '').trim();
   const branch = String((req.body || {}).branch || '').trim();
@@ -464,165 +411,158 @@ app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), (req, 
   if (!Array.isArray(req.body.entries) || !req.body.entries.length) return res.status(400).json({ error: 'No entries.' });
   const clean = req.body.entries.filter((e) => e && e.studentId && VALID_STATUSES.includes(e.status)).map((e) => ({ studentId: e.studentId, status: e.status }));
   if (!clean.length) return res.status(400).json({ error: 'Entries need studentId + status.' });
-
-  const old = db.prepare(`SELECT * FROM records WHERE date=? AND program=? AND branch=? AND semester=? AND section=? AND subject=?`).get(date, program, branch, semester, section, subject);
+  const old = (await sql`SELECT * FROM records WHERE date = ${date} AND program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section} AND subject = ${subject}`)[0];
   if (old && Date.now() - Date.parse(old.created_at) > EDIT_LOCK_MS && req.user.role !== 'admin')
     return res.status(403).json({ error: '🔒 24h+ purana session — edit lock hai. Admin se contact karo.' });
-  if (old) { db.prepare('DELETE FROM entries WHERE record_id = ?').run(old.id); db.prepare('DELETE FROM records WHERE id = ?').run(old.id); if (req.user.role === 'admin') addAudit('ATT_EDIT_LATE', req.user.username, `record ${old.id}`); }
-  const info = insRec.run(date, program, branch, semester, section, subject, req.user.id, note, nowISO());
-  for (const e of clean) insEntry.run(Number(info.lastInsertRowid), e.studentId, e.status);
-  addAudit('ATT_SAVE', req.user.username, `${program} sem${semester} ${subject} ${date} (${clean.length})`);
+  if (old) { await sql`DELETE FROM entries WHERE record_id = ${old.id}`; await sql`DELETE FROM records WHERE id = ${old.id}`; if (req.user.role === 'admin') await addAudit('ATT_EDIT_LATE', req.user.username, `record ${old.id}`); }
+  const [rec] = await sql`INSERT INTO records (date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (${date}, ${program}, ${branch}, ${semester}, ${section}, ${subject}, ${req.user.id}, ${note}, ${nowISO()}) RETURNING id`;
+  for (const e of clean) await sql`INSERT INTO entries (record_id, student_id, status) VALUES (${rec.id}, ${e.studentId}, ${e.status})`;
+  await addAudit('ATT_SAVE', req.user.username, `${program} sem${semester} ${subject} ${date} (${clean.length})`);
   res.status(201).json({ ok: true, message: `Saved for ${clean.length} students.` });
-});
+}));
 
 /* ================= TIMETABLE ================= */
-app.get('/api/timetable', requireAuth, (req, res) => {
+app.get('/api/timetable', requireAuth, H(async (req, res) => {
   let program, branch, semester, section;
   if (req.user.role === 'student') ({ program, branch, semester, section } = req.user);
   else if (req.user.role === 'parent') {
-    const child = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.parent_of);
+    const child = (await sql`SELECT * FROM users WHERE id = ${req.user.parent_of}`)[0];
     if (!child) return res.json({ items: [] });
     ({ program, branch, semester, section } = child);
   } else { program = req.query.program; branch = req.query.branch; semester = req.query.semester; section = req.query.section; }
-  const rows = db.prepare(`SELECT t.*, u.name AS teacherName FROM timetable t LEFT JOIN users u ON u.id = t.teacher_id WHERE t.program=? AND t.branch=? AND t.semester=? AND t.section=? ORDER BY t.period`).all(program, branch || '', Number(semester), String(section || ''));
+  const rows = await sql`SELECT t.id, t.program, t.branch, t.semester, t.section, t.day, t.period, t.subject, t.teacher_id, u.name AS "teacherName" FROM timetable t LEFT JOIN users u ON u.id = t.teacher_id WHERE t.program = ${program} AND t.branch = ${branch || ''} AND t.semester = ${Number(semester)} AND t.section = ${String(section || '')} ORDER BY t.period`;
   res.json({ items: rows, days: DAYS });
-});
-app.post('/api/timetable', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.post('/api/timetable', requireAuth, requireRole('admin'), H(async (req, res) => {
   const { program, branch, semester, section, day, period, subject, teacherId } = req.body || {};
   if (!PROGRAMS[program] || !DAYS.includes(day)) return res.status(400).json({ error: 'Invalid program/day.' });
   const p = Number(period);
   if (!p || p < 1 || p > 8) return res.status(400).json({ error: 'Period 1–8.' });
   if (!String(subject || '').trim()) return res.status(400).json({ error: 'Subject required.' });
-  db.prepare('INSERT INTO timetable (program, branch, semester, section, day, period, subject, teacher_id) VALUES (?,?,?,?,?,?,?,?)')
-    .run(program, branch || '', Number(semester), String(section || '').toUpperCase(), day, p, String(subject).trim(), String(teacherId || ''));
-  addAudit('TT_ADD', req.user.username, `${program} sem${semester} ${day} P${p} ${subject}`);
+  await sql`INSERT INTO timetable (program, branch, semester, section, day, period, subject, teacher_id) VALUES (${program}, ${branch || ''}, ${Number(semester)}, ${String(section || '').toUpperCase()}, ${day}, ${p}, ${String(subject).trim()}, ${String(teacherId || '')})`;
+  await addAudit('TT_ADD', req.user.username, `${program} sem${semester} ${day} P${p} ${subject}`);
   res.status(201).json({ ok: true });
-});
-app.patch('/api/timetable/:id', requireAuth, requireRole('admin'), (req, res) => {
-  const tid = String((req.body || {}).teacherId || '');
-  db.prepare('UPDATE timetable SET teacher_id = ? WHERE id = ?').run(tid, req.params.id);
-  addAudit('TT_SUB', req.user.username, `slot ${req.params.id} → ${tid || 'none'}`);
+}));
+app.patch('/api/timetable/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
+  await sql`UPDATE timetable SET teacher_id = ${String((req.body || {}).teacherId || '')} WHERE id = ${req.params.id}`;
+  await addAudit('TT_SUB', req.user.username, `slot ${req.params.id}`);
   res.json({ ok: true, message: 'Teacher reassigned (substitution done).' });
-});
-app.delete('/api/timetable/:id', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM timetable WHERE id = ?').run(req.params.id);
-  addAudit('TT_DEL', req.user.username, req.params.id);
+}));
+app.delete('/api/timetable/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
+  await sql`DELETE FROM timetable WHERE id = ${req.params.id}`;
+  await addAudit('TT_DEL', req.user.username, req.params.id);
   res.json({ ok: true });
-});
+}));
 
 /* ================= LEAVES ================= */
-app.post('/api/leaves', requireAuth, requireRole('student'), (req, res) => {
+app.post('/api/leaves', requireAuth, requireRole('student'), H(async (req, res) => {
   const date = String((req.body || {}).date || ''), type = String((req.body || {}).type || 'casual'), reason = String((req.body || {}).reason || '').slice(0, 300);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Valid date.' });
   if (!['casual', 'medical', 'duty'].includes(type)) return res.status(400).json({ error: 'Invalid type.' });
-  db.prepare('INSERT INTO leaves (student_id, date, type, reason, ts) VALUES (?,?,?,?,?)').run(req.user.id, date, type, reason, nowISO());
-  addAudit('LEAVE_NEW', req.user.username, `${type} ${date}`);
+  await sql`INSERT INTO leaves (student_id, date, type, reason, ts) VALUES (${req.user.id}, ${date}, ${type}, ${reason}, ${nowISO()})`;
+  await addAudit('LEAVE_NEW', req.user.username, `${type} ${date}`);
   res.status(201).json({ ok: true, message: 'Leave submitted.' });
-});
-app.get('/api/leaves', requireAuth, (req, res) => {
-  if (req.user.role === 'student') return res.json({ items: db.prepare('SELECT * FROM leaves WHERE student_id = ? ORDER BY id DESC').all(req.user.id) });
-  if (req.user.role === 'parent') {
-    const child = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.parent_of);
-    return res.json({ items: child ? db.prepare('SELECT * FROM leaves WHERE student_id = ? ORDER BY id DESC').all(child.id) : [] });
-  }
-  res.json({ items: db.prepare('SELECT l.*, u.name AS studentName, u.roll_no AS rollNo FROM leaves l JOIN users u ON u.id = l.student_id ORDER BY CASE l.status WHEN "pending" THEN 0 ELSE 1 END, l.id DESC').all() });
-});
-app.post('/api/leaves/:id/decide', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.get('/api/leaves', requireAuth, H(async (req, res) => {
+  if (req.user.role === 'student') return res.json({ items: await sql`SELECT * FROM leaves WHERE student_id = ${req.user.id} ORDER BY id DESC` });
+  if (req.user.role === 'parent') return res.json({ items: await sql`SELECT * FROM leaves WHERE student_id = ${req.user.parent_of} ORDER BY id DESC` });
+  res.json({ items: await sql`SELECT l.*, u.name AS "studentName", u.roll_no AS "rollNo" FROM leaves l JOIN users u ON u.id = l.student_id ORDER BY CASE l.status WHEN 'pending' THEN 0 ELSE 1 END, l.id DESC` });
+}));
+app.post('/api/leaves/:id/decide', requireAuth, requireRole('admin'), H(async (req, res) => {
   const decision = (req.body || {}).decision;
   if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ error: 'Invalid decision.' });
-  const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(req.params.id);
+  const row = (await sql`SELECT * FROM leaves WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'Not found.' });
-  db.prepare('UPDATE leaves SET status = ?, decided_by = ? WHERE id = ?').run(decision, req.user.username, row.id);
-  const stu = db.prepare('SELECT * FROM users WHERE id = ?').get(row.student_id);
+  await sql`UPDATE leaves SET status = ${decision}, decided_by = ${req.user.username} WHERE id = ${row.id}`;
+  const stu = (await sql`SELECT * FROM users WHERE id = ${row.student_id}`)[0];
   if (stu) sendMail(stu.email, `Leave ${decision}`, `Your ${row.type} leave for ${row.date}: ${decision}.`);
-  addAudit(decision === 'approved' ? 'LEAVE_OK' : 'LEAVE_NO', req.user.username, `#${row.id}`);
+  await addAudit(decision === 'approved' ? 'LEAVE_OK' : 'LEAVE_NO', req.user.username, `#${row.id}`);
   res.json({ ok: true, message: `Leave ${decision}.` });
-});
+}));
 
 /* ================= CORRECTIONS ================= */
-app.post('/api/corrections', requireAuth, requireRole('student'), (req, res) => {
+app.post('/api/corrections', requireAuth, requireRole('student'), H(async (req, res) => {
   const entryId = Number((req.body || {}).entryId), requested = String((req.body || {}).requested);
   const reason = String((req.body || {}).reason || '').slice(0, 300);
   if (!VALID_STATUSES.includes(requested)) return res.status(400).json({ error: 'Invalid status.' });
-  const entry = db.prepare('SELECT e.* FROM entries e WHERE e.id = ? AND e.student_id = ?').get(entryId, req.user.id);
+  const entry = (await sql`SELECT * FROM entries WHERE id = ${entryId} AND student_id = ${req.user.id}`)[0];
   if (!entry) return res.status(404).json({ error: 'Entry not found.' });
-  if (db.prepare(`SELECT id FROM corrections WHERE entry_id = ? AND status = 'pending'`).get(entryId)) return res.status(409).json({ error: 'Already pending.' });
-  db.prepare('INSERT INTO corrections (student_id, entry_id, requested, reason, ts) VALUES (?,?,?,?,?)').run(req.user.id, entryId, requested, reason, nowISO());
-  addAudit('FIX_REQ', req.user.username, `#${entryId} → ${requested}`);
+  if ((await sql`SELECT id FROM corrections WHERE entry_id = ${entryId} AND status = 'pending'`).length) return res.status(409).json({ error: 'Already pending.' });
+  await sql`INSERT INTO corrections (student_id, entry_id, requested, reason, ts) VALUES (${req.user.id}, ${entryId}, ${requested}, ${reason}, ${nowISO()})`;
+  await addAudit('FIX_REQ', req.user.username, `#${entryId} → ${requested}`);
   res.status(201).json({ ok: true, message: 'Correction request bheji gayi.' });
-});
-app.get('/api/corrections', requireAuth, requireRole('admin'), (req, res) => {
-  res.json({ items: db.prepare(`SELECT c.*, u.name AS studentName, e.status AS current, r.date, r.subject FROM corrections c JOIN users u ON u.id=c.student_id JOIN entries e ON e.id=c.entry_id JOIN records r ON r.id=e.record_id ORDER BY CASE c.status WHEN 'pending' THEN 0 ELSE 1 END, c.id DESC LIMIT 100`).all() });
-});
-app.post('/api/corrections/:id/decide', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.get('/api/corrections', requireAuth, requireRole('admin'), H(async (req, res) => {
+  res.json({ items: await sql`SELECT c.*, u.name AS "studentName", e.status AS current, r.date, r.subject FROM corrections c JOIN users u ON u.id = c.student_id JOIN entries e ON e.id = c.entry_id JOIN records r ON r.id = e.record_id ORDER BY CASE c.status WHEN 'pending' THEN 0 ELSE 1 END, c.id DESC LIMIT 100` });
+}));
+app.post('/api/corrections/:id/decide', requireAuth, requireRole('admin'), H(async (req, res) => {
   const decision = (req.body || {}).decision;
-  const row = db.prepare('SELECT * FROM corrections WHERE id = ?').get(req.params.id);
+  const row = (await sql`SELECT * FROM corrections WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'Not found.' });
-  if (decision === 'approved') db.prepare('UPDATE entries SET status = ? WHERE id = ?').run(row.requested, row.entry_id);
-  db.prepare('UPDATE corrections SET status = ?, decided_by = ? WHERE id = ?').run(decision, req.user.username, row.id);
-  addAudit(decision === 'approved' ? 'FIX_OK' : 'FIX_NO', req.user.username, `#${row.id}`);
+  if (decision === 'approved') await sql`UPDATE entries SET status = ${row.requested} WHERE id = ${row.entry_id}`;
+  await sql`UPDATE corrections SET status = ${decision}, decided_by = ${req.user.username} WHERE id = ${row.id}`;
+  await addAudit(decision === 'approved' ? 'FIX_OK' : 'FIX_NO', req.user.username, `#${row.id}`);
   res.json({ ok: true, message: `Correction ${decision}.` });
-});
+}));
 
 /* ================= MARKS ================= */
-app.post('/api/marks/bulk', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
+app.post('/api/marks/bulk', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
   const { subject, exam } = req.body || {};
   const max = Number((req.body || {}).max);
-  if (!subject || !exam || !max || max <= 0) return res.status(400).json({ error: 'Subject, exam aur max required.' });
+  if (!subject || !exam || !max || max <= 0) return res.status(400).json({ error: 'Subject, exam, max required.' });
   const assigned = Array.isArray(req.user.subjects) ? req.user.subjects.filter(Boolean) : [];
   if (assigned.length && !assigned.includes(subject)) return res.status(403).json({ error: `"${subject}" tumhara nahi hai.` });
   const list = Array.isArray(req.body.entries) ? req.body.entries.filter((e) => e && e.studentId && Number.isFinite(Number(e.score))) : [];
   if (!list.length) return res.status(400).json({ error: 'No valid scores.' });
-  const del = db.prepare('DELETE FROM marks WHERE student_id = ? AND subject = ? AND exam = ?');
-  const ins = db.prepare('INSERT INTO marks (student_id, subject, exam, score, max, ts) VALUES (?,?,?,?,?,?)');
   let n = 0;
   for (const e of list) {
     const score = Math.max(0, Math.min(max, Number(e.score)));
-    del.run(e.studentId, subject, exam); ins.run(e.studentId, subject, exam, score, max, nowISO()); n++;
+    await sql`DELETE FROM marks WHERE student_id = ${e.studentId} AND subject = ${subject} AND exam = ${exam}`;
+    await sql`INSERT INTO marks (student_id, subject, exam, score, max, ts) VALUES (${e.studentId}, ${subject}, ${exam}, ${score}, ${max}, ${nowISO()})`;
+    n++;
   }
-  addAudit('MARKS', req.user.username, `${subject} ${exam} (${n})`);
+  await addAudit('MARKS', req.user.username, `${subject} ${exam} (${n})`);
   res.json({ ok: true, message: `${n} marks saved for ${subject} · ${exam}.` });
-});
-app.get('/api/marks/mine', requireAuth, requireRole('student'), (req, res) => {
-  res.json({ items: db.prepare('SELECT subject, exam, score, max, ts FROM marks WHERE student_id = ? ORDER BY subject, exam').all(req.user.id) });
-});
-app.get('/api/marks/child', requireAuth, requireRole('parent'), (req, res) => {
-  res.json({ items: db.prepare('SELECT subject, exam, score, max, ts FROM marks WHERE student_id = ? ORDER BY subject, exam').all(req.user.parent_of) });
-});
-app.get('/api/marks/class', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
-  res.json({ items: db.prepare(`SELECT m.student_id, m.score, m.max FROM marks m JOIN users u ON u.id = m.student_id WHERE m.subject=? AND m.exam=? AND u.program=? AND u.branch=? AND u.semester=? AND u.section=?`).all(String(req.query.subject), String(req.query.exam), String(req.query.program), String(req.query.branch || ''), Number(req.query.semester), String(req.query.section || '')) });
-});
+}));
+app.get('/api/marks/mine', requireAuth, requireRole('student'), H(async (req, res) => {
+  res.json({ items: await sql`SELECT subject, exam, score, max, ts FROM marks WHERE student_id = ${req.user.id} ORDER BY subject, exam` });
+}));
+app.get('/api/marks/child', requireAuth, requireRole('parent'), H(async (req, res) => {
+  res.json({ items: await sql`SELECT subject, exam, score, max, ts FROM marks WHERE student_id = ${req.user.parent_of} ORDER BY subject, exam` });
+}));
+app.get('/api/marks/class', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  res.json({ items: await sql`SELECT m.student_id, m.score, m.max FROM marks m JOIN users u ON u.id = m.student_id WHERE m.subject = ${String(req.query.subject)} AND m.exam = ${String(req.query.exam)} AND u.program = ${String(req.query.program)} AND u.branch = ${String(req.query.branch || '')} AND u.semester = ${Number(req.query.semester)} AND u.section = ${String(req.query.section || '')}` });
+}));
 
 /* ================= ROTATING QR SELF-MARK ================= */
-app.post('/api/selfmark/open', requireAuth, requireRole('teacher'), (req, res) => {
+app.post('/api/selfmark/open', requireAuth, requireRole('teacher'), H(async (req, res) => {
   const { program, branch, semester, section, subject, date, useGeo } = req.body || {};
   if (!program || !semester || !subject || !date) return res.status(400).json({ error: 'Class details missing.' });
   const session = crypto.randomBytes(5).toString('hex').toUpperCase();
   const secret = crypto.randomBytes(24).toString('hex');
-  db.prepare('INSERT INTO markcodes (id, secret, teacher_id, program, branch, semester, section, subject, date, geo, expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .run(session, secret, req.user.id, program, String(branch || ''), Number(semester), String(section || '').toUpperCase(), subject, date, useGeo ? `${CAMPUS.lat},${CAMPUS.lng},${CAMPUS.radius}` : '', Date.now() + 15 * 60 * 1000);
-  addAudit('SM_OPEN', req.user.username, `${subject} ${date} geo=${!!useGeo}`);
+  await sql`INSERT INTO markcodes (id, secret, teacher_id, program, branch, semester, section, subject, date, geo, expires_at) VALUES (${session}, ${secret}, ${req.user.id}, ${program}, ${String(branch || '')}, ${Number(semester)}, ${String(section || '').toUpperCase()}, ${subject}, ${date}, ${useGeo ? `${CAMPUS.lat},${CAMPUS.lng},${CAMPUS.radius}` : ''}, ${Date.now() + 15 * 60 * 1000})`;
+  await addAudit('SM_OPEN', req.user.username, `${subject} ${date} geo=${!!useGeo}`);
   res.status(201).json({ ok: true, session, minutes: 15, campus: CAMPUS });
-});
-app.get('/api/selfmark/rotate', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
-  const row = db.prepare('SELECT * FROM markcodes WHERE id = ?').get(String(req.query.session || ''));
+}));
+app.get('/api/selfmark/rotate', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const row = (await sql`SELECT * FROM markcodes WHERE id = ${String(req.query.session || '')}`)[0];
   if (!row || row.expires_at < Date.now()) return res.status(400).json({ error: 'Session invalid/expired.' });
   res.json({ code: rotCode(row.secret, Math.floor(Date.now() / 30000)) });
-});
-app.get('/api/selfmark/status', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
-  const row = db.prepare('SELECT * FROM markcodes WHERE id = ?').get(String(req.query.session || ''));
+}));
+app.get('/api/selfmark/status', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const row = (await sql`SELECT * FROM markcodes WHERE id = ${String(req.query.session || '')}`)[0];
   if (!row) return res.json({ closed: true, items: [] });
-  const items = db.prepare(`SELECT s.*, u.name, u.roll_no AS rollNo FROM selfmarks s JOIN users u ON u.id = s.student_id WHERE s.session = ? ORDER BY s.id DESC`).all(row.id);
+  const items = await sql`SELECT s.*, u.name, u.roll_no AS "rollNo" FROM selfmarks s JOIN users u ON u.id = s.student_id WHERE s.session = ${row.id} ORDER BY s.id DESC`;
   res.json({ closed: row.expires_at < Date.now(), items, geo: !!row.geo });
-});
-app.post('/api/selfmark/close', requireAuth, requireRole('teacher'), (req, res) => {
-  db.prepare('DELETE FROM markcodes WHERE id = ? AND teacher_id = ?').run(String((req.body || {}).session || ''), req.user.id);
+}));
+app.post('/api/selfmark/close', requireAuth, requireRole('teacher'), H(async (req, res) => {
+  await sql`DELETE FROM markcodes WHERE id = ${String((req.body || {}).session || '')} AND teacher_id = ${req.user.id}`;
   res.json({ ok: true, message: 'Session closed.' });
-});
-app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) => {
+}));
+app.post('/api/selfmark/mark', requireAuth, requireRole('student'), H(async (req, res) => {
   const session = String((req.body || {}).session || '').trim();
   const code = String((req.body || {}).code || '').trim();
-  const mc = db.prepare('SELECT * FROM markcodes WHERE id = ?').get(session);
+  const mc = (await sql`SELECT * FROM markcodes WHERE id = ${session}`)[0];
   if (!mc || mc.expires_at < Date.now()) return res.status(400).json({ error: 'Session invalid ya expire.' });
   const win = Math.floor(Date.now() / 30000);
   if (![rotCode(mc.secret, win), rotCode(mc.secret, win - 1), rotCode(mc.secret, win + 1)].includes(code))
@@ -630,15 +570,14 @@ app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) =
   const me = req.user;
   if (me.program !== mc.program || me.semester !== mc.semester || (me.branch || '') !== (mc.branch || '') || (me.section || '') !== (mc.section || ''))
     return res.status(403).json({ error: 'Ye class tumhari nahi hai.' });
-
   const device = String((req.body || {}).device || ''), ip = req.socket.remoteAddress || 'unknown';
-  const devClash = device && db.prepare('SELECT student_id FROM selfmarks WHERE session = ? AND device = ? AND student_id != ?').get(session, device, me.id);
+  const devClash = device ? (await sql`SELECT student_id FROM selfmarks WHERE session = ${session} AND device = ${device} AND student_id != ${me.id}`)[0] : null;
   if (devClash) {
-    db.prepare('INSERT INTO selfmarks (session, student_id, device, ip, flagged, ts) VALUES (?,?,?,?,1,?)').run(session, me.id, device, ip, nowISO());
-    addAudit('PROXY_FLAG', me.username, `device clash ${session}`);
+    await sql`INSERT INTO selfmarks (session, student_id, device, ip, flagged, ts) VALUES (${session}, ${me.id}, ${device}, ${ip}, 1, ${nowISO()})`;
+    await addAudit('PROXY_FLAG', me.username, `device clash ${session}`);
     return res.status(403).json({ error: '🚫 Proxy! Ye device is session me already use ho chuka hai.' });
   }
-  if (db.prepare('SELECT COUNT(DISTINCT student_id) AS c FROM selfmarks WHERE session = ? AND ip = ?').get(session, ip).c >= 4)
+  if ((await sql`SELECT COUNT(DISTINCT student_id)::int AS c FROM selfmarks WHERE session = ${session} AND ip = ${ip}`)[0].c >= 4)
     return res.status(403).json({ error: '🚫 Is IP se bahut zyada marks — proxy flag!' });
   if (mc.geo) {
     const [clat, clng, crad] = mc.geo.split(',').map(Number);
@@ -647,228 +586,218 @@ app.post('/api/selfmark/mark', requireAuth, requireRole('student'), (req, res) =
     const dist = haversine(lat, lng, clat, clng);
     if (dist > crad) return res.status(403).json({ error: `📍 Campus ke bahar (${dist}m). Radius ${crad}m.` });
   }
-  const faceStored = db.prepare('SELECT face FROM users WHERE id = ?').get(me.id).face;
+  const faceStored = (await sql`SELECT face FROM users WHERE id = ${me.id}`)[0].face;
   if (faceStored) {
     const fd = (req.body || {}).face;
     if (!Array.isArray(fd) || fd.length !== 128) return res.status(400).json({ error: '🧠 Face scan required — selfie+face ON karke try karo.' });
     const a = JSON.parse(faceStored);
     let sum = 0; for (let i = 0; i < 128; i++) sum += (a[i] - fd[i]) ** 2;
     const dist = Math.sqrt(sum);
-    if (dist > 0.55) { addAudit('FACE_FAIL', me.username, `dist=${dist.toFixed(2)} session ${session}`); return res.status(403).json({ error: '🧠 Face match nahi hua! Sirf khud ki attendance mark karo.' }); }
-    addAudit('FACE_OK', me.username, `dist=${dist.toFixed(2)}`);
+    if (dist > 0.55) { await addAudit('FACE_FAIL', me.username, `dist=${dist.toFixed(2)} session ${session}`); return res.status(403).json({ error: '🧠 Face match nahi hua! Sirf khud ki attendance mark karo.' }); }
+    await addAudit('FACE_OK', me.username, `dist=${dist.toFixed(2)}`);
   }
-  const selfie = String((req.body || {}).selfie || '');
-  if (selfie.startsWith('data:image/jpeg;base64,')) {
-    const b64 = selfie.split(',')[1];
-    if (b64 && b64.length < 600000) { try { fs.writeFileSync(path.join(DATA_DIR, 'selfies', `${session}-${me.id}.jpg`), Buffer.from(b64, 'base64')); } catch {} }
+  let rec = (await sql`SELECT * FROM records WHERE date = ${mc.date} AND program = ${mc.program} AND branch = ${mc.branch} AND semester = ${mc.semester} AND section = ${mc.section} AND subject = ${mc.subject}`)[0];
+  if (!rec) {
+    const [nr] = await sql`INSERT INTO records (date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (${mc.date}, ${mc.program}, ${mc.branch}, ${mc.semester}, ${mc.section}, ${mc.subject}, ${mc.teacher_id}, 'Self-marked', ${nowISO()}) RETURNING id`;
+    rec = { id: nr.id };
   }
-  let rec = db.prepare('SELECT * FROM records WHERE date=? AND program=? AND branch=? AND semester=? AND section=? AND subject=?').get(mc.date, mc.program, mc.branch, mc.semester, mc.section, mc.subject);
-  if (!rec) { const info = insRec.run(mc.date, mc.program, mc.branch, mc.semester, mc.section, mc.subject, mc.teacher_id, 'Self-marked', nowISO()); rec = { id: Number(info.lastInsertRowid) }; }
-  const existing = db.prepare('SELECT * FROM entries WHERE record_id = ? AND student_id = ?').get(rec.id, me.id);
+  const existing = (await sql`SELECT * FROM entries WHERE record_id = ${rec.id} AND student_id = ${me.id}`)[0];
   if (existing && existing.status !== 'absent') return res.status(409).json({ error: 'Already marked.' });
-  if (existing) db.prepare('UPDATE entries SET status = ? WHERE id = ?').run('present', existing.id);
-  else insEntry.run(rec.id, me.id, 'present');
-  db.prepare('INSERT INTO selfmarks (session, student_id, device, ip, ts) VALUES (?,?,?,?,?)').run(session, me.id, device, ip, nowISO());
-  addAudit('SELFMARK', me.username, `${mc.subject} ${mc.date}`);
+  if (existing) await sql`UPDATE entries SET status = 'present' WHERE id = ${existing.id}`;
+  else await sql`INSERT INTO entries (record_id, student_id, status) VALUES (${rec.id}, ${me.id}, 'present')`;
+  await sql`INSERT INTO selfmarks (session, student_id, device, ip, ts) VALUES (${session}, ${me.id}, ${device}, ${ip}, ${nowISO()})`;
+  await addAudit('SELFMARK', me.username, `${mc.subject} ${mc.date}`);
   res.status(201).json({ ok: true, message: '✅ Self-marked present!' });
-});
+}));
 
 /* ================= ANALYTICS ================= */
-function studentStats(studentId, opts = {}) {
-  const holidays = getHolidaySet();
-  let sql = `SELECT r.date, r.subject, e.status, e.id AS entryId FROM entries e JOIN records r ON r.id = e.record_id WHERE e.student_id = ?`;
-  const params = [studentId];
-  if (opts.from) { sql += ' AND r.date >= ?'; params.push(opts.from); }
-  if (opts.to) { sql += ' AND r.date <= ?'; params.push(opts.to); }
-  sql += ' ORDER BY r.date';
+async function studentStats(studentId, opts = {}) {
+  const holidays = new Set((await sql`SELECT date FROM holidays`).map((h) => h.date));
+  const conds = [sql`e.student_id = ${studentId}`];
+  if (opts.from) conds.push(sql`r.date >= ${opts.from}`);
+  if (opts.to) conds.push(sql`r.date <= ${opts.to}`);
+  const rows = await sql`SELECT r.date, r.subject, e.status, e.id AS "entryId" FROM entries e JOIN records r ON r.id = e.record_id WHERE ${sql.join(conds, sql` AND `)} ORDER BY r.date`;
   let total = 0, present = 0, late = 0;
   const subjectMap = {}; const logs = [];
-  for (const r of db.prepare(sql).all(...params)) {
+  for (const r of rows) {
     if (holidays.has(r.date)) continue;
     total += 1;
     if (r.status === 'present') present += 1; else if (r.status === 'late') late += 1;
     const s = subjectMap[r.subject] || (subjectMap[r.subject] = { total: 0, present: 0, late: 0 });
     s.total += 1;
     if (r.status === 'present') s.present += 1; else if (r.status === 'late') s.late += 1;
-    logs.push({ date: r.date, subject: r.subject, status: r.status, entryId: r.entryId });
+    logs.push({ date: r.date, subject: r.subject, status: r.status, entryId: Number(r.entryId) });
   }
   logs.sort((a, b) => b.date.localeCompare(a.date));
   const pct = (p, l, t) => (t ? Math.round(((p + l) / t) * 100) : 0);
   return {
     total, present, late, absent: total - present - late, attended: present + late,
-    percentage: pct(present, late, total), threshold: getThreshold(),
+    percentage: pct(present, late, total), threshold: await getThreshold(),
     subjects: Object.entries(subjectMap).map(([subject, s]) => ({ subject, total: s.total, present: s.present, late: s.late, percentage: pct(s.present, s.late, s.total) })),
     logs,
   };
 }
-app.get('/api/me/attendance', requireAuth, requireRole('student'), (req, res) => res.json(studentStats(req.user.id, { from: req.query.from, to: req.query.to })));
-app.get('/api/parent/child', requireAuth, requireRole('parent'), (req, res) => {
-  const child = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.parent_of);
+app.get('/api/me/attendance', requireAuth, requireRole('student'), H(async (req, res) => res.json(await studentStats(req.user.id, { from: req.query.from, to: req.query.to }))));
+app.get('/api/parent/child', requireAuth, requireRole('parent'), H(async (req, res) => {
+  const child = (await sql`SELECT * FROM users WHERE id = ${req.user.parent_of}`)[0];
   if (!child) return res.status(404).json({ error: 'Child link missing.' });
-  res.json({ user: publicUser(child), stats: studentStats(child.id) });
-});
-app.get('/api/leaderboard', requireAuth, (req, res) => {
-  const list = getUsers().filter((u) => u.role === 'student')
-    .map((s) => { const st = studentStats(s.id); return { id: s.id, name: s.name, label: classLabel(s), semester: s.semester, pct: st.percentage, total: st.total }; })
-    .filter((r) => r.total > 0).sort((a, b) => b.pct - a.pct);
+  res.json({ user: publicUser(child), stats: await studentStats(child.id) });
+}));
+app.get('/api/leaderboard', requireAuth, H(async (req, res) => {
+  const students = await sql`SELECT * FROM users WHERE role = 'student'`;
+  const list = [];
+  for (const s of students) { const st = await studentStats(s.id); if (st.total > 0) list.push({ id: s.id, name: s.name, label: classLabel(s), semester: s.semester, pct: st.percentage, total: st.total }); }
+  list.sort((a, b) => b.pct - a.pct);
   const meIdx = list.findIndex((r) => r.id === req.user.id);
   res.json({ top: list.slice(0, 5), myRank: meIdx >= 0 ? meIdx + 1 : null, classSize: list.length });
-});
+}));
 
 /* ================= ADMIN REPORTS ================= */
-app.get('/api/reports/summary', requireAuth, requireRole('admin'), (req, res) => {
-  const students = getUsers().filter((u) => u.role === 'student');
+app.get('/api/reports/summary', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const students = await sql`SELECT id FROM users WHERE role = 'student'`;
   let total = 0, attended = 0;
-  for (const s of students) { const st = studentStats(s.id); total += st.total; attended += st.attended; }
-  res.json({ totalStudents: students.length, totalTeachers: getUsers().filter((u) => u.role === 'teacher').length, sessionsMarked: db.prepare('SELECT COUNT(*) AS c FROM records').get().c, overallPercentage: total ? Math.round((attended / total) * 100) : 0, threshold: getThreshold() });
-});
-app.get('/api/reports/overall', requireAuth, requireRole('admin'), (req, res) => {
+  for (const s of students) { const st = await studentStats(s.id); total += st.total; attended += st.attended; }
+  const [{ c: teachers }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'teacher'`;
+  const [{ c: sessions }] = await sql`SELECT COUNT(*)::int AS c FROM records`;
+  res.json({ totalStudents: students.length, totalTeachers: teachers, sessionsMarked: sessions, overallPercentage: total ? Math.round((attended / total) * 100) : 0, threshold: await getThreshold() });
+}));
+app.get('/api/reports/overall', requireAuth, requireRole('admin'), H(async (req, res) => {
   const range = { from: req.query.from, to: req.query.to };
-  res.json({ report: getUsers().filter((u) => u.role === 'student').map((s) => ({ id: s.id, name: s.name, rollNo: s.roll_no, program: s.program, branch: s.branch, semester: s.semester, section: s.section, ...studentStats(s.id, range) })) });
-});
-app.get('/api/reports/export', requireAuth, requireRole('admin'), (req, res) => {
+  const students = await sql`SELECT * FROM users WHERE role = 'student' ORDER BY roll_no, name`;
+  const report = [];
+  for (const s of students) report.push({ id: s.id, name: s.name, rollNo: s.roll_no, program: s.program, branch: s.branch, semester: s.semester, section: s.section, ...(await studentStats(s.id, range)) });
+  res.json({ report });
+}));
+app.get('/api/reports/export', requireAuth, requireRole('admin'), H(async (req, res) => {
   const range = { from: req.query.from, to: req.query.to };
-  const rows = [['Roll No', 'Name', 'Program', 'Branch', 'Semester', 'Section', 'Total', 'Present', 'Late', 'Absent', '%']];
-  for (const s of getUsers().filter((u) => u.role === 'student')) {
-    const st = studentStats(s.id, range);
+  const rows = [['Roll No','Name','Program','Branch','Semester','Section','Total','Present','Late','Absent','%']];
+  for (const s of await sql`SELECT * FROM users WHERE role = 'student' ORDER BY roll_no`) {
+    const st = await studentStats(s.id, range);
     rows.push([s.roll_no, s.name, s.program, s.branch, s.semester ?? '', s.section || '', st.total, st.present, st.late, st.absent, st.percentage]);
   }
   sendCSV(res, `attendance-${range.from || 'all'}-${range.to || todayStamp()}.csv`, rows);
-});
-app.get('/api/reports/workload', requireAuth, requireRole('admin'), (req, res) => {
-  const rows = db.prepare(`SELECT u.name, u.username, COUNT(DISTINCT r.id) AS sessions, COUNT(e.id) AS marked,
-    SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END) AS attended
-    FROM users u LEFT JOIN records r ON r.teacher_id = u.id LEFT JOIN entries e ON e.record_id = r.id
-    WHERE u.role = 'teacher' GROUP BY u.id ORDER BY sessions DESC`).all();
+}));
+app.get('/api/reports/workload', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const rows = await sql`SELECT u.name, u.username, COUNT(DISTINCT r.id)::int AS sessions, COUNT(e.id)::int AS marked, COALESCE(SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END), 0)::int AS attended FROM users u LEFT JOIN records r ON r.teacher_id = u.id LEFT JOIN entries e ON e.record_id = r.id WHERE u.role = 'teacher' GROUP BY u.id, u.name, u.username ORDER BY sessions DESC`;
   res.json({ items: rows.map((r) => ({ ...r, avg: r.marked ? Math.round((r.attended / r.marked) * 100) : null })) });
-});
-app.get('/api/reports/subjects', requireAuth, requireRole('admin'), (req, res) => {
-  const rows = db.prepare(`SELECT r.subject, COUNT(DISTINCT r.id) AS sessions, COUNT(e.id) AS total,
-    SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END) AS attended
-    FROM records r LEFT JOIN entries e ON e.record_id = r.id GROUP BY r.subject ORDER BY sessions DESC`).all();
+}));
+app.get('/api/reports/subjects', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const rows = await sql`SELECT r.subject, COUNT(DISTINCT r.id)::int AS sessions, COUNT(e.id)::int AS total, COALESCE(SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END), 0)::int AS attended FROM records r LEFT JOIN entries e ON e.record_id = r.id GROUP BY r.subject ORDER BY sessions DESC`;
   res.json({ items: rows.map((r) => ({ ...r, pct: r.total ? Math.round((r.attended / r.total) * 100) : 0 })) });
-});
-app.get('/api/reports/correlation', requireAuth, requireRole('admin'), (req, res) => {
+}));
+app.get('/api/reports/correlation', requireAuth, requireRole('admin'), H(async (req, res) => {
   const out = [];
-  for (const s of getUsers().filter((u) => u.role === 'student')) {
-    const st = studentStats(s.id);
+  for (const s of await sql`SELECT * FROM users WHERE role = 'student'`) {
+    const st = await studentStats(s.id);
     if (!st.total) continue;
-    const mk = db.prepare('SELECT AVG(score * 100.0 / max) AS m FROM marks WHERE student_id = ?').get(s.id);
-    out.push({ name: s.name, pct: st.percentage, marksPct: mk && mk.m != null ? Math.round(mk.m) : null });
+    const mk = (await sql`SELECT AVG(score * 100.0 / max) AS m FROM marks WHERE student_id = ${s.id}`)[0];
+    if (mk.m != null) out.push({ name: s.name, pct: st.percentage, marksPct: Math.round(mk.m) });
   }
-  res.json({ items: out.filter((o) => o.marksPct != null) });
-});
-app.get('/api/register', requireAuth, requireRole('teacher', 'admin'), (req, res) => {
+  res.json({ items: out });
+}));
+app.get('/api/register', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
   const { program, branch, semester, section, subject } = req.query;
   const month = String(req.query.month || '');
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Month YYYY-MM chuno.' });
   const like = `${month}%`;
-  const dates = db.prepare(`SELECT DISTINCT date FROM records WHERE program=? AND branch=? AND semester=? AND section=? AND subject=? AND date LIKE ? ORDER BY date`)
-    .all(program, branch || '', Number(semester), String(section || '').toUpperCase(), subject, like).map((r) => r.date);
-  const students = db.prepare(`SELECT * FROM users WHERE role='student' AND program=? AND branch=? AND semester=? AND section=? ORDER BY roll_no, name`)
-    .all(program, branch || '', Number(semester), String(section || '').toUpperCase());
-  const cellMap = new Map();
-  db.prepare(`SELECT e.student_id, r.date, e.status FROM entries e JOIN records r ON r.id = e.record_id WHERE r.program=? AND r.branch=? AND r.semester=? AND r.section=? AND r.subject=? AND r.date LIKE ?`)
-    .all(program, branch || '', Number(semester), String(section || '').toUpperCase(), subject, like)
-    .forEach((r) => cellMap.set(`${r.student_id}|${r.date}`, r.status));
+  const dates = (await sql`SELECT DISTINCT date FROM records WHERE program = ${program} AND branch = ${branch || ''} AND semester = ${Number(semester)} AND section = ${String(section || '').toUpperCase()} AND subject = ${subject} AND date LIKE ${like} ORDER BY date`).map((r) => r.date);
+  const students = await sql`SELECT * FROM users WHERE role = 'student' AND program = ${program} AND branch = ${branch || ''} AND semester = ${Number(semester)} AND section = ${String(section || '').toUpperCase()} ORDER BY roll_no, name`;
+  const cells = await sql`SELECT e.student_id, r.date, e.status FROM entries e JOIN records r ON r.id = e.record_id WHERE r.program = ${program} AND r.branch = ${branch || ''} AND r.semester = ${Number(semester)} AND r.section = ${String(section || '').toUpperCase()} AND r.subject = ${subject} AND r.date LIKE ${like}`;
+  const cellMap = new Map(cells.map((c) => [`${c.student_id}|${c.date}`, c.status]));
   const rows = students.map((s) => {
-    const cells = dates.map((d) => cellMap.get(`${s.id}|${d}`) || '');
-    const P = cells.filter((c) => c === 'present').length, L = cells.filter((c) => c === 'late').length, A = cells.filter((c) => c === 'absent').length;
+    const cs = dates.map((d) => cellMap.get(`${s.id}|${d}`) || '');
+    const P = cs.filter((c) => c === 'present').length, L = cs.filter((c) => c === 'late').length, A = cs.filter((c) => c === 'absent').length;
     const t = P + L + A;
-    return { rollNo: s.roll_no, name: s.name, cells, P, L, A, pct: t ? Math.round(((P + L) / t) * 100) : null };
+    return { rollNo: s.roll_no, name: s.name, cells: cs, P, L, A, pct: t ? Math.round(((P + L) / t) * 100) : null };
   });
   res.json({ dates, rows, month });
-});
-app.post('/api/reports/email-defaulters', requireAuth, requireRole('admin'), async (req, res) => {
-  const th = getThreshold(); let sent = 0, skipped = 0;
-  for (const s of getUsers().filter((u) => u.role === 'student')) {
-    const st = studentStats(s.id);
+}));
+app.post('/api/reports/email-defaulters', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const th = await getThreshold(); let sent = 0, skipped = 0;
+  for (const s of await sql`SELECT * FROM users WHERE role = 'student'`) {
+    const st = await studentStats(s.id);
     if (st.total > 0 && st.percentage < th) {
       if (!s.email) { skipped++; continue; }
-      const ok = await sendMail(s.email, '⚠️ Low Attendance — GLBITM', `Dear ${s.name},\nAttendance: ${st.percentage}% (min ${th}%).\n\n— GLBITM`);
-      ok ? sent++ : skipped++;
+      (await sendMail(s.email, '⚠️ Low Attendance — GLBITM', `Attendance: ${st.percentage}% (min ${th}%)`)) ? sent++ : skipped++;
     }
   }
-  addAudit('MAIL_DEFAULTERS', req.user.username, `${sent} sent`);
-  res.json({ ok: true, message: `${sent} emails${mailer ? '' : ' (console mode)'}, ${skipped} skipped.` });
-});
-app.get('/api/admin/audit', requireAuth, requireRole('admin'), (req, res) => res.json({ logs: db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT 100').all() }));
-app.get('/api/admin/backup', requireAuth, requireRole('admin'), (req, res) => {
-  addAudit('BACKUP', req.user.username, '');
+  await addAudit('MAIL_DEFAULTERS', req.user.username, `${sent} sent`);
+  res.json({ ok: true, message: `${sent} emails (console mode), ${skipped} skipped.` });
+}));
+app.get('/api/admin/audit', requireAuth, requireRole('admin'), H(async (req, res) => res.json({ logs: await sql`SELECT * FROM audit ORDER BY id DESC LIMIT 100` })));
+app.get('/api/admin/backup', requireAuth, requireRole('admin'), H(async (req, res) => {
+  await addAudit('BACKUP', req.user.username, '');
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', `attachment; filename="glbajaj-backup-${todayStamp()}.json"`);
-  res.send(JSON.stringify({ exportedAt: nowISO(), users: db.prepare('SELECT * FROM users').all(), records: db.prepare('SELECT * FROM records').all(), entries: db.prepare('SELECT * FROM entries').all(), announcements: db.prepare('SELECT * FROM announcements').all(), timetable: db.prepare('SELECT * FROM timetable').all(), leaves: db.prepare('SELECT * FROM leaves').all(), corrections: db.prepare('SELECT * FROM corrections').all(), marks: db.prepare('SELECT * FROM marks').all(), holidays: db.prepare('SELECT * FROM holidays').all(), settings: db.prepare('SELECT * FROM settings').all() }, null, 2));
-});
-app.post('/api/admin/restore', requireAuth, requireRole('admin'), (req, res) => {
+  res.send(JSON.stringify({ exportedAt: nowISO(),
+    users: await sql`SELECT * FROM users`, records: await sql`SELECT * FROM records`, entries: await sql`SELECT * FROM entries`,
+    announcements: await sql`SELECT * FROM announcements`, timetable: await sql`SELECT * FROM timetable`,
+    leaves: await sql`SELECT * FROM leaves`, corrections: await sql`SELECT * FROM corrections`,
+    marks: await sql`SELECT * FROM marks`, holidays: await sql`SELECT * FROM holidays`, settings: await sql`SELECT * FROM settings` }, null, 2));
+}));
+app.post('/api/admin/restore', requireAuth, requireRole('admin'), H(async (req, res) => {
   const b = req.body || {};
   if (!Array.isArray(b.users) || !Array.isArray(b.records) || !Array.isArray(b.entries)) return res.status(400).json({ error: 'Invalid backup.' });
-  db.exec('BEGIN');
   try {
-    for (const t of ['sessions','entries','records','users','announcements','timetable','leaves','corrections','marks','certs','holidays','settings']) db.prepare(`DELETE FROM ${t}`).run();
-    const iu = db.prepare(`INSERT INTO users (id,role,name,username,password_hash,program,branch,semester,section,roll_no,email,subjects,face,card_id,parent_of,twofa,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    for (const u of b.users) iu.run(u.id, u.role, u.name, u.username, u.password_hash, u.program || '', u.branch || '', u.semester ?? null, u.section || '', u.roll_no || '', u.email || '', u.subjects || '[]', u.face || '', u.card_id || '', u.parent_of || '', u.twofa || 0, u.created_at || nowISO());
-    const ir = db.prepare(`INSERT INTO records (id,date,program,branch,semester,section,subject,teacher_id,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`);
-    for (const r of b.records) ir.run(r.id, r.date, r.program, r.branch || '', r.semester, r.section || '', r.subject, r.teacher_id || null, r.note || '', r.created_at || nowISO());
-    const ie = db.prepare('INSERT INTO entries (id, record_id, student_id, status) VALUES (?,?,?,?)');
-    for (const e of b.entries) ie.run(e.id, e.record_id, e.student_id, e.status);
-    const im = db.prepare('INSERT INTO marks (id, student_id, subject, exam, score, max, ts) VALUES (?,?,?,?,?,?,?)');
-    for (const m of b.marks || []) im.run(m.id, m.student_id, m.subject, m.exam, m.score, m.max, m.ts || nowISO());
-    const ih = db.prepare('INSERT OR REPLACE INTO holidays (date, title) VALUES (?,?)');
-    for (const h of b.holidays || []) ih.run(h.date, h.title);
-    const iset = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)');
-    for (const s of b.settings || []) iset.run(s.key, s.value);
-    db.exec('COMMIT');
-  } catch (err) { db.exec('ROLLBACK'); return res.status(400).json({ error: `Restore failed: ${err.message}` }); }
-  addAudit('RESTORE', req.user.username, `${b.users.length} users`);
+    await sql.begin(async (tx) => {
+      for (const t of ['sessions','entries','records','users','announcements','timetable','leaves','corrections','marks','certs','holidays','settings']) await tx.unsafe(`DELETE FROM ${t}`);
+      for (const u of b.users) await tx`INSERT INTO users (id, role, name, username, password_hash, program, branch, semester, section, roll_no, email, subjects, face, card_id, parent_of, twofa, created_at) VALUES (${u.id}, ${u.role}, ${u.name}, ${u.username}, ${u.password_hash}, ${u.program || ''}, ${u.branch || ''}, ${u.semester ?? null}, ${u.section || ''}, ${u.roll_no || ''}, ${u.email || ''}, ${u.subjects || '[]'}, ${u.face || ''}, ${u.card_id || ''}, ${u.parent_of || ''}, ${u.twofa || 0}, ${u.created_at || nowISO()}) ON CONFLICT DO NOTHING`;
+      for (const r of b.records) await tx`INSERT INTO records (id, date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (${r.id}, ${r.date}, ${r.program}, ${r.branch || ''}, ${r.semester}, ${r.section || ''}, ${r.subject}, ${r.teacher_id || null}, ${r.note || ''}, ${r.created_at || nowISO()}) ON CONFLICT DO NOTHING`;
+      for (const e of b.entries) await tx`INSERT INTO entries (id, record_id, student_id, status) VALUES (${e.id}, ${e.record_id}, ${e.student_id}, ${e.status}) ON CONFLICT DO NOTHING`;
+      for (const m of b.marks || []) await tx`INSERT INTO marks (id, student_id, subject, exam, score, max, ts) VALUES (${m.id}, ${m.student_id}, ${m.subject}, ${m.exam}, ${m.score}, ${m.max}, ${m.ts || nowISO()}) ON CONFLICT DO NOTHING`;
+      for (const h of b.holidays || []) await tx`INSERT INTO holidays (date, title) VALUES (${h.date}, ${h.title}) ON CONFLICT (date) DO UPDATE SET title = EXCLUDED.title`;
+      for (const s of b.settings || []) await tx`INSERT INTO settings (key, value) VALUES (${s.key}, ${s.value}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+    });
+  } catch (err) { return res.status(400).json({ error: `Restore failed: ${err.message}` }); }
+  await addAudit('RESTORE', req.user.username, `${b.users.length} users`);
   res.json({ ok: true, message: `Restored ${b.users.length} users.` });
-});
+}));
 
 /* ================= ANNOUNCEMENTS ================= */
-app.get('/api/announcements', requireAuth, (req, res) => res.json({ items: db.prepare('SELECT * FROM announcements ORDER BY ts DESC LIMIT 10').all() }));
-app.post('/api/announcements', requireAuth, requireRole('admin'), async (req, res) => {
+app.get('/api/announcements', requireAuth, H(async (req, res) => res.json({ items: await sql`SELECT * FROM announcements ORDER BY ts DESC LIMIT 10` })));
+app.post('/api/announcements', requireAuth, requireRole('admin'), H(async (req, res) => {
   const title = String((req.body || {}).title || '').trim(), body = String((req.body || {}).body || '').trim();
   if (!title) return res.status(400).json({ error: 'Title required.' });
-  db.prepare('INSERT INTO announcements (id, title, body, ts, by) VALUES (?,?,?,?,?)').run('N' + Date.now().toString(36), title, body, nowISO(), req.user.name);
-  addAudit('ANN_ADD', req.user.username, title);
-  const targets = db.prepare(`SELECT email FROM users WHERE email != '' AND role != 'admin'`).all();
-  if (mailer && targets.length) Promise.allSettled(targets.map((t) => sendMail(t.email, `📢 ${title} — GLBITM`, body || title)));
-  res.status(201).json({ ok: true, emailed: mailer ? targets.length : 0 });
-});
-app.delete('/api/announcements/:id', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
-  addAudit('ANN_DEL', req.user.username, req.params.id);
+  await sql`INSERT INTO announcements (id, title, body, ts, by) VALUES (${'N' + Date.now().toString(36)}, ${title}, ${body}, ${nowISO()}, ${req.user.name})`;
+  await addAudit('ANN_ADD', req.user.username, title);
+  res.status(201).json({ ok: true, emailed: 0 });
+}));
+app.delete('/api/announcements/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
+  await sql`DELETE FROM announcements WHERE id = ${req.params.id}`;
+  await addAudit('ANN_DEL', req.user.username, req.params.id);
   res.json({ ok: true });
-});
+}));
 
 /* ================= TEACHER SESSIONS ================= */
-app.get('/api/me/sessions', requireAuth, requireRole('teacher'), (req, res) => {
-  const list = db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)
-    .map((r) => {
-      const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
-      return { id: r.id, date: r.date, program: r.program, branch: r.branch, semester: r.semester, section: r.section, subject: r.subject, note: r.note || '', total: entries.length, present: entries.filter((e) => e.status === 'present').length, late: entries.filter((e) => e.status === 'late').length };
-    });
+app.get('/api/me/sessions', requireAuth, requireRole('teacher'), H(async (req, res) => {
+  const recs = await sql`SELECT * FROM records WHERE teacher_id = ${req.user.id} ORDER BY date DESC`;
+  const list = [];
+  for (const r of recs) {
+    const entries = await sql`SELECT status FROM entries WHERE record_id = ${r.id}`;
+    list.push({ id: Number(r.id), date: r.date, program: r.program, branch: r.branch, semester: r.semester, section: r.section, subject: r.subject, note: r.note || '', total: entries.length, present: entries.filter((e) => e.status === 'present').length, late: entries.filter((e) => e.status === 'late').length });
+  }
   res.json({ sessions: list });
-});
-app.get('/api/me/sessions/export', requireAuth, requireRole('teacher'), (req, res) => {
+}));
+app.get('/api/me/sessions/export', requireAuth, requireRole('teacher'), H(async (req, res) => {
   const rows = [['Date','Program','Branch','Semester','Section','Subject','Present','Late','Total']];
-  for (const r of db.prepare('SELECT * FROM records WHERE teacher_id = ? ORDER BY date DESC').all(req.user.id)) {
-    const entries = db.prepare('SELECT status FROM entries WHERE record_id = ?').all(r.id);
+  for (const r of await sql`SELECT * FROM records WHERE teacher_id = ${req.user.id} ORDER BY date DESC`) {
+    const entries = await sql`SELECT status FROM entries WHERE record_id = ${r.id}`;
     rows.push([r.date, r.program, r.branch, r.semester, r.section, r.subject, entries.filter((e) => e.status === 'present').length, entries.filter((e) => e.status === 'late').length, entries.length]);
   }
   sendCSV(res, `my-sessions-${todayStamp()}.csv`, rows);
-});
+}));
 
 /* ================= CERTIFICATE ================= */
-app.post('/api/certificate', requireAuth, requireRole('student'), (req, res) => {
-  const st = studentStats(req.user.id);
+app.post('/api/certificate', requireAuth, requireRole('student'), H(async (req, res) => {
+  const st = await studentStats(req.user.id);
   const id = crypto.randomBytes(6).toString('hex');
-  db.prepare('INSERT INTO certs (id, student_id, name, roll, program, branch, semester, pct, total, present, late, absent, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(id, req.user.id, req.user.name, req.user.roll_no, req.user.program, req.user.branch, req.user.semester, st.percentage, st.total, st.present, st.late, st.absent, nowISO());
-  addAudit('CERT', req.user.username, id);
+  await sql`INSERT INTO certs (id, student_id, name, roll, program, branch, semester, pct, total, present, late, absent, created_at) VALUES (${id}, ${req.user.id}, ${req.user.name}, ${req.user.roll_no}, ${req.user.program}, ${req.user.branch}, ${req.user.semester}, ${st.percentage}, ${st.total}, ${st.present}, ${st.late}, ${st.absent}, ${nowISO()})`;
+  await addAudit('CERT', req.user.username, id);
   res.json({ id, url: `/verify/${id}` });
-});
-app.get('/verify/:id', (req, res) => {
-  const c = db.prepare('SELECT * FROM certs WHERE id = ?').get(req.params.id);
+}));
+app.get('/verify/:id', H(async (req, res) => {
+  await ready();
+  const c = (await sql`SELECT * FROM certs WHERE id = ${req.params.id}`)[0];
   if (!c) return res.status(404).send('<h2 style="font-family:sans-serif">❌ Invalid certificate ID</h2>');
   res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Verify · ${c.id}</title>
   <style>body{font-family:Georgia,serif;display:grid;place-items:center;min-height:100vh;background:#f5f5f5;margin:0}
@@ -882,45 +811,49 @@ app.get('/verify/:id', (req, res) => {
   <p>(${c.present} present · ${c.late} late · ${c.absent} absent of ${c.total})</p>
   <small>Issued ${String(c.created_at).slice(0, 10)} · ID: <strong>${c.id}</strong></small><br/>
   <span class="valid">✔ VERIFIED — GLBITM Attendance System</span></div></body></html>`);
-});
+}));
 
 /* ================= RFID HOOK ================= */
-app.post('/api/hardware/rfid', (req, res) => {
-  if (req.headers['x-device-key'] !== (process.env.HARDWARE_KEY || 'demo-hardware-key'))
-    return res.status(403).json({ error: 'Invalid device key.' });
+app.post('/api/hardware/rfid', H(async (req, res) => {
+  await ready();
+  if (req.headers['x-device-key'] !== (process.env.HARDWARE_KEY || 'demo-hardware-key')) return res.status(403).json({ error: 'Invalid device key.' });
   const { cardId, program, branch, semester, section, subject } = req.body || {};
   const date = String((req.body || {}).date || todayStamp());
-  const stu = db.prepare('SELECT * FROM users WHERE card_id = ? AND role = ?').get(String(cardId || '').toUpperCase(), 'student');
+  const stu = (await sql`SELECT * FROM users WHERE card_id = ${String(cardId || '').toUpperCase()} AND role = 'student'`)[0];
   if (!stu) return res.status(404).json({ error: 'Card not registered.' });
   if (!program || !semester || !subject) return res.status(400).json({ error: 'Class fields required.' });
-  let rec = db.prepare('SELECT * FROM records WHERE date=? AND program=? AND branch=? AND semester=? AND section=? AND subject=?').get(date, program, String(branch || ''), Number(semester), String(section || '').toUpperCase(), subject);
-  if (!rec) { const info = insRec.run(date, program, String(branch || ''), Number(semester), String(section || '').toUpperCase(), subject, null, 'RFID tap', nowISO()); rec = { id: Number(info.lastInsertRowid) }; }
-  const ex = db.prepare('SELECT * FROM entries WHERE record_id = ? AND student_id = ?').get(rec.id, stu.id);
+  let rec = (await sql`SELECT * FROM records WHERE date = ${date} AND program = ${program} AND branch = ${String(branch || '')} AND semester = ${Number(semester)} AND section = ${String(section || '').toUpperCase()} AND subject = ${subject}`)[0];
+  if (!rec) {
+    const [nr] = await sql`INSERT INTO records (date, program, branch, semester, section, subject, teacher_id, note, created_at) VALUES (${date}, ${program}, ${String(branch || '')}, ${Number(semester)}, ${String(section || '').toUpperCase()}, ${subject}, null, 'RFID tap', ${nowISO()}) RETURNING id`;
+    rec = { id: nr.id };
+  }
+  const ex = (await sql`SELECT * FROM entries WHERE record_id = ${rec.id} AND student_id = ${stu.id}`)[0];
   if (ex) return res.json({ ok: true, message: `${stu.name} already marked (${ex.status}).` });
-  insEntry.run(rec.id, stu.id, 'present');
-  addAudit('RFID', stu.username, `${subject} ${date}`);
+  await sql`INSERT INTO entries (record_id, student_id, status) VALUES (${rec.id}, ${stu.id}, 'present')`;
+  await addAudit('RFID', stu.username, `${subject} ${date}`);
   res.status(201).json({ ok: true, message: `${stu.name} marked present via RFID.` });
-});
+}));
 
-/* ================= fallbacks & smart port ================= */
+/* ================= fallbacks & start ================= */
+app.use(express.static(__dirname + '/public'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
-app.use((req, res) => res.status(404).sendFile(path.join(__dirname, 'public', 'index.html')));
-app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'Server error.' }); });
+app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html'));
 
-function printBanner(port) {
-  console.log('──────────────────────────────────────────────');
-  console.log('  🎓 GL Bajaj Attendance System v7.2 — Security Edition');
-  console.log(`  ➜  http://localhost:${port}`);
-  console.log('──────────────────────────────────────────────');
-  console.log(`  Email: ${mailer ? '✅ SMTP active' : 'console mode'} · RFID key: ${process.env.HARDWARE_KEY || 'demo-hardware-key'}`);
-  console.log(`  Demo hints: ${process.env.SHOW_DEMO_HINTS === '1' ? 'visible' : 'hidden (production) — SHOW_DEMO_HINTS=1 se dikhao'}`);
-  console.log('──────────────────────────────────────────────');
-}
-function startServer(port, tries = 10) {
-  const server = app.listen(port, () => printBanner(port));
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE' && tries > 0) { console.log(`  ⚠️ Port ${port} busy → ${port + 1}`); startServer(port + 1, tries - 1); }
-    else { console.error(`❌ ${err.message}`); process.exit(1); }
-  });
-}
-startServer(BASE_PORT);
+(async () => {
+  await ready();
+  const BASE_PORT = Number(process.env.PORT) || 3000;
+  function startServer(port, tries = 10) {
+    const server = app.listen(port, () => {
+      console.log('──────────────────────────────────────────────');
+      console.log('  🎓 GLBITM Attendance v8.1 — Render + Supabase');
+      console.log(`  ➜  http://localhost:${port}`);
+      console.log('  💾 DB: PERSISTENT (cloud) — restart pe data safe');
+      console.log('──────────────────────────────────────────────');
+    });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE' && tries > 0) { console.log(`  ⚠️ Port ${port} busy → ${port + 1}`); startServer(port + 1, tries - 1); }
+      else { console.error(`❌ ${err.message}`); process.exit(1); }
+    });
+  }
+  startServer(BASE_PORT);
+})().catch((e) => { console.error('❌ DB connect fail:', e.message); process.exit(1); });
