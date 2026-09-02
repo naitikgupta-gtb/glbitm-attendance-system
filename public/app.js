@@ -113,7 +113,7 @@ async function downloadFile(url, filename) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-/* ================= login ================= */
+/* ================= login (2FA + setup wizard + demo-hide) ================= */
 let pending2fa = null;
 function bindLogin() {
   const err = $('#loginError'), btn = $('#loginBtn');
@@ -382,12 +382,13 @@ admin: {
       <div class="card def-card"><div class="card-head"><h2>🚨 Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
         <div id="defList"><p class="muted">Loading…</p></div></div>
+      <div class="card"><div class="card-head"><h2>👑 Administrators</h2>
+        <span class="muted small">Last admin protected 🛡️</span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>
       <div class="card"><h2>🎓 Bulk Promotion</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <select class="input" id="promoProg" style="max-width:220px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <button class="btn btn-primary" id="promoBtn">🎓 Promote</button></div></div>
       <div class="card"><h2>💾 Backup & Restore</h2>
-        <div class="card"><div class="card-head"><h2>👑 Administrators</h2></div><div id="adminsList"><p class="muted">Loading…</p></div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
           <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div></div>`,
@@ -411,6 +412,7 @@ admin: {
         toast(r.message);
       }));
       loadDefaulters();
+      loadAdmins();
       $('#mailDefBtn').addEventListener('click', safe(async () => toast((await api('/api/reports/email-defaulters', { method:'POST' })).message, 'info')));
       $('#promoBtn').addEventListener('click', safe(async () => {
         if (!confirm('⚠️ Semester +1. Continue?')) return;
@@ -418,7 +420,6 @@ admin: {
         loadDefaulters();
       }));
       $('#backupBtn').addEventListener('click', () => downloadFile('/api/admin/backup', `glbajaj-backup-${todayISO()}.json`));
-          loadAdmins();
       $('#restoreBtn').addEventListener('click', restoreBackup);
     },
   },
@@ -439,13 +440,13 @@ admin: {
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
       <div class="card"><h2>📥 Bulk Import — Excel (.xlsx) ya CSV</h2>
-        <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. Galat values reason ke saath reject hoti hain.</p>
+        <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. <code>role</code> column me "teacher" likhoge to wo teacher banega!</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ Student Template</button>
+          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ User Template</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <input type="file" id="bulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
-          <button class="btn btn-primary" id="bulkBtn">📥 Import Students</button></div>
+          <button class="btn btn-primary" id="bulkBtn">📥 Import</button></div>
         <div id="bulkResult" class="muted small" style="margin-top:10px;"></div></div>
       <div class="card"><h2>🎓 Enrolled Students</h2>
         <input class="input search-input" id="stSearch" placeholder="🔍 Search name / roll / class…" />
@@ -474,7 +475,7 @@ admin: {
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
       <div class="card"><h2>📥 Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
-        <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code> — <code>subjects</code> comma-separated ho to Excel me quote karo. <code>role</code> column ki zaroorat nahi (sab teachers hi banenge).</p>
+        <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
           <button class="btn btn-ghost btn-sm" id="tTplBtn">⬇️ Teacher Template</button>
         </div>
@@ -851,6 +852,46 @@ parent: {
 },
 };
 
+/* ================= v8.6 Admin Management ================= */
+async function loadAdmins() {
+  const { users } = await api('/api/users?role=admin');
+  const host = $('#adminsList'); if (!host) return;
+  host.innerHTML = users.map((u) => `
+    <div class="tt-row">
+      <div class="avatar sm">${esc(u.name.charAt(0).toUpperCase())}</div>
+      <strong style="flex:1;">${esc(u.name)}${state.user.id === u.id ? ' <span class="pill pill-soft" style="font-size:.62rem">YOU</span>' : ''}</strong>
+      <span class="muted small">@${esc(u.username)}</span>
+      <button class="btn btn-danger btn-sm" data-demote="${u.id}">⬇️ Demote</button>
+    </div>`).join('') || '<p class="muted small">Koi admin nahi?</p>';
+  host.querySelectorAll('[data-demote]').forEach((b) => b.addEventListener('click', () => demoteAdmin(b.dataset.demote)));
+}
+async function promoteToAdmin(id) {
+  const u = [...studentCache, ...teacherCache].find((x) => x.id === id); if (!u) return;
+  if (!confirm(`👑 ${u.name} ko ADMIN banao? Ye user full console access payega.`)) return;
+  try {
+    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: 'admin' }) });
+    toast(`${u.name} ab ADMIN hai 👑`);
+    if ($('#studentsBody')) loadAdminStudents();
+    if ($('#teachersBody')) loadAdminTeachers();
+    if ($('#adminsList')) loadAdmins();
+  } catch (e) { toast(e.message, 'error'); }
+}
+async function demoteAdmin(id) {
+  const { users } = await api('/api/users?role=admin');
+  const u = users.find((x) => x.id === id); if (!u) return;
+  if (users.length <= 1) return toast('🛡️ Last admin demote nahi ho sakta — pehle kisi aur ko admin banao.', 'error');
+  const newRole = prompt(`🛡️ ${u.name} ka naya role? (teacher / student)`, 'teacher');
+  if (newRole === null) return;
+  if (!['teacher', 'student'].includes(newRole.trim().toLowerCase())) return toast('Sirf teacher ya student likho.', 'error');
+  try {
+    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: newRole.trim().toLowerCase() }) });
+    toast(`${u.name} ab ${newRole.trim()} hai`);
+    loadAdmins();
+    if ($('#studentsBody')) loadAdminStudents();
+    if ($('#teachersBody')) loadAdminTeachers();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 /* ================= admin actions ================= */
 let studentCache = [], teacherCache = [];
 async function addStudent(e) {
@@ -870,7 +911,6 @@ async function addTeacher(e) {
     username: $('#tcUsername').value.trim(), password: $('#tcPassword').value }) });
   toast('Teacher added ✅'); e.target.reset(); refresh();
 }
-/* ---- Excel import: students (mixed role allowed via optional role column) ---- */
 async function bulkImportStudents() {
   const f = $('#bulkFile').files[0];
   if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
@@ -888,7 +928,6 @@ async function bulkImportStudents() {
   toast(res.message, res.added ? 'success' : 'error');
   loadAdminStudents();
 }
-/* ---- Excel import: teachers (dedicated) ---- */
 async function bulkImportTeachers() {
   const f = $('#tBulkFile').files[0];
   if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
@@ -905,7 +944,6 @@ async function bulkImportTeachers() {
   toast(res.message, res.added ? 'success' : 'error');
   loadAdminTeachers();
 }
-/* ---- Templates ---- */
 function downloadStudentTemplate() {
   if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
   const sample = [
@@ -954,7 +992,13 @@ function downloadTeacherTemplate() {
 }
 async function removeUser(id) {
   if (!confirm('Remove permanently?')) return;
-  await api(`/api/users/${id}`, { method:'DELETE' }); toast('Removed.'); refresh();
+  try {
+    await api(`/api/users/${id}`, { method:'DELETE' });
+    toast('Removed.');
+    if ($('#studentsBody')) loadAdminStudents();
+    if ($('#teachersBody')) loadAdminTeachers();
+    if ($('#adminsList')) loadAdmins();
+  } catch (e) { toast(e.message, 'error'); }
 }
 async function editStudent(id) {
   const u = studentCache.find((x) => x.id === id); if (!u) return;
@@ -987,45 +1031,6 @@ async function createParent(id) {
   try {
     await api('/api/users', { method:'POST', body: JSON.stringify({ role:'parent', username: un, password: pw, parentOf: id }) });
     toast('👨‍👩‍👧 Parent account created! Login share karo.');
-  } catch (e) { toast(e.message, 'error'); }
-}
-/* ===== v8.6 Admin Management ===== */
-async function loadAdmins() {
-  const { users } = await api('/api/users?role=admin');
-  const host = $('#adminsList'); if (!host) return;
-  host.innerHTML = users.map((u) => `
-    <div class="tt-row">
-      <div class="avatar sm">${esc(u.name.charAt(0).toUpperCase())}</div>
-      <strong style="flex:1;">${esc(u.name)}${state.user.id === u.id ? ' <span class="pill pill-soft" style="font-size:.62rem">YOU</span>' : ''}</strong>
-      <span class="muted small">@${esc(u.username)}</span>
-      <button class="btn btn-danger btn-sm" data-demote="${u.id}">⬇️ Demote</button>
-    </div>`).join('') || '<p class="muted small">Koi admin nahi?</p>';
-  host.querySelectorAll('[data-demote]').forEach((b) => b.addEventListener('click', () => demoteAdmin(b.dataset.demote)));
-}
-async function promoteToAdmin(id) {
-  const u = [...studentCache, ...teacherCache].find((x) => x.id === id); if (!u) return;
-  if (!confirm(`👑 ${u.name} ko ADMIN banao? Ye user full console access payega.`)) return;
-  try {
-    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: 'admin' }) });
-    toast(`${u.name} ab ADMIN hai 👑`);
-    if ($('#studentsBody')) loadAdminStudents();
-    if ($('#teachersBody')) loadAdminTeachers();
-    if ($('#adminsList')) loadAdmins();
-  } catch (e) { toast(e.message, 'error'); }
-}
-async function demoteAdmin(id) {
-  const { users } = await api('/api/users?role=admin');
-  const u = users.find((x) => x.id === id); if (!u) return;
-  if (users.length <= 1) return toast('🛡️ Last admin demote nahi ho sakta — pehle kisi aur ko admin banao.', 'error');
-  const newRole = prompt(`🛡️ ${u.name} ka naya role? (teacher / student)`, 'teacher');
-  if (newRole === null) return;
-  if (!['teacher', 'student'].includes(newRole.trim().toLowerCase())) return toast('Sirf teacher ya student likho.', 'error');
-  try {
-    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: newRole.trim().toLowerCase() }) });
-    toast(`${u.name} ab ${newRole.trim()} hai`);
-    loadAdmins();
-    if ($('#studentsBody')) loadAdminStudents();
-    if ($('#teachersBody')) loadAdminTeachers();
   } catch (e) { toast(e.message, 'error'); }
 }
 async function loadAdminStudents() {
@@ -1061,14 +1066,12 @@ async function loadAdminTeachers() {
       <td class="table-actions">
         <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️</button>
         <button class="btn btn-ghost btn-sm" data-pw="${u.id}">🔑</button>
-        <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>        
         <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>
         <button class="btn btn-danger btn-sm" data-del="${u.id}">✕</button></td></tr>`;
   }).join('') : '<tr><td colspan="5" class="empty">No teachers.</td></tr>';
   $('#teachersBody').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeUser(b.dataset.del)));
   $('#teachersBody').querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => editTeacher(b.dataset.edit)));
   $('#teachersBody').querySelectorAll('[data-pw]').forEach((b) => b.addEventListener('click', () => resetPassword(b.dataset.pw)));
-  $('#teachersBody').querySelectorAll('[data-prom]').forEach((b) => b.addEventListener('click', () => promoteToAdmin(b.dataset.prom)));
   $('#teachersBody').querySelectorAll('[data-prom]').forEach((b) => b.addEventListener('click', () => promoteToAdmin(b.dataset.prom)));
   wireSearch('#tcSearch', '#teachersBody');
 }
@@ -1292,6 +1295,7 @@ const AUDIT_STYLE = {
   MAIL_DEFAULTERS:['pill-soft','📧 Mail'], RFID:['pill-soft','📶 RFID'], CERT:['pill-soft','🧾 Cert'],
   HOLIDAY_ADD:['pill-soft','🏛️ Holiday'], HOLIDAY_DEL:['pill-warn','🗑 Holiday'], SETTINGS:['pill-warn','⚙️ Settings'],
   SECTIONS:['pill-warn','🏫 Sections'], SETUP_ADMIN:['pill-good','👑 First admin'],
+  ROLE_PROMOTE:['pill-good','👑 Admin bana'], ROLE_DEMOTE:['pill-warn','⬇️ Demote'], PROFILE_EDIT:['pill-soft','✏️ Profile'],
 };
 async function loadAudit() {
   const { logs } = await api('/api/admin/audit');
