@@ -113,7 +113,7 @@ async function downloadFile(url, filename) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-/* ================= login (2FA + setup wizard + demo-hide) ================= */
+/* ================= login ================= */
 let pending2fa = null;
 function bindLogin() {
   const err = $('#loginError'), btn = $('#loginBtn');
@@ -221,7 +221,8 @@ async function startApp() {
   $('#view-login').hidden = true; $('#view-app').hidden = false;
   try {
     state.settings = await api('/api/settings');
-    state.sections = (state.settings && state.settings.sections) || ['A', 'B', 'C'];
+    const secs = state.settings && state.settings.sections;
+    if (Array.isArray(secs) && secs.length) state.sections = secs;
   } catch {}
   $('#avatar').textContent = state.user.name.charAt(0).toUpperCase();
   $('#userName').textContent = state.user.name;
@@ -298,7 +299,7 @@ function wireProgramPicker(pSel, bSel, sSel, semPrefix = 'Sem ') {
   return { set(p, b, s) { pSel.value = PROGRAMS[p] ? p : 'B.Tech'; fillBranches(); if (b && PROGRAMS[pSel.value].branches.includes(b)) bSel.value = b; fillSems(); if (sSel && s && Number(s) <= PROGRAMS[pSel.value].sems) sSel.value = String(Number(s)); } };
 }
 const secOptions = (all) => (all ? '<option value="">All Sections</option>' : '<option value="">No Section</option>') +
-  (state.sections && state.sections.length ? state.sections : ['A','B','C']).map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  (Array.isArray(state.sections) && state.sections.length ? state.sections : ['A','B','C']).map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
 function wireSearch(inputSel, tbodySel) {
   const inp = $(inputSel); if (!inp) return;
   inp.addEventListener('input', () => {
@@ -309,7 +310,7 @@ function wireSearch(inputSel, tbodySel) {
 const abbr = (s) => s === 'present' ? 'P' : s === 'late' ? 'L' : s === 'absent' ? 'A' : '·';
 const cellCls = (s) => s === 'present' ? 'pill-good' : s === 'late' ? 'pill-warn' : s === 'absent' ? 'pill-bad' : '';
 
-/* ================= Excel helpers (v8.3) ================= */
+/* ================= Excel helpers ================= */
 const normKeys = (r) => { const o = {}; Object.keys(r || {}).forEach((k) => { o[String(k).toLowerCase().replace(/[\s_]/g, '')] = String(r[k] ?? '').trim(); }); return o; };
 function parseExcelOrCSV(file) {
   return new Promise((resolve, reject) => {
@@ -343,42 +344,14 @@ function parseExcelOrCSV(file) {
     }
   });
 }
-function downloadStudentTemplate() {
+function makeWorkbook(sheets, filename) {
   if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
-  const sample = [
-    { name: 'Riya Sharma', rollNo: '2301641520001', program: 'B.Tech', branch: 'CSE', semester: '3', section: 'A', email: 'riya@student.glbitm.ac.in', username: 'riya', password: 'pass123' },
-    { name: 'Aman Gupta', rollNo: '2301641520002', program: 'B.Tech', branch: 'CSE (Artificial Intelligence)', semester: '5', section: 'B', email: 'aman@student.glbitm.ac.in', username: 'aman', password: 'pass456' },
-  ];
-  const ws = XLSX.utils.json_to_sheet(sample);
-  ws['!cols'] = [{wch:22},{wch:16},{wch:10},{wch:42},{wch:10},{wch:10},{wch:34},{wch:14},{wch:12}];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Students');
-  const help = [
-    ['GLBITM Bulk Student Import — Instructions'], [],
-    ['RULES:'],
-    ['1. "Students" sheet ki pehli row (headers) EXACTLY aise hi rakho:'],
-    ['   name | rollNo | program | branch | semester | section | email | username | password'],
-    ['2. Sample rows delete karke apne students bharo. Ek row = ek student.'],
-    ['3. program — sirf ye values (case-sensitive):'],
-    ...Object.keys(PROGRAMS).map((p) => [`   ${p}`, `semesters: 1–${PROGRAMS[p].sems}`]),
-    [],
-    ['4. branch — program ke hisaab se EXACT spelling (niche list):'],
-    ...Object.entries(PROGRAMS).flatMap(([p, v]) => v.branches.map((b) => [`${p}  →  ${b}`])),
-    [],
-    ['5. semester: program ki range me (1–8 B.Tech, 1–6 BCA/BBA/PGDM, 1–4 MCA/MBA/M.Tech).'],
-    ['6. section: admin ne jo sections set kiye hain (default A, B, C). Khaali chhod sakte ho.'],
-    ['7. email optional. username UNIQUE hona chahiye. password min 4 chars.'],
-    [],
-    ['Save karo (.xlsx) → Admin → Students → Import.'],
-  ];
-  const hws = XLSX.utils.aoa_to_sheet(help);
-  hws['!cols'] = [{ wch: 60 }, { wch: 30 }];
-  XLSX.utils.book_append_sheet(wb, hws, 'Instructions');
-  XLSX.writeFile(wb, 'GLBITM-student-import-template.xlsx');
-  toast('Template downloaded — Instructions sheet zaroor padhna!');
+  sheets.forEach(([name, ws, cols]) => { if (cols) ws['!cols'] = cols; XLSX.utils.book_append_sheet(wb, ws, name); });
+  XLSX.writeFile(wb, filename);
 }
 
-/* ================= SECTIONS ================= */
+/* ================= SECTIONS (pages) ================= */
 const SECTIONS = {
 
 admin: {
@@ -398,12 +371,13 @@ admin: {
           <span class="muted small">Yahi % eligibility, defaulters, colors — sab jagah use hota hai.</span>
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
-          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🏫 Sections (comma-separated — koi bhi naam allowed)</label>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🏫 Sections (comma-separated — koi bhi naam)</label>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <input class="input" id="setSecs" style="max-width:360px;" placeholder="e.g. A, B, C, AI-1, CSE-STAR" />
             <button class="btn btn-primary btn-sm" id="secSave">Save Sections</button>
+            <span class="muted small" id="secCurrent"></span>
           </div>
-          <p class="muted small" style="margin-top:6px;">Ye dropdowns sab jagah apply honge — Add Student, filters, Timetable, Excel import. Uppercase auto hota hai.</p>
+          <p class="muted small" style="margin-top:6px;">Sab dropdowns me apply hoga. Uppercase auto.</p>
         </div></div>
       <div class="card def-card"><div class="card-head"><h2>🚨 Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
@@ -426,10 +400,14 @@ admin: {
         const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value) }) });
         state.settings.threshold = r.threshold; toast(r.message); loadDefaulters();
       }));
+      $('#secCurrent').textContent = `Current: ${(state.sections || []).join(', ')}`;
       $('#setSecs').value = (state.sections || []).join(', ');
       $('#secSave').addEventListener('click', safe(async () => {
-        const r = await api('/api/admin/sections', { method:'PUT', body: JSON.stringify({ sections: $('#setSecs').value }) });
-        state.sections = r.sections; toast(r.message); refresh();
+        const raw = $('#setSecs').value;
+        const r = await api('/api/admin/sections', { method:'PUT', body: JSON.stringify({ sections: raw.split(',').map((x) => x.trim()).filter(Boolean) }) });
+        state.sections = r.sections;
+        $('#secCurrent').textContent = `Current: ${r.sections.join(', ')}`;
+        toast(r.message);
       }));
       loadDefaulters();
       $('#mailDefBtn').addEventListener('click', safe(async () => toast((await api('/api/reports/email-defaulters', { method:'POST' })).message, 'info')));
@@ -459,9 +437,9 @@ admin: {
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
       <div class="card"><h2>📥 Bulk Import — Excel (.xlsx) ya CSV</h2>
-        <p class="muted small">Best tarika: pehle <strong>⬇️ Template download</strong> karo → usme "Instructions" sheet hai (allowed programs/branches/semesters sab likha) → Students sheet me bharo → upload. Galat values khud reject ho jati hain with reason.</p>
+        <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. Galat values reason ke saath reject hoti hain.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ Excel Template Download</button>
+          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ Student Template</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <input type="file" id="bulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
@@ -493,6 +471,15 @@ admin: {
           <input class="input" id="tcPassword" placeholder="Password" required />
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
+      <div class="card"><h2>📥 Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
+        <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code> — <code>subjects</code> comma-separated ho to Excel me quote karo. <code>role</code> column ki zaroorat nahi (sab teachers hi banenge).</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <button class="btn btn-ghost btn-sm" id="tTplBtn">⬇️ Teacher Template</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="file" id="tBulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
+          <button class="btn btn-primary" id="tBulkBtn">📥 Import Teachers</button></div>
+        <div id="tBulkResult" class="muted small" style="margin-top:10px;"></div></div>
       <div class="card"><h2>🧑‍🏫 Teaching Staff</h2>
         <input class="input search-input" id="tcSearch" placeholder="🔍 Search…" />
         <div class="table-wrap"><table>
@@ -501,6 +488,8 @@ admin: {
     init: () => {
       wireProgramPicker($('#tcProgram'), $('#tcBranch'), null);
       $('#addTeacherForm').addEventListener('submit', safe(addTeacher));
+      $('#tTplBtn').addEventListener('click', downloadTeacherTemplate);
+      $('#tBulkBtn').addEventListener('click', safe(bulkImportTeachers));
       return loadAdminTeachers();
     },
   },
@@ -705,7 +694,7 @@ teacher: {
           <label>Exam<input class="input" id="mkExam" placeholder="e.g. MST-1" /></label>
           <label>Max<input class="input" type="number" id="mkMax" value="30" min="1" /></label>
           <button class="btn btn-primary" id="mkLoad">${t('load')} →</button></div>
-        <p class="muted small" style="margin-top:10px;">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> (rollNo prefilled milega) → Excel me sirf score bharo → 📥 Import → 💾 Save.</p></div>
+        <p class="muted small" style="margin-top:10px;">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> (rollNo prefilled) → Excel me sirf score bharo → 📥 Import → 💾 Save.</p></div>
       <div class="card" id="mkCard" hidden><h2 id="mkTitle">Scores</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="mkTemplate">⬇️ Template (rollNo prefilled)</button>
@@ -879,6 +868,7 @@ async function addTeacher(e) {
     username: $('#tcUsername').value.trim(), password: $('#tcPassword').value }) });
   toast('Teacher added ✅'); e.target.reset(); refresh();
 }
+/* ---- Excel import: students (mixed role allowed via optional role column) ---- */
 async function bulkImportStudents() {
   const f = $('#bulkFile').files[0];
   if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
@@ -886,14 +876,79 @@ async function bulkImportStudents() {
   try { raw = await parseExcelOrCSV(f); }
   catch (e) { return toast('File read fail: ' + e.message, 'error'); }
   const students = raw
-    .map((o) => ({ name: o.name || '', rollNo: o.rollno || o.roll || '', program: o.program || '', branch: o.branch || '', semester: o.semester || '', section: o.section || '', email: o.email || '', username: o.username || o.user || '', password: o.password || o.pass || '' }))
+    .map((o) => ({ role: o.role || 'student', name: o.name || '', rollNo: o.rollno || o.roll || '', program: o.program || '', branch: o.branch || '', semester: o.semester || '', section: o.section || '', email: o.email || '', username: o.username || o.user || '', password: o.password || o.pass || '', subjects: o.subjects || '' }))
     .filter((s) => s.name || s.username || s.password || s.rollNo);
   if (!students.length) return toast('File me koi valid row nahi mili (sirf khaali rows hain).', 'error');
-  if (!confirm(`${students.length} students import karna hai. Continue?`)) return;
+  const tCount = students.filter((s) => s.role.toLowerCase() === 'teacher').length;
+  if (!confirm(`${students.length} rows import (${students.length - tCount} students${tCount ? ` + ${tCount} teachers` : ''}). Continue?`)) return;
   const res = await api('/api/users/bulk', { method:'POST', body: JSON.stringify({ students }) });
   $('#bulkResult').innerHTML = `<strong>${esc(res.message)}</strong>` + (res.errors.length ? `<br/>Errors:<br/>${res.errors.map(esc).join('<br/>')}` : '');
   toast(res.message, res.added ? 'success' : 'error');
   loadAdminStudents();
+}
+/* ---- Excel import: teachers (dedicated) ---- */
+async function bulkImportTeachers() {
+  const f = $('#tBulkFile').files[0];
+  if (!f) return toast('Pehle file choose karo (Excel ya CSV).', 'error');
+  let raw;
+  try { raw = await parseExcelOrCSV(f); }
+  catch (e) { return toast('File read fail: ' + e.message, 'error'); }
+  const teachers = raw
+    .map((o) => ({ role: 'teacher', name: o.name || '', program: o.program || '', branch: o.branch || '', email: o.email || '', username: o.username || o.user || '', password: o.password || o.pass || '', subjects: o.subjects || '' }))
+    .filter((s) => s.name || s.username || s.password);
+  if (!teachers.length) return toast('File me koi valid teacher row nahi mili.', 'error');
+  if (!confirm(`${teachers.length} teachers import karna hai. Continue?`)) return;
+  const res = await api('/api/users/bulk', { method:'POST', body: JSON.stringify({ students: teachers }) });
+  $('#tBulkResult').innerHTML = `<strong>${esc(res.message)}</strong>` + (res.errors.length ? `<br/>Errors:<br/>${res.errors.map(esc).join('<br/>')}` : '');
+  toast(res.message, res.added ? 'success' : 'error');
+  loadAdminTeachers();
+}
+/* ---- Templates ---- */
+function downloadStudentTemplate() {
+  if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
+  const sample = [
+    { role: 'student', name: 'Riya Sharma', rollNo: '2301641520001', program: 'B.Tech', branch: 'CSE', semester: '3', section: 'A', email: 'riya@student.glbitm.ac.in', username: 'riya', password: 'pass123', subjects: '' },
+    { role: 'student', name: 'Aman Gupta', rollNo: '2301641520002', program: 'B.Tech', branch: 'CSE (Artificial Intelligence)', semester: '5', section: 'B', email: 'aman@student.glbitm.ac.in', username: 'aman', password: 'pass456', subjects: '' },
+    { role: 'teacher', name: 'Prof. Rajesh Kumar', rollNo: '', program: 'B.Tech', branch: 'CSE', semester: '', section: '', email: 'rajesh@glbitm.ac.in', username: 'rajesh', password: 'teach123', subjects: 'Data Structures, DBMS' },
+  ];
+  const ws = XLSX.utils.json_to_sheet(sample);
+  ws['!cols'] = [{wch:10},{wch:22},{wch:16},{wch:10},{wch:42},{wch:10},{wch:10},{wch:34},{wch:14},{wch:12},{wch:30}];
+  const help = XLSX.utils.aoa_to_sheet([
+    ['GLBITM Bulk Import — Instructions'], [],
+    ['ROLE column: "student" ya "teacher" (khaali = student).'],
+    ['STUDENT rows ke liye zaroori: name, username, password, program, branch, semester'],
+    ['TEACHER rows ke liye zaroori: name, username, password (baaki optional)'],
+    ['subjects column (teachers): comma-separated, e.g. Data Structures, DBMS'],
+    [],
+    ['program values (EXACT):', ...Object.keys(PROGRAMS)],
+    [],
+    ['branch values (program ke hisaab se EXACT):'],
+    ...Object.entries(PROGRAMS).flatMap(([p, v]) => v.branches.map((b) => [`${p}  →  ${b}`])),
+    [],
+    ['semester ranges: B.Tech 1-8 · BCA/BBA/PGDM 1-6 · MCA/MBA/M.Tech 1-4'],
+    ['section: admin-set sections (default A, B, C). Optional.'],
+    ['username UNIQUE hona chahiye. password min 4 chars.'],
+  ]);
+  makeWorkbook([['Data', ws, null], ['Instructions', help, [{ wch: 70 }, { wch: 30 }]]], 'GLBITM-user-import-template.xlsx');
+  toast('Template downloaded — Instructions sheet padhna!');
+}
+function downloadTeacherTemplate() {
+  if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
+  const sample = [
+    { name: 'Prof. Rajesh Kumar', username: 'rajesh', password: 'teach123', program: 'B.Tech', branch: 'CSE', email: 'rajesh@glbitm.ac.in', subjects: 'Data Structures, DBMS' },
+    { name: 'Prof. Sunita Jain', username: 'sunita', password: 'teach123', program: 'B.Tech', branch: 'Electronics and Communication Engineering', email: 'sunita@glbitm.ac.in', subjects: 'Digital Electronics' },
+  ];
+  const ws = XLSX.utils.json_to_sheet(sample);
+  ws['!cols'] = [{wch:24},{wch:14},{wch:12},{wch:10},{wch:42},{wch:30},{wch:32}];
+  const help = XLSX.utils.aoa_to_sheet([
+    ['Teacher Bulk Import — Instructions'], [],
+    ['Zaroori columns: name, username, password'],
+    ['Optional: program, branch, email, subjects'],
+    ['subjects: comma-separated (Excel me pura value ek hi cell me rakho)'],
+    ['username UNIQUE hona chahiye — duplicate skip honge'],
+  ]);
+  makeWorkbook([['Teachers', ws, null], ['Instructions', help, [{ wch: 70 }, { wch: 30 }]]], 'GLBITM-teacher-import-template.xlsx');
+  toast('Teacher template downloaded!');
 }
 async function removeUser(id) {
   if (!confirm('Remove permanently?')) return;
@@ -1352,8 +1407,6 @@ function downloadMarksTemplate() {
   const rows = state.roster.map((s) => ({ rollNo: s.rollNo || s.username, name: s.name, score: '' }));
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = [{ wch: 18 }, { wch: 26 }, { wch: 10 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Marks');
   const help = XLSX.utils.aoa_to_sheet([
     ['Marks Import Template — Instructions'], [],
     ['1. rollNo column ko EDIT MAT karo — wahi student match hota hai.'],
@@ -1361,8 +1414,7 @@ function downloadMarksTemplate() {
     ['3. Khaali score = us student ka skip.'],
     ['4. Save (.xlsx) → 📥 Import scores from file → 💾 Save Marks.'],
   ]);
-  XLSX.utils.book_append_sheet(wb, help, 'Instructions');
-  XLSX.writeFile(wb, `marks-${($('#mkSubject').value.trim() || 'subject')}-${($('#mkExam').value.trim() || 'exam')}.xlsx`);
+  makeWorkbook([['Marks', ws, null], ['Instructions', help, [{ wch: 66 }]]], `marks-${($('#mkSubject').value.trim() || 'subject')}-${($('#mkExam').value.trim() || 'exam')}.xlsx`);
   toast('Template downloaded — rollNo already bhare hain!');
 }
 async function importMarksFile() {
@@ -1403,7 +1455,6 @@ async function importMarksFile() {
   }
   const missMsg = missing.length ? ` · ⚠️ ${missing.length} rollNo class me nahi mile (${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''})` : '';
   toast(`✅ ${matched} scores fill hue${noScore ? ` · ${noScore} khaali score skip` : ''}${missMsg}`, matched ? 'success' : 'error');
-  if (matched) $('#bulkResult') && 0;
 }
 async function saveMarks() {
   const entries = [...$('#mkList').querySelectorAll('[data-mk]')]
