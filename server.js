@@ -137,9 +137,9 @@ function migrateLegacyJSON() {
 }
 function seedIfEmpty() {
   if (db.prepare('SELECT COUNT(*) AS c FROM users').get().c > 0) return;
-   /* v7.2: demo data ab sirf SEED_DEMO=1 pe — production fresh+empty rahega, wizard dikhega */
+  /* v7.3: demo data sirf SEED_DEMO=1 pe — production fresh+empty rahega, wizard dikhega */
   if (process.env.SEED_DEMO !== '1') {
-    console.log('  ℹ️ DB khaali hai — demo seed skip (SEED_DEMO=1 env se on karo). Setup wizard se pehla admin banao.');
+    console.log('  ℹ️ DB khaali — demo seed off (SEED_DEMO=1 se on hota hai). Setup wizard se pehla admin banao.');
     return;
   }
   if (migrateLegacyJSON()) { console.log('  ✅ migration done.'); return; }
