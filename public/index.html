@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}[hidden]{display:none!important}
@@ -39,7 +39,7 @@ h1,h2,h3{font-family:'Space Grotesk','Inter',sans-serif}h1{font-size:1.5rem;font
 .btn-ghost{background:var(--primary-soft);color:var(--primary)}.btn-ghost:hover{background:var(--primary-hover)}
 .btn-danger{background:var(--red-soft);color:var(--red)}
 .btn-sm{padding:6px 12px;font-size:.8rem;border-radius:9px}.btn-block{width:100%}.btn:disabled{opacity:.55;cursor:not-allowed}
-.input{width:100%;padding:11px 14px;border:1.5px solid var(--border-strong);border-radius:11px;font:inherit;background:var(--surface-solid);color:var(--text)}
+.input{width:100%;padding:11px 14px;border:1.5px solid var(--border-strong);border-radius:11px;font:inherit;background:var(--surface-solid);color:var(--text);transition:border-color .18s,box-shadow .18s}
 body.dark .input{background:rgba(4,9,20,.55)}
 .input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-soft)}
 select.input{cursor:pointer}.input::placeholder{color:var(--muted);opacity:.65}
@@ -72,7 +72,7 @@ input[type=range]{width:100%;accent-color:var(--primary)}input[type=file].input{
 .demo-box{margin-top:22px;padding-top:16px;border-top:1px dashed var(--border-strong)}
 .demo-box p{font-size:.76rem;color:var(--muted);margin-bottom:10px}
 .demo-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.chip{border:1.5px solid var(--border-strong);background:var(--surface-2);border-radius:999px;padding:7px 14px;font:inherit;font-size:.76rem;font-weight:600;cursor:pointer;color:var(--text)}
+.chip{border:1.5px solid var(--border-strong);background:var(--surface-2);border-radius:999px;padding:7px 14px;font:inherit;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .18s;color:var(--text)}
 .chip:hover{border-color:var(--primary);background:var(--primary-soft)}
 .layout{display:grid;grid-template-columns:262px 1fr;min-height:100vh}
 .sidebar{background:var(--sidebar);color:#c7d4ec;padding:22px 16px;display:flex;flex-direction:column;gap:20px;position:sticky;top:0;height:100vh}
@@ -217,7 +217,8 @@ kbd{background:var(--border);border-radius:6px;padding:1px 7px;font-weight:700;f
 .cert-card{background:#fff;color:#1a1a2e;border:3px double var(--primary);border-radius:14px;padding:34px 30px;max-width:560px;text-align:center;font-family:Georgia,serif}
 .cert-card h2{color:var(--primary)}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto;gap:12px;padding:14px 16px}.nav-label{display:none}.nav-links{flex-direction:row;overflow-x:auto}.nav-link{white-space:nowrap}.sidebar-footer{display:flex;border-top:none;padding-top:0;align-items:center;gap:8px}.user-chip{flex:1;padding:6px 8px}.footer-actions{margin-left:auto}.main{padding:20px 16px 40px}.student-grid{grid-template-columns:1fr}.charts{grid-template-columns:1fr}.heat{grid-template-columns:repeat(10,1fr)}.auth-shell{grid-template-columns:1fr}.auth-brand{display:none}.auth-panel{padding:32px 22px}.sm-panel{grid-template-columns:1fr}}
-@media print{body{background:#fff}.sidebar,.toast-container,.bg-fx,.no-print,#annBar{display:none!important}.main{padding:0}.card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;background:#fff}}
+@media print{body{background:#fff}.sidebar,.toast-container,.bg-fx,.no-print,#annBar{display:none!important}.main{padding:0}.card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;background:#fff}.print-head{display:block!important;text-align:center;margin-bottom:18px}}
+.print-head{display:none}
 </style>
 </head>
 <body>
@@ -234,7 +235,7 @@ kbd{background:var(--border);border-radius:6px;padding:1px 7px;font-weight:700;f
         <li>⏱️ Rotating QR self-marking — code har 30 sec badalta hai</li>
         <li>🧠 Face-recognition + GPS geo-fencing + proxy detection</li>
         <li>👨‍👩‍👧 Parent portal · 📋 monthly register · 🧾 certificates</li>
-        <li>🔐 2FA · audit trail · SQLite · RFID hardware ready</li>
+        <li>🔐 2FA · audit trail · PostgreSQL · RFID hardware ready</li>
       </ul>
       <div class="accred"><span>Approved by AICTE</span><span>Affiliated to AKTU Lucknow</span><span>NAAC Accredited</span></div>
       <div class="brand-foot">© GLBITM · 27th KM Milestone, Knowledge Park-III, Greater Noida</div>
@@ -307,9 +308,9 @@ kbd{background:var(--border);border-radius:6px;padding:1px 7px;font-weight:700;f
 <div id="pickModal" class="modal" hidden><div class="modal-box"><h2>🎯 Random Student</h2><div class="pick-name" id="pickName">—</div><button class="btn btn-primary" id="pickClose">Close</button></div></div>
 <div id="cmdk" class="modal" hidden><div class="cmd-box"><input class="cmd-input" id="cmdInput" placeholder="Type a command… (↑↓ + Enter)" autocomplete="off" /><div class="cmd-list" id="cmdList"></div></div></div>
 <div id="idModal" class="modal" hidden><div style="display:grid;gap:14px;justify-items:center;"><div id="idCardHost"></div><div style="display:flex;gap:10px;" class="no-print"><button class="btn btn-primary" id="idPrint">🖨️ Print</button><button class="btn btn-ghost" id="idClose">Close</button></div></div></div>
-<div id="certModal" class="modal" hidden><div style="display:grid;gap:14px;justify-items:center;"><div id="certHost"></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;" class="no-print"><button class="btn btn-primary" id="certPrint">🖨️ Print / PDF</button><a id="certVerifyLink" class="btn btn-ghost" target="_blank">🔗 Verify URL</a><button class="btn btn-ghost" id="certClose">Close</button></div></div></div>
+<div id="certModal" class="modal" hidden><div style="display:grid;gap:14px;justify-items:center;"><div id="certHost"></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;" class="no-print"><button class="btn btn-primary" id="certPrint">🖨️ Print / Save PDF</button><a id="certVerifyLink" class="btn btn-ghost" target="_blank">🔗 Verify URL</a><button class="btn btn-ghost" id="certClose">Close</button></div></div></div>
 <div id="toastBox" class="toast-container"></div>
 
-<script src="app.js?v=84"></script>
+<script src="app.js?v=85"></script>
 </body>
 </html>
