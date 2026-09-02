@@ -61,7 +61,7 @@ HARDWARE_KEY	demo-hardware-key	RFID hardware endpoint auth
 📡 RFID / Biometric Hardware Endpoint
 Koi bhi USB RFID reader (keyboard-emulation mode) ya biometric device ye API hit kar sakta hai:
 
-curl -X POST https://YOUR-HOST/api/hardware/rfid \  -H "X-Device-Key: demo-hardware-key" \  -H "Content-Type: application/json" \  -d '{"cardId":"CARD-001","program":"B.Tech","branch":"CSE","semester":3,"section":"A","subject":"DBMS"}'
+curl -X POST https://glbitm-attendance.onrender.com/api/hardware/rfid  \  -H "X-Device-Key: demo-hardware-key" \  -H "Content-Type: application/json" \  -d '{"cardId":"CARD-001","program":"B.Tech","branch":"CSE","semester":3,"section":"A","subject":"DBMS"}'
 🔑 API Overview
 Method	Endpoint	Role	Kaam
 POST	/api/login	—	Login (2FA support)
@@ -81,7 +81,7 @@ POST	/api/hardware/rfid	device-key	RFID tap marking
 📁 Project Structure
 glbitm-attendance-system/├── server.js                 # Express API + SQLite schema + all business logic├── package.json├── data/                     # (gitignored) SQLite DB + selfie proofs├── public/│   ├── index.html            # SPA shell (glassmorphism UI)│   ├── app.js                # All frontend logic (routing, dashboards, i18n)│   ├── manifest.json         # PWA manifest│   ├── sw.js                 # Service worker (offline shell)│   ├── icon.svg│   └── assets/               # logo.png, campus.jpg (custom branding)
 🚢 Deployment
-Live deployed on Render → https://YOUR-APP-URL.onrender.com
+Live deployed on Render → https://glbitm-attendance-system.onrender.com/
 
 Deployment guide (Render / Railway / Oracle VPS — step by step): DEPLOYMENT.md
 
