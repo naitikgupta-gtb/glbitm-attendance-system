@@ -715,7 +715,7 @@ app.get('/api/reports/workload', requireAuth, requireRole('admin'), H(async (req
 }));
 app.get('/api/reports/subjects', requireAuth, requireRole('admin'), H(async (req, res) => {
   const rows = await sql`SELECT r.subject, COUNT(DISTINCT r.id)::int AS sessions, COUNT(e.id)::int AS total, COALESCE(SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END), 0)::int AS attended FROM records r LEFT JOIN entries e ON e.record_id = r.id GROUP BY r.subject ORDER BY sessions DESC`;
-  res.json({ items: rows.map((r) => ({ ...r, pct: r.total ? Math.round((r.attended / r.total) * 100) : 0 })) }));
+  res.json({ items: rows.map((r) => ({ ...r, pct: r.total ? Math.round((r.attended / r.total) * 100) : 0 })) });
 }));
 app.get('/api/reports/correlation', requireAuth, requireRole('admin'), H(async (req, res) => {
   const out = [];
