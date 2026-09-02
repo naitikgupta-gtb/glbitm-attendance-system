@@ -36,7 +36,7 @@ PWA	Service Worker + Web App Manifest
 Why SQLite? Zero-configuration, single-file, real SQL (joins, indexes, transactions) — production-grade se bina kisi external DB server ke.
 
 🚀 Quick Start (Local)
-git clone https://github.com/naitikgupta-gtb/glbitm-attendance-system.git cd glbitm-attendance-system npm install npm start
+git clone https://github.com/naitikgupta-gtb/glbitm-attendance-system.gitcd glbitm-attendance-system npm install npm start
 Open → http://localhost:3000 (busy port pe auto-shift: 3001, 3002…)
 
 ⚠️ Requires Node.js 22.5+ (built-in node:sqlite). Download: https://nodejs.org
