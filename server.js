@@ -13,7 +13,15 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 const sql = postgres(DATABASE_URL, { prepare: false, max: 5, ssl: 'require', connect_timeout: 30 });
-
+/* v8.5.1 compat shim: kuch postgres.js versions me sql.join nahi hota */
+if (typeof sql.join !== 'function') {
+  sql.join = (chunks, sep) => {
+    if (!chunks || !chunks.length) return sql``;
+    let out = chunks[0];
+    for (let i = 1; i < chunks.length; i++) out = sql`${out} ${sep || sql` `} ${chunks[i]}`;
+    return out;
+  };
+}
 const VALID_STATUSES = ['present', 'late', 'absent'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const EDIT_LOCK_MS = 24 * 3600 * 1000;
