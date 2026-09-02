@@ -1,7 +1,7 @@
 /**
- * GL Bajaj Attendance System — v8.4 (Render + Supabase + Excel Import + Custom Sections + Teacher Bulk Import)
- * PERSISTENT cloud DB · Rotating QR · Face · Parent Portal · Marks import · Register · Certificate · RFID
- * NEW v8.4: saveSections input fix · bulk import supports students AND teachers (role column)
+ * GL Bajaj Attendance System — v8.6 (Admin Management Edition)
+ * PERSISTENT cloud DB · Rotating QR · Face · Parent Portal · Excel Import · Sections
+ * NEW v8.6: Role promote/demote · Last-admin protection · Self profile edit · batch stats
  */
 const express = require('express');
 const crypto = require('crypto');
@@ -22,6 +22,7 @@ if (typeof sql.join !== 'function') {
     return out;
   };
 }
+
 const VALID_STATUSES = ['present', 'late', 'absent'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const EDIT_LOCK_MS = 24 * 3600 * 1000;
@@ -158,7 +159,6 @@ async function getThreshold() {
   const v = Number(r[0]?.value ?? 75);
   return v >= 40 && v <= 95 ? v : 75;
 }
-/* v8.4 FIX: robust input handling — string, array, ya object sab handle */
 async function getSections() {
   const r = await sql`SELECT value FROM settings WHERE key = 'sections'`;
   try { const arr = JSON.parse(r[0]?.value || '[]'); return Array.isArray(arr) && arr.length ? arr : ['A', 'B', 'C']; } catch { return ['A', 'B', 'C']; }
@@ -272,6 +272,18 @@ app.post('/api/me/password', requireAuth, H(async (req, res) => {
   await sql`UPDATE users SET password_hash = ${hashPassword(newPassword)} WHERE id = ${req.user.id}`;
   await addAudit('CHANGE_PW', req.user.username); res.json({ ok: true, message: 'Password changed.' });
 }));
+/* v8.6: self profile edit (naam/email) — koi bhi role */
+app.patch('/api/me/profile', requireAuth, H(async (req, res) => {
+  const b = req.body || {};
+  const sets = [];
+  if ('name' in b && String(b.name).trim()) sets.push(sql`name = ${String(b.name).trim()}`);
+  if ('email' in b) sets.push(sql`email = ${String(b.email || '').trim()}`);
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
+  await sql`UPDATE users SET ${sql.join(sets, sql`, `)} WHERE id = ${req.user.id}`;
+  await addAudit('PROFILE_EDIT', req.user.username);
+  const user = (await sql`SELECT * FROM users WHERE id = ${req.user.id}`)[0];
+  res.json({ ok: true, user: publicUser(user), message: 'Profile updated ✏️' });
+}));
 app.post('/api/me/twofa', requireAuth, H(async (req, res) => {
   const on = req.body && req.body.on ? 1 : 0;
   await sql`UPDATE users SET twofa = ${on} WHERE id = ${req.user.id}`;
@@ -347,7 +359,6 @@ app.post('/api/users', requireAuth, requireRole('admin'), H(async (req, res) => 
   await addAudit('USER_ADD', req.user.username, `${role} "${un}" (${program})`);
   res.status(201).json({ user: publicUser((await sql`SELECT * FROM users WHERE id = ${id}`)[0]) });
 }));
-/* v8.4: bulk import — role column support (student + teacher dono) */
 app.post('/api/users/bulk', requireAuth, requireRole('admin'), H(async (req, res) => {
   const list = Array.isArray(req.body && req.body.students) ? req.body.students : [];
   if (!list.length) return res.status(400).json({ error: 'Koi row nahi mili.' });
@@ -360,7 +371,6 @@ app.post('/api/users/bulk', requireAuth, requireRole('admin'), H(async (req, res
     if (!name || !un || !pw) { errors.push(`Row ${row}: name/username/password khaali`); continue; }
     if ((await sql`SELECT id FROM users WHERE username = ${un}`).length) { skipped++; continue; }
     const role = String(s.role || 'student').trim().toLowerCase() === 'teacher' ? 'teacher' : 'student';
-
     if (role === 'teacher') {
       const program = PROGRAMS[s.program] ? s.program : '';
       await sql`INSERT INTO users (id, role, name, username, password_hash, program, branch, email, subjects, created_at) VALUES (${'T' + Date.now().toString(36).toUpperCase() + i}, 'teacher', ${name}, ${un}, ${hashPassword(pw)}, ${program}, ${String(s.branch || '').trim()}, ${String(s.email || '').trim()}, ${JSON.stringify(parseSubjectList(s.subjects))}, ${nowISO()})`;
@@ -387,11 +397,29 @@ app.post('/api/admin/promote', requireAuth, requireRole('admin'), H(async (req, 
   await addAudit('PROMOTE', req.user.username, `${r.count} students`);
   res.json({ ok: true, message: `${r.count} students promoted. 🎓` });
 }));
+/* v8.6: PATCH me role change support (promote/demote) */
 app.patch('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
   const b = req.body || {};
   const row = (await sql`SELECT * FROM users WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'User not found.' });
   const sets = [];
+  if ('role' in b) {
+    const newRole = String(b.role).trim().toLowerCase();
+    if (!['student', 'teacher', 'admin'].includes(newRole)) return res.status(400).json({ error: 'Invalid role.' });
+    if (newRole !== row.role && row.role === 'admin') {
+      const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`;
+      if (c <= 1) return res.status(400).json({ error: '🛡️ Last admin demote nahi ho sakta! Pehle kisi aur ko admin banao.' });
+      await addAudit('ROLE_DEMOTE', req.user.username, `${row.username} admin → ${newRole}`);
+    }
+    if (newRole !== row.role && newRole === 'admin') await addAudit('ROLE_PROMOTE', req.user.username, `${row.username} → admin`);
+    sets.push(sql`role = ${newRole}`);
+    if (newRole === 'admin') sets.push(sql`subjects = '[]'`);
+    if (newRole === 'student') {
+      sets.push(sql`branch = COALESCE(NULLIF(branch, ''), 'General')`);
+      sets.push(sql`semester = COALESCE(semester, 1)`);
+      if (!PROGRAMS[row.program]) sets.push(sql`program = 'B.Tech'`);
+    }
+  }
   if ('name' in b && String(b.name).trim()) sets.push(sql`name = ${String(b.name).trim()}`);
   if ('program' in b) { if (!PROGRAMS[b.program]) return res.status(400).json({ error: 'Invalid program.' }); sets.push(sql`program = ${b.program}`); }
   if ('branch' in b) { if (!PROGRAMS[b.program || row.program] || !PROGRAMS[b.program || row.program].branches.includes(b.branch)) return res.status(400).json({ error: 'Invalid branch.' }); sets.push(sql`branch = ${b.branch}`); }
@@ -400,18 +428,22 @@ app.patch('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res
   if ('email' in b) sets.push(sql`email = ${String(b.email || '').trim()}`);
   if ('rollNo' in b) sets.push(sql`roll_no = ${String(b.rollNo || '').trim()}`);
   if ('cardId' in b) sets.push(sql`card_id = ${String(b.cardId || '').trim().toUpperCase()}`);
-  if ('subjects' in b) { if (row.role !== 'teacher') return res.status(400).json({ error: 'Teachers only.' }); sets.push(sql`subjects = ${JSON.stringify(parseSubjectList(b.subjects))}`); }
+  if ('subjects' in b) { if (row.role !== 'teacher' && !(('role' in b) && b.role === 'teacher')) return res.status(400).json({ error: 'Teachers only.' }); sets.push(sql`subjects = ${JSON.stringify(parseSubjectList(b.subjects))}`); }
   if ('password' in b) { const p = String(b.password || ''); if (p.length < 4) return res.status(400).json({ error: 'Min 4 chars.' }); sets.push(sql`password_hash = ${hashPassword(p)}`); }
   if ('twofa' in b) sets.push(sql`twofa = ${b.twofa ? 1 : 0}`);
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
   await sql`UPDATE users SET ${sql.join(sets, sql`, `)} WHERE id = ${row.id}`;
-  await addAudit('USER_EDIT', req.user.username, row.username);
+  if (!('role' in b)) await addAudit('USER_EDIT', req.user.username, row.username);
   res.json({ user: publicUser((await sql`SELECT * FROM users WHERE id = ${row.id}`)[0]) });
 }));
+/* v8.6: last-admin delete protection */
 app.delete('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
   const row = (await sql`SELECT * FROM users WHERE id = ${req.params.id}`)[0];
   if (!row) return res.status(404).json({ error: 'User not found.' });
-  if (row.role === 'admin') return res.status(400).json({ error: 'Admin cannot be removed.' });
+  if (row.role === 'admin') {
+    const [{ c }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`;
+    if (c <= 1) return res.status(400).json({ error: '🛡️ Last admin delete nahi ho sakta! Pehle kisi aur ko admin banao.' });
+  }
   await sql`DELETE FROM entries WHERE student_id = ${row.id}`;
   await sql`DELETE FROM marks WHERE student_id = ${row.id}`;
   await sql`DELETE FROM leaves WHERE student_id = ${row.id}`;
@@ -683,18 +715,8 @@ app.get('/api/parent/child', requireAuth, requireRole('parent'), H(async (req, r
   if (!child) return res.status(404).json({ error: 'Child link missing.' });
   res.json({ user: publicUser(child), stats: await studentStats(child.id) });
 }));
-app.get('/api/leaderboard', requireAuth, H(async (req, res) => {
-  const stats = await batchStats();
-  const list = [];
-  for (const st of stats.values()) { if (st.total > 0) list.push({ id: st.id, name: st.name, label: classLabel(st), semester: st.semester, pct: st.percentage, total: st.total }); }
-  list.sort((a, b) => b.pct - a.pct);
-  const meIdx = list.findIndex((r) => r.id === req.user.id);
-  res.json({ top: list.slice(0, 5), myRank: meIdx >= 0 ? meIdx + 1 : null, classSize: list.length });
-}));
 
-/* ================= ADMIN REPORTS (v8.5 batch — 500+ students pe bhi fast) ================= */
-
-/* Ek hi query me saare students ka attendance — N+1 problem khatam */
+/* ================= ADMIN REPORTS (batch — N+1 eliminated) ================= */
 async function batchStats(opts = {}) {
   const holidays = new Set((await sql`SELECT date FROM holidays`).map((h) => h.date));
   const conds = [sql`u.role = 'student'`];
@@ -736,7 +758,14 @@ async function batchStats(opts = {}) {
   return out;
 }
 const EMPTY_STATS = () => ({ total: 0, present: 0, late: 0, absent: 0, attended: 0, percentage: 0, subjects: [], logs: [] });
-
+app.get('/api/leaderboard', requireAuth, H(async (req, res) => {
+  const stats = await batchStats();
+  const list = [];
+  for (const st of stats.values()) { if (st.total > 0) list.push({ id: st.id, name: st.name, label: classLabel(st), semester: st.semester, pct: st.percentage, total: st.total }); }
+  list.sort((a, b) => b.pct - a.pct);
+  const meIdx = list.findIndex((r) => r.id === req.user.id);
+  res.json({ top: list.slice(0, 5), myRank: meIdx >= 0 ? meIdx + 1 : null, classSize: list.length });
+}));
 app.get('/api/reports/summary', requireAuth, requireRole('admin'), H(async (req, res) => {
   const stats = await batchStats();
   let total = 0, attended = 0;
@@ -839,6 +868,7 @@ app.post('/api/admin/restore', requireAuth, requireRole('admin'), H(async (req, 
   await addAudit('RESTORE', req.user.username, `${b.users.length} users`);
   res.json({ ok: true, message: `Restored ${b.users.length} users.` });
 }));
+
 /* ================= ANNOUNCEMENTS ================= */
 app.get('/api/announcements', requireAuth, H(async (req, res) => res.json({ items: await sql`SELECT * FROM announcements ORDER BY ts DESC LIMIT 10` })));
 app.post('/api/announcements', requireAuth, requireRole('admin'), H(async (req, res) => {
@@ -931,9 +961,9 @@ app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html')
   function startServer(port, tries = 10) {
     const server = app.listen(port, () => {
       console.log('──────────────────────────────────────────────');
-      console.log('  🎓 GLBITM Attendance v8.4 — Teacher Import + Sections Fix');
+      console.log('  🎓 GLBITM Attendance v8.6 — Admin Management Edition');
       console.log(`  ➜  http://localhost:${port}`);
-      console.log('  💾 DB: PERSISTENT (cloud) — restart pe data safe');
+      console.log('  💾 DB: PERSISTENT (cloud) · 👑 Role promote/demote active');
       console.log('──────────────────────────────────────────────');
     });
     server.on('error', (err) => {

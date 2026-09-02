@@ -387,6 +387,7 @@ admin: {
           <select class="input" id="promoProg" style="max-width:220px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <button class="btn btn-primary" id="promoBtn">🎓 Promote</button></div></div>
       <div class="card"><h2>💾 Backup & Restore</h2>
+        <div class="card"><div class="card-head"><h2>👑 Administrators</h2></div><div id="adminsList"><p class="muted">Loading…</p></div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
           <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div></div>`,
@@ -417,6 +418,7 @@ admin: {
         loadDefaulters();
       }));
       $('#backupBtn').addEventListener('click', () => downloadFile('/api/admin/backup', `glbajaj-backup-${todayISO()}.json`));
+          loadAdmins();
       $('#restoreBtn').addEventListener('click', restoreBackup);
     },
   },
@@ -987,6 +989,45 @@ async function createParent(id) {
     toast('👨‍👩‍👧 Parent account created! Login share karo.');
   } catch (e) { toast(e.message, 'error'); }
 }
+/* ===== v8.6 Admin Management ===== */
+async function loadAdmins() {
+  const { users } = await api('/api/users?role=admin');
+  const host = $('#adminsList'); if (!host) return;
+  host.innerHTML = users.map((u) => `
+    <div class="tt-row">
+      <div class="avatar sm">${esc(u.name.charAt(0).toUpperCase())}</div>
+      <strong style="flex:1;">${esc(u.name)}${state.user.id === u.id ? ' <span class="pill pill-soft" style="font-size:.62rem">YOU</span>' : ''}</strong>
+      <span class="muted small">@${esc(u.username)}</span>
+      <button class="btn btn-danger btn-sm" data-demote="${u.id}">⬇️ Demote</button>
+    </div>`).join('') || '<p class="muted small">Koi admin nahi?</p>';
+  host.querySelectorAll('[data-demote]').forEach((b) => b.addEventListener('click', () => demoteAdmin(b.dataset.demote)));
+}
+async function promoteToAdmin(id) {
+  const u = [...studentCache, ...teacherCache].find((x) => x.id === id); if (!u) return;
+  if (!confirm(`👑 ${u.name} ko ADMIN banao? Ye user full console access payega.`)) return;
+  try {
+    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: 'admin' }) });
+    toast(`${u.name} ab ADMIN hai 👑`);
+    if ($('#studentsBody')) loadAdminStudents();
+    if ($('#teachersBody')) loadAdminTeachers();
+    if ($('#adminsList')) loadAdmins();
+  } catch (e) { toast(e.message, 'error'); }
+}
+async function demoteAdmin(id) {
+  const { users } = await api('/api/users?role=admin');
+  const u = users.find((x) => x.id === id); if (!u) return;
+  if (users.length <= 1) return toast('🛡️ Last admin demote nahi ho sakta — pehle kisi aur ko admin banao.', 'error');
+  const newRole = prompt(`🛡️ ${u.name} ka naya role? (teacher / student)`, 'teacher');
+  if (newRole === null) return;
+  if (!['teacher', 'student'].includes(newRole.trim().toLowerCase())) return toast('Sirf teacher ya student likho.', 'error');
+  try {
+    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: newRole.trim().toLowerCase() }) });
+    toast(`${u.name} ab ${newRole.trim()} hai`);
+    loadAdmins();
+    if ($('#studentsBody')) loadAdminStudents();
+    if ($('#teachersBody')) loadAdminTeachers();
+  } catch (e) { toast(e.message, 'error'); }
+}
 async function loadAdminStudents() {
   const { users } = await api('/api/users?role=student');
   studentCache = users;
@@ -998,6 +1039,7 @@ async function loadAdminStudents() {
       <button class="btn btn-ghost btn-sm" data-parent="${u.id}" title="Create parent login">👨‍👩‍👧</button>
       <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️</button>
       <button class="btn btn-ghost btn-sm" data-pw="${u.id}">🔑</button>
+      <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>
       <button class="btn btn-danger btn-sm" data-del="${u.id}">✕</button></td></tr>`).join('')
     : '<tr><td colspan="6" class="empty">No students.</td></tr>';
   $('#studentsBody').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeUser(b.dataset.del)));
@@ -1005,6 +1047,7 @@ async function loadAdminStudents() {
   $('#studentsBody').querySelectorAll('[data-pw]').forEach((b) => b.addEventListener('click', () => resetPassword(b.dataset.pw)));
   $('#studentsBody').querySelectorAll('[data-idcard]').forEach((b) => b.addEventListener('click', () => showIDCard(b.dataset.idcard)));
   $('#studentsBody').querySelectorAll('[data-parent]').forEach((b) => b.addEventListener('click', () => createParent(b.dataset.parent)));
+  $('#studentsBody').querySelectorAll('[data-prom]').forEach((b) => b.addEventListener('click', () => promoteToAdmin(b.dataset.prom)));
   wireSearch('#stSearch', '#studentsBody');
 }
 async function loadAdminTeachers() {
@@ -1018,11 +1061,15 @@ async function loadAdminTeachers() {
       <td class="table-actions">
         <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️</button>
         <button class="btn btn-ghost btn-sm" data-pw="${u.id}">🔑</button>
+        <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>        
+        <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>
         <button class="btn btn-danger btn-sm" data-del="${u.id}">✕</button></td></tr>`;
   }).join('') : '<tr><td colspan="5" class="empty">No teachers.</td></tr>';
   $('#teachersBody').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeUser(b.dataset.del)));
   $('#teachersBody').querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => editTeacher(b.dataset.edit)));
   $('#teachersBody').querySelectorAll('[data-pw]').forEach((b) => b.addEventListener('click', () => resetPassword(b.dataset.pw)));
+  $('#teachersBody').querySelectorAll('[data-prom]').forEach((b) => b.addEventListener('click', () => promoteToAdmin(b.dataset.prom)));
+  $('#teachersBody').querySelectorAll('[data-prom]').forEach((b) => b.addEventListener('click', () => promoteToAdmin(b.dataset.prom)));
   wireSearch('#tcSearch', '#teachersBody');
 }
 function recentRate(stats) {
@@ -1817,7 +1864,7 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); defe
   stopSMStream(); clearSession(); location.href = '/';
 });
  $('#keyBtn').addEventListener('click', safe(async () => {
-  const opt = prompt('1️⃣ Password change\n2️⃣ 2FA ON/OFF\n\nType 1 or 2:');
+  const opt = prompt('1️⃣ Password change\n2️⃣ 2FA ON/OFF\n3️⃣ Edit my name/email\n\nType 1, 2 or 3:');
   if (opt === '1') {
     const oldPw = prompt('Current password:'); if (oldPw === null) return;
     const newPw = prompt('New password (min 4):'); if (newPw === null) return;
@@ -1825,6 +1872,14 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); defe
   } else if (opt === '2') {
     const r = await api('/api/me/twofa', { method:'POST', body: JSON.stringify({ on: !state.user.twofa }) });
     state.user.twofa = r.twofa; toast(r.message, 'info');
+  } else if (opt === '3') {
+    const name = prompt('Your name:', state.user.name); if (name === null) return;
+    const email = prompt('Your email:', state.user.email || ''); if (email === null) return;
+    const r = await api('/api/me/profile', { method:'PATCH', body: JSON.stringify({ name, email }) });
+    state.user = r.user; saveSession(state.token, state.user);
+    $('#userName').textContent = r.user.name;
+    $('#avatar').textContent = r.user.name.charAt(0).toUpperCase();
+    toast(r.message);
   }
 }));
  $('#pickClose').addEventListener('click', () => { $('#pickModal').hidden = true; });
