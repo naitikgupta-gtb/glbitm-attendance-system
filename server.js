@@ -1480,7 +1480,7 @@ app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html')
   function startServer(port, tries = 10) {
     const server = app.listen(port, () => {
       console.log('──────────────────────────────────────────────');
-      console.log('  🎓 GLBITM Attendance v9.1 — Progress Report + Archive Edition');
+      console.log('  🎓 GLBITM Attendance v9.2 — Institutional Edition');
       console.log(`  ➜  http://localhost:${port}`);
       console.log('  💾 DB: PERSISTENT (cloud) · 👑 Role promote/demote active');
       console.log('──────────────────────────────────────────────');

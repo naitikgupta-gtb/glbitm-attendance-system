@@ -1,7 +1,7 @@
 {
   "name": "glbitm-attendance-system",
-  "version": "9.1.0",
-  "description": "GLBITM Attendance Intelligence System — Render + Supabase Postgres (persistent cloud DB) · v9.1: SPR, Assignments, Rollover, Alumni Archive",
+  "version": "9.2.0",
+  "description": "GLBITM Attendance Intelligence System — Render + Supabase Postgres (persistent cloud DB) · v9.2: institutional UI redesign — navy + maroon, flat and print-first",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

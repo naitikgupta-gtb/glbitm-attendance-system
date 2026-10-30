@@ -65,10 +65,10 @@ function mountLogo(el) {
 function setTheme(dark) {
   document.body.classList.toggle('dark', dark);
   localStorage.setItem('ams_theme', dark ? 'dark' : 'light');
-  document.querySelectorAll('.themeToggle').forEach((b) => { b.textContent = dark ? '☀️' : '🌙'; });
+  document.querySelectorAll('.themeToggle').forEach((b) => { b.textContent = dark ? 'Light' : 'Dark'; });
 }
 document.querySelectorAll('.themeToggle').forEach((b) => b.addEventListener('click', () => setTheme(!document.body.classList.contains('dark'))));
-setTheme(localStorage.getItem('ams_theme') ? localStorage.getItem('ams_theme') === 'dark' : true);
+setTheme(localStorage.getItem('ams_theme') ? localStorage.getItem('ams_theme') === 'dark' : false);
 
 /* ================= state & api ================= */
 const state = {
@@ -203,10 +203,10 @@ function openSetupWizard() {
 
 /* ================= navigation ================= */
 const NAVS = {
-  admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['dwreports','📋'],['progress','🎓'],['reports','📈'],['archive','🗃️'],['requests','📥'],['announce','📢'],['audit','📜'] ],
-  teacher: [ ['mark','✏️'],['marks','📝'],['dwr','📋'],['assn','📚'],['progress','🎓'],['timetable','🗓️'],['sessions','🗂️'] ],
-  student: [ ['attendance','📊'],['assn','📚'],['selfmark','📲'],['leave','📝'],['timetable','🗓️'] ],
-  parent: [ ['child','👨‍👩‍👧'] ],
+  admin: [ ['overview',''],['students',''],['teachers',''],['timetable',''],['dwreports',''],['progress',''],['reports',''],['archive',''],['requests',''],['announce',''],['audit',''] ],
+  teacher: [ ['mark',''],['marks',''],['dwr',''],['assn',''],['progress',''],['timetable',''],['sessions',''] ],
+  student: [ ['attendance',''],['assn',''],['selfmark',''],['leave',''],['timetable',''] ],
+  parent: [ ['child',''] ],
 };
 const NAV_TITLES = { overview:'Overview', students:'Manage Students', teachers:'Manage Teachers', timetable:'Timetable', dwreports:'Daily Work Reports (Principal)', reports:'Reports', requests:'Leaves & Corrections', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', dwr:'Daily Work Report', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark Attendance', leave:'Apply for Leave', child:'My Child', assn:'Assignments', progress:'Student Progress Report (SPR)', archive:'Archive & Year Rollover' };
 function navLabel(id) { return t(id); }
@@ -214,7 +214,7 @@ function navLabel(id) { return t(id); }
 function buildNav() {
   const nav = $('#navLinks');
   nav.innerHTML = NAVS[state.user.role].map(([id, icon], i) =>
-    `<button class="nav-link" data-nav="${id}">${icon} ${navLabel(id)}${i < 9 ? `<span class="k">${i+1}</span>` : ''}</button>`).join('');
+    `<button class="nav-link" data-nav="${id}">${icon ? icon + ' ' : ''}${navLabel(id)}${i < 9 ? `<span class="k">${i+1}</span>` : ''}</button>`).join('');
   nav.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => go(b.dataset.nav)));
 }
 async function startApp() {
@@ -229,8 +229,8 @@ async function startApp() {
   $('#userRole').textContent = { admin:'Administrator', teacher:'Teacher', student:'Student', parent:'Parent' }[state.user.role];
   $('#roleBadge').textContent = state.user.role === 'student'
     ? `${classLabel(state.user)} · Sem ${state.user.semester ?? '—'}${state.user.section ? ' · ' + state.user.section : ''}`
-    : state.user.role === 'parent' ? '👨‍👩‍👧 Parent Portal · read-only'
-    : state.user.role === 'admin' ? '⚡ Admin Console · GLBITM' : '📚 Teacher Portal · GLBITM';
+    : state.user.role === 'parent' ? 'Parent Portal · read-only'
+    : state.user.role === 'admin' ? 'Admin Console · GLBITM' : 'Teacher Portal · GLBITM';
   $('#dateBadge').textContent = new Date().toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
   buildNav();
   renderAnnouncements();
@@ -378,10 +378,10 @@ admin: {
   overview: {
     html: () => `
       <div class="stat-grid">
-        <div class="stat-card"><div class="stat-icon">🧑‍🎓</div><div><div class="stat-value" id="statStudents">0</div><div class="stat-label">Students</div></div></div>
-        <div class="stat-card"><div class="stat-icon purple">🧑‍🏫</div><div><div class="stat-value" id="statTeachers">0</div><div class="stat-label">Teachers</div></div></div>
-        <div class="stat-card"><div class="stat-icon amber">🗂️</div><div><div class="stat-value" id="statSessions">0</div><div class="stat-label">Sessions</div></div></div>
-        <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="statOverall">0%</div><div class="stat-label">Overall</div></div></div>
+        <div class="stat-card"><div class="stat-icon">ST</div><div><div class="stat-value" id="statStudents">0</div><div class="stat-label">Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple">TC</div><div><div class="stat-value" id="statTeachers">0</div><div class="stat-label">Teachers</div></div></div>
+        <div class="stat-card"><div class="stat-icon amber">SS</div><div><div class="stat-value" id="statSessions">0</div><div class="stat-label">Sessions</div></div></div>
+        <div class="stat-card"><div class="stat-icon green">%</div><div><div class="stat-value" id="statOverall">0%</div><div class="stat-label">Overall</div></div></div>
       </div>
       <div class="card"><h2>⚙️ System Settings</h2>
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
@@ -1540,7 +1540,7 @@ function pickRandom() {
   const names = state.roster.map((s) => s.name);
   let i = 0;
   const iv = setInterval(() => { $('#pickName').textContent = names[i++ % names.length]; }, 70);
-  setTimeout(() => { clearInterval(iv); $('#pickName').textContent = `🎓 ${names[Math.floor(Math.random()*names.length)]}`; confetti(); }, 1400);
+  setTimeout(() => { clearInterval(iv); $('#pickName').textContent = names[Math.floor(Math.random()*names.length)]; confetti(); }, 1400);
 }
 async function openSelfMark() {
   if (!state.roster.length) return toast('Pehle students load karo.', 'error');
