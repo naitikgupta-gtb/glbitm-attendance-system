@@ -1,6 +1,6 @@
 {
   "name": "glbitm-attendance-system",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "description": "GLBITM Attendance Intelligence System — Render + Supabase Postgres (persistent cloud DB)",
   "main": "server.js",
   "scripts": {

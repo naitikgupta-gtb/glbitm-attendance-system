@@ -19,8 +19,8 @@ const PROGRAMS = {
 
 /* ================= i18n ================= */
 const LANG = {
-  en: { overview:'Overview', students:'Students', teachers:'Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Fixes', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark (QR)', leave:'Apply Leave', child:'My Child', save:'Save', load:'Load Students', allPresent:'All Present', print:'Print', export:'Export', threshold:'Attendance Threshold', present:'Present', late:'Late', absent:'Absent', date:'Date', subject:'Subject', program:'Program', branch:'Branch', semester:'Semester', section:'Section' },
-  hi: { overview:'अवलोकन', students:'छात्र', teachers:'शिक्षक', timetable:'समय-सारणी', reports:'रिपोर्ट', requests:'अवकाश व सुधार', announce:'सूचनाएँ', audit:'ऑडिट लॉग', mark:'उपस्थिति लगाएँ', marks:'अंक प्रविष्टि', sessions:'मेरे सत्र', attendance:'मेरी उपस्थिति', selfmark:'स्वयं उपस्थित (QR)', leave:'अवकाश लगाएँ', child:'मेरा बच्चा', save:'सहेजें', load:'छात्र लोड करें', allPresent:'सब उपस्थित', print:'प्रिंट', export:'एक्सपोर्ट', threshold:'उपस्थिति सीमा', present:'उपस्थित', late:'देर', absent:'अनुपस्थित', date:'दिनांक', subject:'विषय', program:'प्रोग्राम', branch:'शाखा', semester:'सेमेस्टर', section:'वर्ग' },
+  en: { overview:'Overview', students:'Students', teachers:'Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Fixes', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark (QR)', leave:'Apply Leave', child:'My Child', save:'Save', load:'Load Students', allPresent:'All Present', print:'Print', export:'Export', threshold:'Attendance Threshold', present:'Present', late:'Late', absent:'Absent', date:'Date', subject:'Subject', program:'Program', branch:'Branch', semester:'Semester', section:'Section', dwr:'Daily Report', dwreports:'Daily Reports' },
+  hi: { overview:'अवलोकन', students:'छात्र', teachers:'शिक्षक', timetable:'समय-सारणी', reports:'रिपोर्ट', requests:'अवकाश व सुधार', announce:'सूचनाएँ', audit:'ऑडिट लॉग', mark:'उपस्थिति लगाएँ', marks:'अंक प्रविष्टि', sessions:'मेरे सत्र', attendance:'मेरी उपस्थिति', selfmark:'स्वयं उपस्थित (QR)', leave:'अवकाश लगाएँ', child:'मेरा बच्चा', save:'सहेजें', load:'छात्र लोड करें', allPresent:'सब उपस्थित', print:'प्रिंट', export:'एक्सपोर्ट', threshold:'उपस्थिति सीमा', present:'उपस्थित', late:'देर', absent:'अनुपस्थित', date:'दिनांक', subject:'विषय', program:'प्रोग्राम', branch:'शाखा', semester:'सेमेस्टर', section:'वर्ग', dwr:'दैनिक रिपोर्ट', dwreports:'दैनिक रिपोर्ट' },
 };
 const t = (k) => (LANG[state.lang] && LANG[state.lang][k]) || LANG.en[k] || k;
 
@@ -203,12 +203,12 @@ function openSetupWizard() {
 
 /* ================= navigation ================= */
 const NAVS = {
-  admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['reports','📈'],['requests','📥'],['announce','📢'],['audit','📜'] ],
-  teacher: [ ['mark','✏️'],['marks','📝'],['timetable','🗓️'],['sessions','🗂️'] ],
+  admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['dwreports','📋'],['reports','📈'],['requests','📥'],['announce','📢'],['audit','📜'] ],
+  teacher: [ ['mark','✏️'],['marks','📝'],['dwr','📋'],['timetable','🗓️'],['sessions','🗂️'] ],
   student: [ ['attendance','📊'],['selfmark','📲'],['leave','📝'],['timetable','🗓️'] ],
   parent: [ ['child','👨‍👩‍👧'] ],
 };
-const NAV_TITLES = { overview:'Overview', students:'Manage Students', teachers:'Manage Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Corrections', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark Attendance', leave:'Apply for Leave', child:'My Child' };
+const NAV_TITLES = { overview:'Overview', students:'Manage Students', teachers:'Manage Teachers', timetable:'Timetable', dwreports:'Daily Work Reports (Principal)', reports:'Reports', requests:'Leaves & Corrections', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', dwr:'Daily Work Report', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark Attendance', leave:'Apply for Leave', child:'My Child' };
 function navLabel(id) { return t(id); }
 
 function buildNav() {
@@ -355,6 +355,26 @@ function makeWorkbook(sheets, filename) {
 const SECTIONS = {
 
 admin: {
+  dwreports: {
+    html: () => `
+      <div class="card"><h2>📋 ${t('dwreports')} — Principal View</h2>
+        <div class="filter-grid">
+          <label>${t('date')}<input type="date" class="input" id="dwrpDate" /></label>
+          <button class="btn btn-primary" id="dwrpLoad">${t('load')} →</button>
+          <button class="btn btn-ghost" id="dwrpPrint">🖨️ ${t('print')}</button>
+          <button class="btn btn-ghost" id="dwrpCsv">⬇️ CSV</button>
+        </div>
+        <p class="muted small" id="dwrpSummary" style="margin-top:8px;"></p>
+      </div>
+      <div id="dwrpBody"></div>`,
+    init: () => {
+      $('#dwrpDate').value = todayISO();
+      $('#dwrpLoad').addEventListener('click', safe(loadDwrPrincipal));
+      $('#dwrpPrint').addEventListener('click', () => window.print());
+      $('#dwrpCsv').addEventListener('click', () => { const dt = $('#dwrpDate').value || todayISO(); downloadFile(`/api/dwr/principal.csv?date=${encodeURIComponent(dt)}`, `dwr-${dt}.csv`); });
+      return loadDwrPrincipal();
+    },
+  },
   overview: {
     html: () => `
       <div class="stat-grid">
@@ -712,6 +732,23 @@ teacher: {
       $('#mkSave').addEventListener('click', safe(saveMarks));
       $('#mkTemplate').addEventListener('click', downloadMarksTemplate);
       $('#mkImport').addEventListener('click', safe(importMarksFile));
+    },
+  },
+  dwr: {
+    html: () => `
+      <div class="card"><h2>📋 ${t('dwr')} — Daily Work Report</h2>
+        <div class="filter-grid">
+          <label>${t('date')}<input type="date" class="input" id="dwrDate" /></label>
+          <button class="btn btn-primary" id="dwrLoad">${t('load')} →</button>
+        </div>
+        <p class="muted small" style="margin-top:8px;">💡 Har lecture ke baad 1 min me bhar do — Present count attendance se <strong>auto-fill</strong> hota hai. Compile time (4:30 PM) ke baad sab lectures ka combined report Principal ko chala jata hai.</p>
+      </div>
+      <p class="muted small" id="dwrSummary" style="margin:10px 2px;"></p>
+      <div id="dwrList"></div>`,
+    init: () => {
+      $('#dwrDate').value = todayISO();
+      $('#dwrLoad').addEventListener('click', safe(loadDwrMine));
+      return loadDwrMine();
     },
   },
   timetable: {
@@ -1888,6 +1925,72 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); defe
 }));
  $('#pickClose').addEventListener('click', () => { $('#pickModal').hidden = true; });
 bindLogin();
+
+/* ================= v9.0: DWR functions ================= */
+async function loadDwrMine() {
+  const date = $('#dwrDate') ? ($('#dwrDate').value || todayISO()) : todayISO();
+  const d = await api(`/api/dwr/mine?date=${encodeURIComponent(date)}`);
+  const items = d.items || [];
+  const filled = items.filter((x) => x.entry).length;
+  $('#dwrSummary').textContent = items.length
+    ? `${d.day} · AY ${d.academicYear} · ${filled}/${items.length} lectures filled`
+    : `${d.day} — timetable me aaj tumhara koi lecture nahi hai.`;
+  $('#dwrList').innerHTML = items.map((it, i) => {
+    const e = it.entry || {};
+    const present = e.present_count ?? it.autoPresent ?? '';
+    const total = e.total_count ?? it.autoTotal ?? '';
+    const cls = `${esc(it.program)}${it.branch && it.branch !== 'General' ? ' · ' + esc(it.branch) : ''} · Sem ${it.semester}${it.section ? ' · Sec ' + esc(it.section) : ''}`;
+    return `<div class="card dwr-card">
+      <div class="card-head"><h2>Period ${it.period} · ${esc(it.subject)}</h2>
+        <span class="muted small">${cls}${it.autoPresent != null ? ' · ✅ attendance auto' : ''}${e.updated_at ? ' · saved' : ''}</span></div>
+      <div class="filter-grid">
+        <label>Present<input class="input" type="number" min="0" id="dwrP${i}" value="${esc(present)}" placeholder="present" /></label>
+        <label>Total<input class="input" type="number" min="0" id="dwrT${i}" value="${esc(total)}" placeholder="total" /></label>
+        <label style="grid-column:1/-1;">Kya padhaya<input class="input" id="dwrTaught${i}" value="${esc(e.taught || '')}" placeholder="Topics covered in this lecture…" /></label>
+        <label>Assignment (optional)<input class="input" id="dwrAsn${i}" value="${esc(e.assignment_title || '')}" placeholder="Assignment title" /></label>
+        <label>Submit by<input class="input" type="date" id="dwrDue${i}" value="${esc(e.assignment_due || '')}" /></label>
+        <label style="grid-column:1/-1;">Remarks<input class="input" id="dwrRem${i}" value="${esc(e.remarks || '')}" placeholder="Note for principal (optional)" /></label>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px;" id="dwrSave${i}">💾 Save Period ${it.period}</button>
+    </div>`;
+  }).join('');
+  items.forEach((it, i) => {
+    $('#dwrSave' + i).addEventListener('click', safe(async () => {
+      await api('/api/dwr', { method: 'POST', body: JSON.stringify({
+        date, period: it.period, program: it.program, branch: it.branch, semester: it.semester, section: it.section, subject: it.subject,
+        taught: $('#dwrTaught' + i).value, presentCount: $('#dwrP' + i).value, totalCount: $('#dwrT' + i).value,
+        assignmentTitle: $('#dwrAsn' + i).value, assignmentDue: $('#dwrDue' + i).value, remarks: $('#dwrRem' + i).value,
+      }) });
+      toast(`Period ${it.period} report saved ✅`);
+      loadDwrMine();
+    }));
+  });
+}
+async function loadDwrPrincipal() {
+  const date = $('#dwrpDate').value || todayISO();
+  const d = await api(`/api/dwr/principal?date=${encodeURIComponent(date)}`);
+  const rows = d.rows || [], classes = d.classes || [];
+  const byClass = new Map();
+  rows.forEach((r) => {
+    const key = `${r.program}|${r.branch}|${r.semester}|${r.section}`;
+    if (!byClass.has(key)) byClass.set(key, { label: `${r.program}${r.branch && r.branch !== 'General' ? ' · ' + r.branch : ''} · Sem ${r.semester}${r.section ? ' · Sec ' + r.section : ''}`, items: [] });
+    byClass.get(key).items.push(r);
+  });
+  const dayMap = new Map(classes.map((c) => [`${c.program}|${c.branch}|${c.semester}|${c.section}`, c]));
+  const sent = classes.filter((c) => c.status === 'sent').length;
+  $('#dwrpSummary').textContent = `${date} · ${byClass.size} classes reported · ${sent} compiled${d.compileTime ? ` · auto-send after ${d.compileTime}` : ''}`;
+  $('#dwrpBody').innerHTML = byClass.size ? [...byClass.entries()].map(([key, cls]) => {
+    const day = dayMap.get(key);
+    const pill = day ? (day.status === 'sent'
+      ? '<span class="pill pill-soft">✅ Compiled</span>'
+      : `<span class="pill pill-soft">⏳ ${day.filled}/${day.expected || '?'} filled</span>`) : '';
+    return `<div class="card dwr-report"><div class="card-head"><h2>🏛️ ${esc(cls.label)} ${pill}</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>P#</th><th>Subject</th><th>Teacher</th><th>Present/Total</th><th>Topics Taught</th><th>Assignment</th><th>Due</th><th>Remarks</th></tr></thead>
+        <tbody>${cls.items.map((r) => `<tr><td><strong>${r.period}</strong></td><td>${esc(r.subject)}</td><td>${esc(r.teacherName || '—')}</td><td>${r.present_count ?? '—'} / ${r.total_count ?? '—'}</td><td>${esc(r.taught || '—')}</td><td>${esc(r.assignment_title || '—')}</td><td>${esc(r.assignment_due || '—')}</td><td>${esc(r.remarks || '')}</td></tr>`).join('')}</tbody>
+      </table></div></div>`;
+  }).join('') : '<div class="card"><p class="muted">Is date ke liye koi Daily Work Report nahi mila.</p></div>';
+}
 (async () => {
   if (state.token) {
     try { const { user } = await api('/api/me'); state.user = user; startApp(); return; } catch {}

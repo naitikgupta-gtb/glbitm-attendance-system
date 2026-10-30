@@ -259,3 +259,13 @@ tbody tr:hover { background: #f8fafc; }
   .main { padding: 20px 16px 40px; }
   .student-grid { grid-template-columns: 1fr; }
 }
+/* ===== v9.0: Daily Work Report ===== */
+.dwr-card .card-head { margin-bottom: 6px; }
+@media print {
+  body { background: #fff !important; }
+  .sidebar, .topbar, .toast-container, .btn { display: none !important; }
+  .layout { display: block !important; }
+  .main { padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #cfcfd8 !important; break-inside: avoid; }
+  .card h2 { color: #101018 !important; }
+}
