@@ -997,6 +997,12 @@ app.post('/api/hardware/rfid', H(async (req, res) => {
    Flow: teacher har lecture ka report bharta hai → compile time (default 4:30 PM) pe
    har class ka combined report dwr_days me 'sent' mark hota hai → Principal dashboard. */
 function dwrDayName(date) { return new Date(date + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }); }
+/* v9.0.1 fix: compile time ko IST (Asia/Kolkata) me compare karo — Render server UTC pe chalta hai */
+function istParts(d = new Date()) {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const g = (t) => Number(((p.find((x) => x.type === t) || {}).value));
+  return { hh: g('hour'), mm: g('minute') };
+}
 async function upsertDwrDay(date, program, branch, semester, section, ay) {
   const day = dwrDayName(date);
   const [tt] = await sql`SELECT COUNT(*)::int AS c FROM timetable WHERE day = ${day} AND program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section}`;
@@ -1012,10 +1018,10 @@ async function upsertDwrDay(date, program, branch, semester, section, ay) {
 async function compileDwrDay(date) {
   const cfg = await getDwrConfig();
   const [hh, mm] = String(cfg.compileTime || '16:30').split(':').map(Number);
-  const now = new Date();
+  const { hh: nowH, mm: nowM } = istParts();
   const isToday = date === todayStamp();
-  const afterCompile = !isToday || now.getHours() > hh || (now.getHours() === hh && now.getMinutes() >= mm);
-  if (!afterCompile) return { compiled: 0, note: `Compile time ${cfg.compileTime} abhi nahi hua.` };
+  const afterCompile = !isToday || nowH > hh || (nowH === hh && nowM >= mm);
+  if (!afterCompile) return { compiled: 0, note: `Compile time ${cfg.compileTime} IST abhi nahi hua.` };
   const pend = await sql`SELECT id FROM dwr_days WHERE date = ${date} AND status <> 'sent'`;
   for (const d of pend) await sql`UPDATE dwr_days SET status = 'sent', sent_at = ${nowISO()} WHERE id = ${d.id}`;
   return { compiled: pend.length };
