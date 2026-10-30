@@ -234,6 +234,11 @@ async function getWeightsRaw() {
   try { const v = JSON.parse(r[0]?.value); if (v && typeof v === 'object') return v; } catch {}
   return {};
 }
+/* v9.1.1: settings UI ke liye — agar admin ne abhi tak save nahi kiya to DEFAULT dikhao (khali {} nahi) */
+async function getWeightsForSettings() {
+  const raw = await getWeightsRaw();
+  return raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw : { default: DEFAULT_WEIGHTS };
+}
 async function getInternalWeights(program) {
   const raw = await getWeightsRaw();
   const base = raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw.default : DEFAULT_WEIGHTS;
@@ -393,7 +398,7 @@ app.post('/api/me/face', requireAuth, H(async (req, res) => {
 }));
 
 /* ================= SETTINGS & HOLIDAYS & SECTIONS ================= */
-app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig(), internalWeights: await getWeightsRaw() })));
+app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig(), internalWeights: await getWeightsForSettings() })));
 app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req, res) => {
   const t = Number((req.body || {}).threshold);
   if (!Number.isFinite(t) || t < 40 || t > 95) return res.status(400).json({ error: 'Threshold 40–95 ke beech rakho.' });
@@ -404,7 +409,6 @@ app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req
   if (b.academicYear && /^\d{4}-\d{2}$/.test(String(b.academicYear))) { await sql`INSERT INTO settings (key, value) VALUES ('academic_year', ${String(b.academicYear)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · AY ${b.academicYear}`; }
   if (b.dwrCompileTime && /^\d{2}:\d{2}$/.test(String(b.dwrCompileTime))) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_compile_time', ${String(b.dwrCompileTime)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · DWR compile ${b.dwrCompileTime}`; }
   if (b.dwrPeriods && Number(b.dwrPeriods) >= 1 && Number(b.dwrPeriods) <= 12) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_periods', ${String(Number(b.dwrPeriods))}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · periods ${Number(b.dwrPeriods)}`; }
-  /* v9.1: internal marks weights (SPR) — default config edit hota hai; per-program override bhi JSON me allowed */
   if (b.internalWeights && typeof b.internalWeights === 'object') {
     const w = b.internalWeights;
     const partsOk = Array.isArray(w.parts) && w.parts.length >= 1 && w.parts.length <= 6
@@ -1129,6 +1133,9 @@ app.post('/api/dwr', requireAuth, requireRole('teacher', 'admin'), H(async (req,
   const subject = String(b.subject || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !period || period < 1 || period > 12 || !program || !semester || !subject)
     return res.status(400).json({ error: 'date, period (1-12), program, semester, subject required.' });
+  /* v9.1.1: subject-guard — attendance/marks/assignments jaisa hi (apne subject hi report ho sake) */
+  const assigned = assignedSubjects(req.user);
+  if (assigned.length && !assigned.includes(subject)) return res.status(403).json({ error: `"${subject}" tumhara subject nahi. Yours: ${assigned.join(', ')}.` });
   const taught = String(b.taught || '').slice(0, 1000);
   const pc = (b.presentCount === '' || b.presentCount == null) ? null : Math.max(0, Math.min(9999, Math.floor(Number(b.presentCount))));
   const tc = (b.totalCount === '' || b.totalCount == null) ? null : Math.max(0, Math.min(9999, Math.floor(Number(b.totalCount))));
@@ -1149,10 +1156,11 @@ app.post('/api/dwr', requireAuth, requireRole('teacher', 'admin'), H(async (req,
 }));
 app.get('/api/dwr/day', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date)) ? String(req.query.date) : todayStamp();
+  const secF = String(req.query.section || '') ? sql` AND d.section = ${String(req.query.section).toUpperCase()}` : sql``; /* v9.1.1: khali = All */
   const rows = await sql`SELECT d.*, u.name AS "teacherName" FROM dwr d LEFT JOIN users u ON u.id = d.teacher_id
     WHERE d.date = ${date} AND d.program = ${String(req.query.program || '')} AND d.branch = ${String(req.query.branch || '')}
-      AND d.semester = ${Number(req.query.semester)} AND d.section = ${String(req.query.section || '')} ORDER BY d.period`;
-  const [day] = await sql`SELECT * FROM dwr_days WHERE date = ${date} AND program = ${String(req.query.program || '')} AND branch = ${String(req.query.branch || '')} AND semester = ${Number(req.query.semester)} AND section = ${String(req.query.section || '')}`;
+      AND d.semester = ${Number(req.query.semester)}${secF} ORDER BY d.period`;
+  const [day] = await sql`SELECT * FROM dwr_days WHERE date = ${date} AND program = ${String(req.query.program || '')} AND branch = ${String(req.query.branch || '')} AND semester = ${Number(req.query.semester)} ${String(req.query.section || '') ? sql` AND section = ${String(req.query.section).toUpperCase()}` : sql``}`;
   res.json({ date, items: rows, day: day || null });
 }));
 app.get('/api/dwr/principal', requireAuth, requireRole('admin'), H(async (req, res) => {
@@ -1193,12 +1201,13 @@ app.get('/api/assignments', requireAuth, requireRole('teacher', 'admin'), H(asyn
   const program = String(req.query.program || ''), branch = String(req.query.branch || '');
   const semester = Number(req.query.semester), section = String(req.query.section || '');
   if (!program || !semester) return res.status(400).json({ error: 'Program + semester required.' });
+  const secF = section ? sql` AND a.section = ${section}` : sql``; /* v9.1.1: khali section = All */
   const ay = await getAcademicYear();
   const rows = await sql`SELECT a.*, u.name AS "teacherName",
       (SELECT COUNT(*)::int FROM assignment_subs sb WHERE sb.assignment_id = a.id AND sb.submitted = 1) AS done,
       (SELECT COUNT(*)::int FROM users us WHERE us.role = 'student' AND us.program = a.program AND us.branch = a.branch AND us.semester = a.semester AND us.section = a.section AND ${isActiveUser('us.status')}) AS strength
     FROM assignments a LEFT JOIN users u ON u.id = a.teacher_id
-    WHERE a.program = ${program} AND a.branch = ${branch} AND a.semester = ${semester} AND a.section = ${section} AND a.academic_year = ${ay}
+    WHERE a.program = ${program} AND a.branch = ${branch} AND a.semester = ${semester} AND a.academic_year = ${ay}${secF}
     ORDER BY a.subject, a.id DESC`;
   res.json({ items: rows.map((r) => ({ id: Number(r.id), subject: r.subject, title: r.title, unit: r.unit || '', dueDate: r.due_date || '', teacherName: r.teacherName || '', done: r.done, strength: r.strength, createdAt: r.created_at })) });
 }));
@@ -1276,7 +1285,9 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
   if (onlyStudentId) {
     students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch, u.program, u.branch, u.semester FROM users u WHERE u.id = ${onlyStudentId}`;
   } else {
-    students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch FROM users u WHERE u.role = 'student' AND u.program = ${program} AND u.branch = ${branch} AND u.semester = ${semester} AND u.section = ${section} AND ${isActiveUser('u.status')} ORDER BY u.roll_no, u.name`;
+    /* v9.1.1: khali section = ALL sections (v8 roster jaisa hi convention) */
+    const secF = section ? sql` AND u.section = ${section}` : sql``;
+    students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch FROM users u WHERE u.role = 'student' AND u.program = ${program} AND u.branch = ${branch} AND u.semester = ${semester} AND ${isActiveUser('u.status')}${secF} ORDER BY u.roll_no, u.name`;
   }
   const ids = students.map((s) => s.id);
   if (!ids.length) return { academicYear: ay, weights, subjects: [], rows: [] };
@@ -1290,13 +1301,15 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
   const attTotal = new Map();
   for (const r of attRows) { const t = attTotal.get(r.student_id) || { total: 0, attended: 0 }; t.total += r.total; t.attended += r.attended; attTotal.set(r.student_id, t); }
 
-  const mkRows = await sql`SELECT m.student_id, m.subject, m.exam, m.score, m.max, m.status FROM marks m WHERE m.student_id IN ${sql(ids)}`;
+  /* v9.1.1: ORDER BY ts — agar ek hi category me do rows hain (e.g. 'MST-1' + 'ST1' dono → ST1) to LATEST deterministic jeete */
+  const mkRows = await sql`SELECT m.student_id, m.subject, m.exam, m.score, m.max, m.status FROM marks m WHERE m.student_id IN ${sql(ids)} ORDER BY m.ts NULLS LAST, m.id`;
   let asnRows;
   if (onlyStudentId) {
     const st = students[0];
     asnRows = await sql`SELECT id, subject FROM assignments WHERE academic_year = ${ay} AND program = ${st.program} AND branch = ${st.branch || ''} AND semester = ${st.semester} AND section = ${st.section || ''}`;
   } else {
-    asnRows = await sql`SELECT id, subject FROM assignments WHERE academic_year = ${ay} AND program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section}`;
+    const secF2 = section ? sql` AND section = ${section}` : sql``;
+    asnRows = await sql`SELECT id, subject FROM assignments WHERE academic_year = ${ay} AND program = ${program} AND branch = ${branch} AND semester = ${semester}${secF2}`;
   }
   const asnIds = asnRows.map((a) => a.id);
   const subRows = asnIds.length ? await sql`SELECT assignment_id, student_id, submitted FROM assignment_subs WHERE assignment_id IN ${sql(asnIds)}` : [];
@@ -1312,7 +1325,7 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
     asnCount.set(key, c);
   }
 
-  const ttRows = onlyStudentId ? [] : await sql`SELECT DISTINCT subject FROM timetable WHERE program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section}`;
+  const ttRows = onlyStudentId ? [] : await sql`SELECT DISTINCT subject FROM timetable WHERE program = ${program} AND branch = ${branch} AND semester = ${semester} ${section ? sql` AND section = ${section}` : sql``}`;
   const subjSet = new Set([...mkRows.map((m) => m.subject), ...asnRows.map((a) => a.subject), ...ttRows.map((t) => t.subject)]);
   const subjects = [...subjSet].sort((a, b) => a.localeCompare(b));
 
