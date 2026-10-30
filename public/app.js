@@ -19,8 +19,8 @@ const PROGRAMS = {
 
 /* ================= i18n ================= */
 const LANG = {
-  en: { overview:'Overview', students:'Students', teachers:'Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Fixes', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark (QR)', leave:'Apply Leave', child:'My Child', save:'Save', load:'Load Students', allPresent:'All Present', print:'Print', export:'Export', threshold:'Attendance Threshold', present:'Present', late:'Late', absent:'Absent', date:'Date', subject:'Subject', program:'Program', branch:'Branch', semester:'Semester', section:'Section', dwr:'Daily Report', dwreports:'Daily Reports' },
-  hi: { overview:'अवलोकन', students:'छात्र', teachers:'शिक्षक', timetable:'समय-सारणी', reports:'रिपोर्ट', requests:'अवकाश व सुधार', announce:'सूचनाएँ', audit:'ऑडिट लॉग', mark:'उपस्थिति लगाएँ', marks:'अंक प्रविष्टि', sessions:'मेरे सत्र', attendance:'मेरी उपस्थिति', selfmark:'स्वयं उपस्थित (QR)', leave:'अवकाश लगाएँ', child:'मेरा बच्चा', save:'सहेजें', load:'छात्र लोड करें', allPresent:'सब उपस्थित', print:'प्रिंट', export:'एक्सपोर्ट', threshold:'उपस्थिति सीमा', present:'उपस्थित', late:'देर', absent:'अनुपस्थित', date:'दिनांक', subject:'विषय', program:'प्रोग्राम', branch:'शाखा', semester:'सेमेस्टर', section:'वर्ग', dwr:'दैनिक रिपोर्ट', dwreports:'दैनिक रिपोर्ट' },
+  en: { overview:'Overview', students:'Students', teachers:'Teachers', timetable:'Timetable', reports:'Reports', requests:'Leaves & Fixes', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark (QR)', leave:'Apply Leave', child:'My Child', save:'Save', load:'Load Students', allPresent:'All Present', print:'Print', export:'Export', threshold:'Attendance Threshold', present:'Present', late:'Late', absent:'Absent', date:'Date', subject:'Subject', program:'Program', branch:'Branch', semester:'Semester', section:'Section', dwr:'Daily Report', dwreports:'Daily Reports', assn:'Assignments', progress:'Progress Report', archive:'Archive & Rollover' },
+  hi: { overview:'अवलोकन', students:'छात्र', teachers:'शिक्षक', timetable:'समय-सारणी', reports:'रिपोर्ट', requests:'अवकाश व सुधार', announce:'सूचनाएँ', audit:'ऑडिट लॉग', mark:'उपस्थिति लगाएँ', marks:'अंक प्रविष्टि', sessions:'मेरे सत्र', attendance:'मेरी उपस्थिति', selfmark:'स्वयं उपस्थित (QR)', leave:'अवकाश लगाएँ', child:'मेरा बच्चा', save:'सहेजें', load:'छात्र लोड करें', allPresent:'सब उपस्थित', print:'प्रिंट', export:'एक्सपोर्ट', threshold:'उपस्थिति सीमा', present:'उपस्थित', late:'देर', absent:'अनुपस्थित', date:'दिनांक', subject:'विषय', program:'प्रोग्राम', branch:'शाखा', semester:'सेमेस्टर', section:'वर्ग', dwr:'दैनिक रिपोर्ट', dwreports:'दैनिक रिपोर्ट', assn:'गृहकार्य', progress:'प्रगति रिपोर्ट', archive:'आर्काइव' },
 };
 const t = (k) => (LANG[state.lang] && LANG[state.lang][k]) || LANG.en[k] || k;
 
@@ -203,12 +203,12 @@ function openSetupWizard() {
 
 /* ================= navigation ================= */
 const NAVS = {
-  admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['dwreports','📋'],['reports','📈'],['requests','📥'],['announce','📢'],['audit','📜'] ],
-  teacher: [ ['mark','✏️'],['marks','📝'],['dwr','📋'],['timetable','🗓️'],['sessions','🗂️'] ],
-  student: [ ['attendance','📊'],['selfmark','📲'],['leave','📝'],['timetable','🗓️'] ],
+  admin: [ ['overview','📊'],['students','🧑‍🎓'],['teachers','🧑‍🏫'],['timetable','🗓️'],['dwreports','📋'],['progress','🎓'],['reports','📈'],['archive','🗃️'],['requests','📥'],['announce','📢'],['audit','📜'] ],
+  teacher: [ ['mark','✏️'],['marks','📝'],['dwr','📋'],['assn','📚'],['progress','🎓'],['timetable','🗓️'],['sessions','🗂️'] ],
+  student: [ ['attendance','📊'],['assn','📚'],['selfmark','📲'],['leave','📝'],['timetable','🗓️'] ],
   parent: [ ['child','👨‍👩‍👧'] ],
 };
-const NAV_TITLES = { overview:'Overview', students:'Manage Students', teachers:'Manage Teachers', timetable:'Timetable', dwreports:'Daily Work Reports (Principal)', reports:'Reports', requests:'Leaves & Corrections', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', dwr:'Daily Work Report', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark Attendance', leave:'Apply for Leave', child:'My Child' };
+const NAV_TITLES = { overview:'Overview', students:'Manage Students', teachers:'Manage Teachers', timetable:'Timetable', dwreports:'Daily Work Reports (Principal)', reports:'Reports', requests:'Leaves & Corrections', announce:'Announcements', audit:'Audit Log', mark:'Mark Attendance', marks:'Marks Entry', dwr:'Daily Work Report', sessions:'My Sessions', attendance:'My Attendance', selfmark:'Self Mark Attendance', leave:'Apply for Leave', child:'My Child', assn:'Assignments', progress:'Student Progress Report (SPR)', archive:'Archive & Year Rollover' };
 function navLabel(id) { return t(id); }
 
 function buildNav() {
@@ -398,6 +398,32 @@ admin: {
             <span class="muted small" id="secCurrent"></span>
           </div>
           <p class="muted small" style="margin-top:6px;">Sab dropdowns me apply hoga. Uppercase auto.</p>
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+            <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Academic Year
+              <input class="input" id="setAY" placeholder="2026-27" style="max-width:120px;" /></label>
+            <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">DWR compile time (IST)
+              <input class="input" type="time" id="setDwrT" style="max-width:120px;" /></label>
+            <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Periods/day
+              <input class="input" type="number" id="setDwrP" min="1" max="12" style="max-width:90px;" /></label>
+            <button class="btn btn-primary btn-sm" id="setMoreSave">Save More</button>
+            <span class="muted small">DWR 4:30 PM default — Principal report isi time compile hota hai.</span>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🎓 Internal Marks Weights (SPR) — raw marks ko report card ke /<span id="setOutOfLbl">25</span> me convert karta hai</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+            <label style="display:grid;gap:4px;font-size:.75rem;">Out of<input class="input" type="number" id="wOutOf" min="1" max="100" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">ST-1 max<input class="input" type="number" id="wSt1Max" min="1" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">ST-1 weight<input class="input" type="number" id="wSt1W" min="0" step="0.5" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">ST-2 max<input class="input" type="number" id="wSt2Max" min="1" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">ST-2 weight<input class="input" type="number" id="wSt2W" min="0" step="0.5" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">PUT max<input class="input" type="number" id="wPutMax" min="1" style="max-width:80px;" /></label>
+            <label style="display:grid;gap:4px;font-size:.75rem;">PUT weight<input class="input" type="number" id="wPutW" min="0" step="0.5" style="max-width:80px;" /></label>
+            <button class="btn btn-primary btn-sm" id="wSave">Save Weights</button>
+          </div>
+          <p class="muted small" style="margin-top:6px;">BCA/BBA default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25 (college internal 25 + university semester exam 75 = 100). B.Tech ka alag hai to yahan badal do.</p>
         </div></div>
       <div class="card def-card"><div class="card-head"><h2>🚨 Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
@@ -431,6 +457,32 @@ admin: {
         $('#secCurrent').textContent = `Current: ${r.sections.join(', ')}`;
         toast(r.message);
       }));
+      /* v9.1: AY + DWR config + internal weights */
+      const st = state.settings || {};
+      $('#setAY').value = st.academicYear || '';
+      $('#setDwrT').value = (st.dwr && st.dwr.compileTime) || '16:30';
+      $('#setDwrP').value = (st.dwr && st.dwr.periods) || 7;
+      $('#setMoreSave').addEventListener('click', safe(async () => {
+        const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value), academicYear: $('#setAY').value, dwrCompileTime: $('#setDwrT').value, dwrPeriods: Number($('#setDwrP').value) }) });
+        state.settings = await api('/api/settings');
+        toast(r.message);
+      }));
+      const wdef = resolveWeights(null);
+      $('#wOutOf').value = wdef.outOf; $('#setOutOfLbl').textContent = wdef.outOf;
+      const wp = (ex) => (wdef.parts || []).find((p) => p.exam === ex) || {};
+      $('#wSt1Max').value = wp('ST1').max ?? 50; $('#wSt1W').value = wp('ST1').weight ?? 8;
+      $('#wSt2Max').value = wp('ST2').max ?? 50; $('#wSt2W').value = wp('ST2').weight ?? 8;
+      $('#wPutMax').value = wp('PUT').max ?? 75; $('#wPutW').value = wp('PUT').weight ?? 9;
+      $('#wSave').addEventListener('click', safe(async () => {
+        const internalWeights = { outOf: Number($('#wOutOf').value), parts: [
+          { exam: 'ST1', label: 'ST-1', max: Number($('#wSt1Max').value), weight: Number($('#wSt1W').value) },
+          { exam: 'ST2', label: 'ST-2', max: Number($('#wSt2Max').value), weight: Number($('#wSt2W').value) },
+          { exam: 'PUT', label: 'PUT', max: Number($('#wPutMax').value), weight: Number($('#wPutW').value) } ] };
+        const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value), internalWeights }) });
+        state.settings = await api('/api/settings');
+        $('#setOutOfLbl').textContent = internalWeights.outOf;
+        toast(r.message);
+      }));
       loadDefaulters();
       loadAdmins();
       $('#mailDefBtn').addEventListener('click', safe(async () => toast((await api('/api/reports/email-defaulters', { method:'POST' })).message, 'info')));
@@ -455,6 +507,7 @@ admin: {
           <select class="input" id="stSec"><option value="">No Section</option>${secOptions()}</select>
           <input class="input" id="stEmail" type="email" placeholder="Email (alerts)" />
           <input class="input" id="stCard" placeholder="RFID Card ID (optional)" />
+          <input class="input" id="stBatch" placeholder="Batch (e.g. 2023-27)" />
           <input class="input" id="stUsername" placeholder="Username" required />
           <input class="input" id="stPassword" placeholder="Password" required />
           <button class="btn btn-primary">＋ Add</button>
@@ -640,6 +693,26 @@ admin: {
       <tbody id="auditBody"></tbody></table></div></div>`,
     init: () => loadAudit(),
   },
+  archive: {
+    html: () => `
+      <div class="card"><h2>🎓 Academic Year Rollover</h2>
+        <p class="muted small">Saal khatam hone par: final-year students <strong>alumni</strong> bante hain (poora record archive me safe), baaki sab <strong>semester +1</strong>, aur naya academic year set hota hai. Rollover se pehle <strong>Overview → ⬇️ Backup</strong> le lo.</p>
+        <div id="roBox" class="muted small">Loading…</div></div>
+      <div class="card"><h2>🗃️ Alumni & Past Batches</h2>
+        <p class="muted small">Purane batch search karo — e.g. 2020 ka BCA batch. Har student ka attendance, marks, results permanent milta hai.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
+          <input class="input" id="arQ" placeholder="🔍 Name ya roll no…" style="max-width:240px;" />
+          <button class="btn btn-primary btn-sm" id="arSearch">Search</button>
+          <span class="muted small" id="arNote"></span></div>
+        <div id="arBatches" class="muted small">Loading…</div></div>
+      <div id="arStudents"></div>
+      <div id="arDetail"></div>`,
+    init: () => {
+      $('#arSearch').addEventListener('click', safe(() => loadArchiveStudents()));
+      $('#arQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') safe(loadArchiveStudents)(); });
+      return Promise.all([loadRolloverPreview(), loadArchiveBatches()]);
+    },
+  },
 },
 
 teacher: {
@@ -734,6 +807,55 @@ teacher: {
       $('#mkImport').addEventListener('click', safe(importMarksFile));
     },
   },
+  assn: {
+    html: () => `
+      <div class="card"><h2>📚 Assignments — create & track submissions</h2>
+        <div class="filter-grid">
+          <label>${t('program')}<select class="input" id="asProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+          <label>${t('branch')}<select class="input" id="asBranch"></select></label>
+          <label>${t('semester')}<select class="input" id="asSem"></select></label>
+          <label>${t('section')}<select class="input" id="asSec"><option value="">All</option>${secOptions()}</select></label>
+          <label>${t('subject')}<input class="input" id="asSubject" placeholder="e.g. DBMS" /></label>
+          <label>Title<input class="input" id="asTitle" placeholder="e.g. Unit-2 Worksheet" /></label>
+          <label>Unit (optional)<input class="input" id="asUnit" placeholder="e.g. Unit 2" /></label>
+          <label>Due date<input class="input" type="date" id="asDue" /></label>
+          <button class="btn btn-primary" id="asCreate">＋ Create</button>
+        </div>
+        <p class="muted small" style="margin-top:10px;">💡 Student panel pe sirf <strong>submitted X/Y counts</strong> dikhte hain — scores nahi (teacher ki privacy rule). Ek subject ke saare unit-wise assignments yahi banao — SPR me count auto aa jayega.</p></div>
+      <p class="muted small" id="asSummary" style="margin:10px 2px;"></p>
+      <div id="asList"></div>
+      <div id="asManage"></div>`,
+    init: () => {
+      const picker = wireProgramPicker($('#asProgram'), $('#asBranch'), $('#asSem'), '');
+      picker.set(state.user.program || 'B.Tech', state.user.branch || 'CSE', 1);
+      $('#asCreate').addEventListener('click', safe(createAssignment));
+      return loadAssnList();
+    },
+  },
+  progress: {
+    html: () => `
+      <div class="card"><h2>🎓 Student Progress Report (SPR)</h2>
+        <div class="filter-grid">
+          <label>${t('program')}<select class="input" id="pgProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+          <label>${t('branch')}<select class="input" id="pgBranch"></select></label>
+          <label>${t('semester')}<select class="input" id="pgSem"></select></label>
+          <label>${t('section')}<select class="input" id="pgSec"><option value="">All</option>${secOptions()}</select></label>
+          <button class="btn btn-primary" id="pgLoad">${t('load')} →</button>
+          <button class="btn btn-ghost" id="pgCsv">⬇️ CSV</button>
+          <button class="btn btn-ghost" id="pgPrint">🖨️ ${t('print')}</button>
+        </div>
+        <p class="muted small" id="pgNote" style="margin-top:8px;"></p></div>
+      <div id="pgBody"></div>
+      <div id="pgDetail"></div>`,
+    init: () => {
+      const picker = wireProgramPicker($('#pgProgram'), $('#pgBranch'), $('#pgSem'), '');
+      picker.set(state.user.program || 'B.Tech', state.user.branch || 'CSE', 1);
+      $('#pgLoad').addEventListener('click', safe(loadProgressClass));
+      $('#pgCsv').addEventListener('click', () => downloadFile(`/api/progress/class.csv?program=${encodeURIComponent($('#pgProgram').value)}&branch=${encodeURIComponent($('#pgBranch').value)}&semester=${$('#pgSem').value}&section=${encodeURIComponent($('#pgSec').value)}`, `progress-${todayISO()}.csv`));
+      $('#pgPrint').addEventListener('click', () => window.print());
+      return loadProgressClass();
+    },
+  },
   dwr: {
     html: () => `
       <div class="card"><h2>📋 ${t('dwr')} — Daily Work Report</h2>
@@ -791,7 +913,9 @@ student: {
             <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:12px;">🧾 Attendance Certificate</button></div>
           <div class="card"><h2>🏅 Badges</h2><div id="badgeList" class="badges"></div></div>
           <div class="card"><h2>🧠 Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div>
-          <div class="card"><h2>📝 My Marks</h2><div id="myMarks" class="muted small">Loading…</div></div>
+          <div class="card"><h2>📝 Marks hint</h2><div id="myMarks" class="muted small">SPR me dekho — Progress Report tab.</div></div>
+          <div class="card"><h2>📚 Assignments</h2><div id="attAssn" class="muted small">Loading…</div></div>
+          <div class="card"><h2>🎓 Results</h2><div id="attResults" class="muted small">Loading…</div></div>
           <div class="card"><h2>🧮 What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
         </div>
         <div>
@@ -806,6 +930,19 @@ student: {
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th></th></tr></thead>
         <tbody id="logBody"></tbody></table></div></div>`,
     init: () => { loadStudentAll(); $('#certBtn').addEventListener('click', safe(makeCertificate)); },
+  },
+  assn: {
+    html: () => `
+      <div class="card"><h2>📚 My Assignments</h2>
+        <p class="muted small" id="saSum" style="margin-bottom:10px;"></p>
+        <div id="saPending"></div>
+        <div class="table-wrap" style="margin-top:10px;"><table>
+          <thead><tr><th>Subject</th><th>Submitted</th><th>Progress</th></tr></thead>
+          <tbody id="saBody"></tbody></table></div></div>
+      <div class="card"><h2>🎓 Results (SGPA / CGPA)</h2>
+        <p class="muted small">Ye exam cell manually enter karta hai — system auto-calculate nahi karta.</p>
+        <div id="saResults" class="muted small">Loading…</div></div>`,
+    init: () => loadStudentAssn(),
   },
   selfmark: {
     html: () => `
@@ -880,6 +1017,7 @@ parent: {
           <div><strong id="statAbsent">0</strong><span>Absent</span></div>
           <div><strong id="statTotal">0</strong><span>Classes</span></div></div></div>
       <div class="card"><h2>📚 Subject-wise</h2><div id="pcSubjects" class="subject-list"></div></div>
+      <div class="card"><h2>📚 Assignments</h2><div id="pcAssn" class="muted small">Loading…</div></div>
       <div class="card"><h2>📝 Leaves</h2><div id="pcLeaves" class="muted small">Loading…</div></div>
       <div class="card"><h2>Recent Log</h2><div class="table-wrap"><table>
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
@@ -888,6 +1026,8 @@ parent: {
   },
 },
 };
+/* v9.1: admin bhi wahi SPR dekhe (Principal access) — teacher.progress reuse */
+SECTIONS.admin.progress = SECTIONS.teacher.progress;
 
 /* ================= v8.6 Admin Management ================= */
 async function loadAdmins() {
@@ -936,7 +1076,7 @@ async function addStudent(e) {
   await api('/api/users', { method:'POST', body: JSON.stringify({
     role:'student', name: $('#stName').value.trim(), rollNo: $('#stRoll').value.trim(),
     program: $('#stProgram').value, branch: $('#stBranch').value, semester: $('#stSem').value,
-    section: $('#stSec').value, email: $('#stEmail').value.trim(), cardId: $('#stCard').value.trim(),
+    section: $('#stSec').value, email: $('#stEmail').value.trim(), cardId: $('#stCard').value.trim(), batch: $('#stBatch').value.trim(),
     username: $('#stUsername').value.trim(), password: $('#stPassword').value }) });
   toast('Student added ✅'); e.target.reset(); refresh();
 }
@@ -1043,9 +1183,10 @@ async function editStudent(id) {
   const roll = prompt('Roll no:', u.rollNo); if (roll === null) return;
   const sem = prompt(`Semester (1–${(PROGRAMS[u.program]||{}).sems||8}):`, u.semester); if (sem === null) return;
   const sec = prompt(`Section (${(state.sections||[]).join('/')} ya blank):`, u.section); if (sec === null) return;
+  const batch = prompt('Batch (e.g. 2023-27 · archive search ke liye):', u.batch || ''); if (batch === null) return;
   const email = prompt('Email:', u.email); if (email === null) return;
   const card = prompt('RFID Card ID:', u.cardId); if (card === null) return;
-  await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ name, rollNo: roll, semester: sem, section: sec, email, cardId: card }) });
+  await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ name, rollNo: roll, semester: sem, section: sec, batch, email, cardId: card }) });
   toast('Updated ✏️'); loadAdminStudents();
 }
 async function editTeacher(id) {
@@ -1333,6 +1474,8 @@ const AUDIT_STYLE = {
   HOLIDAY_ADD:['pill-soft','🏛️ Holiday'], HOLIDAY_DEL:['pill-warn','🗑 Holiday'], SETTINGS:['pill-warn','⚙️ Settings'],
   SECTIONS:['pill-warn','🏫 Sections'], SETUP_ADMIN:['pill-good','👑 First admin'],
   ROLE_PROMOTE:['pill-good','👑 Admin bana'], ROLE_DEMOTE:['pill-warn','⬇️ Demote'], PROFILE_EDIT:['pill-soft','✏️ Profile'],
+  ASSIGN_ADD:['pill-good','📚 Assignment'], ASSIGN_DEL:['pill-warn','🗑 Assn del'], ASSIGN_SUB:['pill-soft','📚 Subs'],
+  RESULT_SET:['pill-soft','🎓 Results'], ROLLOVER:['pill-warn','🎓 Rollover'],
 };
 async function loadAudit() {
   const { logs } = await api('/api/admin/audit');
@@ -1479,15 +1622,22 @@ async function loadMarksRoster() {
   const { students } = await api(`/api/students?program=${encodeURIComponent($('#mkProgram').value)}&branch=${encodeURIComponent($('#mkBranch').value)}&semester=${$('#mkSem').value}&section=${encodeURIComponent($('#mkSec').value)}`);
   if (!students.length) { $('#mkCard').hidden = true; return toast('No students.', 'error'); }
   const { items } = await api(`/api/marks/class?subject=${encodeURIComponent(subject)}&exam=${encodeURIComponent(exam)}&program=${encodeURIComponent($('#mkProgram').value)}&branch=${encodeURIComponent($('#mkBranch').value)}&semester=${$('#mkSem').value}&section=${encodeURIComponent($('#mkSec').value)}`);
-  const existing = new Map(items.map((i) => [i.student_id, i.score]));
+  const existing = new Map(items.map((i) => [i.student_id, i]));
   state.roster = students;
   $('#mkCard').hidden = false;
   $('#mkTitle').textContent = `${subject} · ${exam} · max ${max}`;
-  $('#mkList').innerHTML = students.map((s) => `
-    <div class="student-row"><div class="avatar sm">${esc(s.name.charAt(0).toUpperCase())}</div>
+  $('#mkList').innerHTML = students.map((s) => {
+    const ex = existing.get(s.id) || {};
+    const mst = ex.status || 'scored';
+    return `<div class="student-row"><div class="avatar sm">${esc(s.name.charAt(0).toUpperCase())}</div>
     <div class="student-info"><strong>${esc(s.name)}</strong><span>${esc(s.rollNo || s.username)}</span></div>
+    <select class="input" style="max-width:132px;" data-mst="${s.id}" title="Result status">
+      <option value="scored" ${mst === 'scored' ? 'selected' : ''}>Scored</option>
+      <option value="absent" ${mst === 'absent' ? 'selected' : ''}>Absent</option>
+      <option value="debarred" ${mst === 'debarred' ? 'selected' : ''}>Debarred</option></select>
     <input class="input" style="max-width:110px;text-align:center;font-weight:700;" type="number" min="0" max="${max}" step="0.5"
-      data-mk="${s.id}" value="${existing.get(s.id) ?? ''}" placeholder="—" /></div>`).join('');
+      data-mk="${s.id}" value="${ex.score ?? ''}" placeholder="—" /></div>`;
+  }).join('');
 }
 function downloadMarksTemplate() {
   if (!state.roster.length) return toast('Pehle Load Students karo — template me rollNo prefilled milte hain.', 'error');
@@ -1546,9 +1696,9 @@ async function importMarksFile() {
 }
 async function saveMarks() {
   const entries = [...$('#mkList').querySelectorAll('[data-mk]')]
-    .filter((i) => i.value !== '')
-    .map((i) => ({ studentId: i.dataset.mk, score: Number(i.value) }));
-  if (!entries.length) return toast('Koi score daalo pehle.', 'error');
+    .map((i) => ({ studentId: i.dataset.mk, score: i.value === '' ? null : Number(i.value), status: ($(`#mkList [data-mst="${i.dataset.mk}"]`) || {}).value || 'scored' }))
+    .filter((e) => e.score != null || e.status !== 'scored');
+  if (!entries.length) return toast('Koi score daalo ya status set karo pehle.', 'error');
   const res = await api('/api/marks/bulk', { method:'POST', body: JSON.stringify({
     subject: $('#mkSubject').value.trim(), exam: $('#mkExam').value.trim(), max: Number($('#mkMax').value), entries }) });
   toast(res.message);
@@ -1724,12 +1874,14 @@ async function loadStudentAll() {
       : '<p class="muted small">Empty.</p>';
   } catch {}
   try {
-    const { items } = await api('/api/marks/mine');
-    $('#myMarks').innerHTML = items.length ? items.map((m) => `
-      <div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">${esc(m.subject)}</strong>
-      <span class="muted small">${esc(m.exam)}</span>
-      <span class="pill pill-${pctClass(Math.round(m.score * 100 / m.max))}">${m.score}/${m.max}</span></div>`).join('')
-      : '<p class="muted small">No marks yet.</p>';
+    /* v9.1 privacy: student ko scores nahi dikhte — sirf assignment counts + manually-entered results */
+    const p = await api('/api/progress/mine');
+    $('#attAssn').innerHTML = p.subjects.length ? p.subjects.map((s) => `
+      <div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">${esc(s.subject)}</strong>
+      <span class="pill ${s.total && s.done >= s.total ? 'pill-good' : 'pill-warn'}">${s.done}/${s.total} submitted</span></div>`).join('')
+      : '<p class="muted small">Koi assignment nahi.</p>';
+    $('#attResults').innerHTML = renderResults(p.results);
+    $('#myMarks').innerHTML = '📋 Test/PUT scores teacher ki <strong>Progress Report</strong> me hote hain — student panel pe privacy ke liye nahi dikhte.';
   } catch {}
   const wi = $('#whatifBody');
   if (stats.total > 0) {
@@ -1800,6 +1952,13 @@ async function loadParentChild() {
     <div class="subject-item"><div class="subject-head"><strong>${esc(s.subject)}</strong>
     <span class="pill pill-${pctClass(s.percentage)}">${s.percentage}%</span></div>
     <div class="bar"><div class="bar-fill ${pctClass(s.percentage)}" style="width:${s.percentage}%"></div></div></div>`).join('') : '<p class="muted">No data.</p>';
+  try {
+    const a = await api('/api/assignments/child');
+    $('#pcAssn').innerHTML = a.subjects.length ? a.subjects.map((s) => `
+      <div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">${esc(s.subject)}</strong>
+      <span class="pill ${s.total && s.done >= s.total ? 'pill-good' : 'pill-warn'}">${s.done}/${s.total} submitted</span></div>`).join('')
+      : '<p class="muted small">No assignments yet.</p>';
+  } catch {}
   const pill = (s) => (s === 'present' ? 'pill-good' : s === 'late' ? 'pill-warn' : 'pill-bad');
   const label = (s) => (s === 'present' ? 'Present' : s === 'late' ? 'Late' : 'Absent');
   $('#pcLog').innerHTML = stats.logs.length ? stats.logs.slice(0, 20).map((l) => `
@@ -1827,10 +1986,14 @@ function cmdItems() {
     { icon: '📊', label: 'Export Excel (current range)', run: () => downloadFile('/api/reports/export' + rangeQ(), `attendance-${todayISO()}.csv`) },
     { icon: '💾', label: 'Download backup', run: () => downloadFile('/api/admin/backup', `glbajaj-backup-${todayISO()}.json`) },
     { icon: '🖨️', label: 'Print report', run: () => { go('reports'); setTimeout(() => window.print(), 400); } },
+    { icon: '🎓', label: 'Year rollover wizard', run: () => go('archive') },
+    { icon: '🗃️', label: 'Alumni archive search', run: () => go('archive') },
   );
   if (state.user.role === 'teacher') extra.unshift(
     { icon: '✏️', label: 'Mark today attendance', run: () => { go('mark'); setTimeout(() => safe(loadRoster)(), 250); } },
     { icon: '📝', label: 'Enter marks', run: () => go('marks') },
+    { icon: '🎓', label: 'Open progress report (SPR)', run: () => go('progress') },
+    { icon: '📚', label: 'Manage assignments', run: () => go('assn') },
   );
   if (state.user.role === 'student') extra.unshift(
     { icon: '📲', label: 'Self-mark attendance', run: () => go('selfmark') },
@@ -1990,6 +2153,203 @@ async function loadDwrPrincipal() {
         <tbody>${cls.items.map((r) => `<tr><td><strong>${r.period}</strong></td><td>${esc(r.subject)}</td><td>${esc(r.teacherName || '—')}</td><td>${r.present_count ?? '—'} / ${r.total_count ?? '—'}</td><td>${esc(r.taught || '—')}</td><td>${esc(r.assignment_title || '—')}</td><td>${esc(r.assignment_due || '—')}</td><td>${esc(r.remarks || '')}</td></tr>`).join('')}</tbody>
       </table></div></div>`;
   }).join('') : '<div class="card"><p class="muted">Is date ke liye koi Daily Work Report nahi mila.</p></div>';
+}
+
+/* ================= v9.1: SPR + Assignments + Archive ================= */
+function resolveWeights(program) {
+  const raw = (state.settings && state.settings.internalWeights) || {};
+  const def = raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw.default
+    : { outOf: 25, parts: [ { exam:'ST1', label:'ST-1', max:50, weight:8 }, { exam:'ST2', label:'ST-2', max:50, weight:8 }, { exam:'PUT', label:'PUT', max:75, weight:9 } ] };
+  const ov = program && raw.programs && raw.programs[program];
+  return ov && Array.isArray(ov.parts) && ov.parts.length ? ov : def;
+}
+function renderResults(results) {
+  if (!results || !results.length) return '<p class="muted small">Abhi koi result enter nahi hua.</p>';
+  return results.map((r) => `<div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">Semester ${r.semester}</strong>
+    <span class="muted small">${r.remark ? esc(r.remark) : ''}</span>
+    ${r.sgpa != null ? `<span class="pill pill-soft">SGPA ${r.sgpa}</span>` : ''}
+    ${r.cgpa != null ? `<span class="pill pill-good">CGPA ${r.cgpa}</span>` : ''}</div>`).join('');
+}
+/* ---- teacher: assignments ---- */
+async function loadAssnList() {
+  const { items } = await api(`/api/assignments?program=${encodeURIComponent($('#asProgram').value)}&branch=${encodeURIComponent($('#asBranch').value)}&semester=${$('#asSem').value}&section=${encodeURIComponent($('#asSec').value)}`);
+  $('#asSummary').textContent = items.length ? `${items.length} assignments (current academic year)` : '';
+  $('#asList').innerHTML = items.length ? items.map((a) => `
+    <div class="card dwr-card"><div class="card-head">
+      <h2>${esc(a.subject)} — ${esc(a.title)}</h2>
+      <span class="muted small">${a.unit ? esc(a.unit) + ' · ' : ''}${a.dueDate ? 'due ' + esc(a.dueDate) + ' · ' : ''}${esc(a.teacherName || '')}</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span class="pill ${a.strength && a.done >= a.strength ? 'pill-good' : 'pill-soft'}">📚 ${a.done}/${a.strength} submitted</span>
+        <button class="btn btn-primary btn-sm" data-asub="${a.id}">✅ Mark submissions</button>
+        <button class="btn btn-danger btn-sm" data-adel="${a.id}">🗑 Delete</button></div></div>`).join('')
+    : '<div class="card"><p class="muted">Is class ke liye koi assignment nahi — upar se create karo.</p></div>';
+  $('#asList').querySelectorAll('[data-adel]').forEach((b) => b.addEventListener('click', safe(async () => {
+    if (!confirm('Delete assignment + uski submissions?')) return;
+    await api(`/api/assignments/${b.dataset.adel}`, { method: 'DELETE' }); toast('Deleted.'); loadAssnList();
+  })));
+  $('#asList').querySelectorAll('[data-asub]').forEach((b) => b.addEventListener('click', safe(() => manageAssnSubs(b.dataset.asub))));
+}
+async function createAssignment() {
+  const subject = $('#asSubject').value.trim(), title = $('#asTitle').value.trim();
+  if (!subject || !title) return toast('Subject + title daalo.', 'error');
+  await api('/api/assignments', { method: 'POST', body: JSON.stringify({
+    program: $('#asProgram').value, branch: $('#asBranch').value, semester: $('#asSem').value, section: $('#asSec').value,
+    subject, title, unit: $('#asUnit').value, dueDate: $('#asDue').value }) });
+  toast('Assignment created 📚');
+  $('#asTitle').value = ''; $('#asUnit').value = ''; $('#asDue').value = '';
+  loadAssnList();
+}
+async function manageAssnSubs(id) {
+  const d = await api(`/api/assignments/${id}/submissions`);
+  const host = $('#asManage');
+  host.innerHTML = `<div class="card"><div class="card-head"><h2>✅ Submissions — ${esc(d.assignment.title)}</h2>
+    <div><button class="btn btn-primary btn-sm" id="asSaveSubs">💾 Save</button>
+    <button class="btn btn-ghost btn-sm" id="asCloseSubs">Close</button></div></div>
+    <p class="muted small">${esc(d.assignment.subject)}${d.assignment.dueDate ? ' · due ' + esc(d.assignment.dueDate) : ''} — jisne notebook/file submit ki, tick karo.</p>
+    <div class="student-list">${d.students.map((s) => `
+      <div class="student-row"><div class="avatar sm">${esc(s.name.charAt(0).toUpperCase())}</div>
+      <div class="student-info"><strong>${esc(s.name)}</strong><span>${esc(s.rollNo || '')}</span></div>
+      <label style="display:inline-flex;gap:8px;align-items:center;font-size:.85rem;font-weight:600;cursor:pointer;">
+        <input type="checkbox" data-subid="${s.id}" ${s.submitted ? 'checked' : ''} /> Submitted</label></div>`).join('') || '<p class="muted">No students.</p>'}</div></div>`;
+  host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#asCloseSubs').addEventListener('click', () => { host.innerHTML = ''; });
+  $('#asSaveSubs').addEventListener('click', safe(async () => {
+    const items = [...host.querySelectorAll('[data-subid]')].map((c) => ({ studentId: c.dataset.subid, submitted: c.checked }));
+    const r = await api(`/api/assignments/${id}/submissions`, { method: 'POST', body: JSON.stringify({ items }) });
+    toast(r.message); host.innerHTML = ''; loadAssnList();
+  }));
+}
+/* ---- student: assignments ---- */
+async function loadStudentAssn() {
+  const d = await api('/api/assignments/mine');
+  const done = d.subjects.reduce((a, s) => a + s.done, 0), tot = d.subjects.reduce((a, s) => a + s.total, 0);
+  $('#saSum').textContent = d.items.length ? `AY ${d.academicYear} · total ${done}/${tot} submitted` : 'Abhi koi assignment nahi aayi.';
+  $('#saPending').innerHTML = d.pending.length ? `<strong class="small">⏳ Pending (${d.pending.length}):</strong>` +
+    d.pending.slice(0, 8).map((p) => `<div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">${esc(p.title)}</strong>
+      <span class="muted small">${esc(p.subject)}${p.dueDate ? ' · due ' + esc(p.dueDate) : ''}</span></div>`).join('') : '';
+  $('#saBody').innerHTML = d.subjects.length ? d.subjects.map((s) => `<tr><td>${esc(s.subject)}</td>
+    <td><span class="pill ${s.total && s.done >= s.total ? 'pill-good' : 'pill-warn'}">${s.done}/${s.total}</span></td>
+    <td style="min-width:120px;"><div class="bar"><div class="bar-fill ${s.total && s.done >= s.total ? 'good' : ''}" style="width:${s.total ? Math.round((s.done / s.total) * 100) : 0}%"></div></div></td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty">No assignments.</td></tr>';
+  $('#saResults').innerHTML = renderResults(d.results);
+}
+/* ---- teacher/admin: SPR ---- */
+function sprCell(x) {
+  if (!x) return '—';
+  return `<span class="pill pill-soft" title="internal marks">${x.internal}/${x.outOf}</span> <span class="muted small" title="assignments submitted">📚${x.asgnDone}/${x.asgnTotal}</span> ${x.attPct != null ? `<span class="pill pill-${pctClass(x.attPct)}" title="attendance">${x.attPct}%</span>` : ''}${x.missing && x.missing.length ? ` <span class="muted small" title="pending exams: ${esc(x.missing.join(', '))}">⏳${x.missing.length}</span>` : ''}`;
+}
+async function loadProgressClass() {
+  const program = $('#pgProgram').value, branch = $('#pgBranch').value, semester = $('#pgSem').value, section = $('#pgSec').value;
+  const d = await api(`/api/progress/class?program=${encodeURIComponent(program)}&branch=${encodeURIComponent(branch)}&semester=${semester}&section=${encodeURIComponent(section)}`);
+  const w = d.weights || {};
+  const wTxt = (w.parts || []).map((p) => `${p.label || p.exam} ${p.max}→${p.weight}`).join(' + ');
+  $('#pgNote').innerHTML = `AY ${esc(d.academicYear)} · Internal = out of <strong>${w.outOf}</strong> (${esc(wTxt)}). ST1/ST2/PUT marks Marks Entry se auto aate hain — exam me "ST-1", "ST-2", "PUT" likho. Absent/Debarred bhi wahi se set hota hai.`;
+  if (!d.rows.length) { $('#pgBody').innerHTML = '<div class="card"><p class="muted">Is class me koi active student nahi mila.</p></div>'; return; }
+  $('#pgBody').innerHTML = `<div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>Roll</th><th>Name</th>${d.subjects.map((s) => `<th>${esc(s)}</th>`).join('')}<th>Att%</th><th>Result</th><th class="no-print"></th></tr></thead>
+    <tbody>${d.rows.map((r) => `<tr>
+      <td>${esc(r.rollNo || '—')}</td><td style="text-align:left;">${esc(r.name)}</td>
+      ${d.subjects.map((s) => `<td>${sprCell(r.subjects[s])}</td>`).join('')}
+      <td><span class="pill pill-${pctClass(r.att.pct)}">${r.att.pct}%</span></td>
+      <td>${r.results.length ? `<span class="pill pill-good" title="latest semester result">S${r.results[r.results.length-1].semester}: ${r.results[r.results.length-1].sgpa ?? '—'}</span>` : '<span class="muted small">—</span>'}</td>
+      <td class="table-actions no-print"><button class="btn btn-ghost btn-sm" data-pgd="${r.id}">📋 Detail</button></td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small" style="margin-top:8px;">Har cell me: internal (/25) · 📚 assignments submitted · attendance % · ⏳ = pending exams.</p></div>`;
+  $('#pgBody').querySelectorAll('[data-pgd]').forEach((b) => b.addEventListener('click', safe(() => showProgressStudent(b.dataset.pgd))));
+}
+async function showProgressStudent(id) {
+  const d = await api(`/api/progress/student?studentId=${encodeURIComponent(id)}`);
+  const st = d.student, row = d.row;
+  const host = $('#pgDetail');
+  if (!row) { host.innerHTML = '<div class="card"><p class="muted">Data nahi mila.</p></div>'; return; }
+  host.innerHTML = `<div class="card"><div class="card-head"><h2>📋 ${esc(st.name)} <span class="muted small">${esc(st.rollNo || '')} · ${esc(st.program)}${st.branch && st.branch !== 'General' ? ' · ' + esc(st.branch) : ''} · Sem ${st.semester}${st.section ? ' · ' + esc(st.section) : ''}${st.batch ? ' · Batch ' + esc(st.batch) : ''}</span></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
+      <button class="btn btn-primary btn-sm" id="pgrSet">🎓 Set SGPA/CGPA</button>
+      <button class="btn btn-ghost btn-sm" id="pgrClose">Close</button></div></div>
+    <p class="muted small">AY ${esc(d.academicYear)} · Overall attendance: <strong>${row.att.pct}%</strong> (${row.att.attended}/${row.att.total})</p>
+    ${d.subjects.map((s) => {
+      const x = row.subjects[s]; if (!x) return '';
+      const exams = ['ST1', 'ST2', 'PUT', 'FINAL'].filter((e) => x.exams[e]).map((e) => {
+        const m = x.exams[e];
+        return `<span class="pill ${m.status === 'scored' ? 'pill-soft' : m.status === 'absent' ? 'pill-warn' : 'pill-bad'}">${e}: ${m.status === 'scored' ? m.score + '/' + m.max : m.status.toUpperCase()}</span>`;
+      }).join(' ');
+      const other = (x.other || []).map((m) => `<span class="pill pill-soft">${esc(m.exam)}: ${m.score}/${m.max}</span>`).join(' ');
+      return `<div style="border-top:1px dashed var(--border-strong);padding:10px 0;">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+          <strong>${esc(s)}</strong>
+          <span><span class="pill pill-good">Internal ${x.internal}/${x.outOf}</span> ${x.missing.length ? `<span class="muted small">(pending: ${esc(x.missing.join(', '))})</span>` : ''}</span></div>
+        <div style="margin-top:6px;">${exams || '<span class="muted small">Koi ST/PUT marks nahi</span>'} ${other}</div>
+        <div style="margin-top:6px;" class="muted small">📚 Assignments: ${x.asgnDone}/${x.asgnTotal} · 🎯 Attendance: ${x.attPct != null ? x.attPct + '%' : '—'} (${x.attAttended}/${x.attTotal})</div></div>`;
+    }).join('')}
+    <div style="border-top:1px dashed var(--border-strong);padding:10px 0;"><strong>🎓 Results (manual entry)</strong>
+      <div style="margin-top:6px;">${row.results.length ? row.results.map((r) => `<span class="pill pill-soft">Sem ${r.semester}: SGPA ${r.sgpa ?? '—'} · CGPA ${r.cgpa ?? '—'}${r.remark ? ' · ' + esc(r.remark) : ''}</span>`).join(' ') : '<span class="muted small">Not entered yet.</span>'}</div></div></div>`;
+  host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#pgrClose').addEventListener('click', () => { host.innerHTML = ''; });
+  $('#pgrSet').addEventListener('click', safe(async () => {
+    const sem = prompt(`Semester (1-${(PROGRAMS[st.program] || {}).sems || 8}):`, st.semester || 1); if (sem === null) return;
+    const sgpa = prompt('SGPA (0-10, khaali = skip):', ''); if (sgpa === null) return;
+    const cgpa = prompt('CGPA (0-10, khaali = skip):', ''); if (cgpa === null) return;
+    const remark = prompt('Remark (optional):', ''); if (remark === null) return;
+    const r = await api('/api/results', { method: 'POST', body: JSON.stringify({ studentId: st.id, semester: Number(sem), sgpa, cgpa, remark }) });
+    toast(r.message); showProgressStudent(st.id);
+  }));
+}
+/* ---- admin: rollover + archive ---- */
+async function loadRolloverPreview() {
+  const d = await api('/api/admin/rollover/preview');
+  $('#roBox').innerHTML = `<p>Current AY: <strong>${esc(d.academicYear)}</strong> → next: <strong>${esc(d.nextAY)}</strong></p>
+    <p>🎓 Will graduate (final year, alumni banenge): <strong>${d.willGraduate}</strong> · ⬆️ Will promote (semester +1): <strong>${d.willPromote}</strong></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px;">
+      <label style="display:grid;gap:4px;font-size:.8rem;font-weight:600;">New Academic Year
+        <input class="input" id="roNewAY" value="${esc(d.nextAY)}" style="max-width:120px;" /></label>
+      <button class="btn btn-danger" id="roGo">🎓 Run Rollover</button></div>`;
+  $('#roGo').addEventListener('click', safe(async () => {
+    if (!confirm(`⚠️ ROLLOVER: ${d.willGraduate} graduate + ${d.willPromote} promote + AY → ${$('#roNewAY').value}. Backup le liya?`)) return;
+    if (!confirm('Last confirm — rollover abhi execute karna hai?')) return;
+    const r = await api('/api/admin/rollover', { method: 'POST', body: JSON.stringify({ confirm: true, newAcademicYear: $('#roNewAY').value }) });
+    toast(r.message); loadRolloverPreview(); loadArchiveBatches();
+  }));
+}
+async function loadArchiveBatches() {
+  const { items } = await api('/api/archive/batches');
+  $('#arBatches').innerHTML = items.length ? `<div class="table-wrap"><table><thead><tr><th>Program</th><th>Branch</th><th>Batch</th><th>Students</th><th></th></tr></thead>
+    <tbody>${items.map((b) => `<tr><td>${esc(b.program)}</td><td>${esc(b.branch || '—')}</td><td>${esc(b.batch || '—')}</td><td>${b.students}</td>
+    <td><button class="btn btn-ghost btn-sm" data-arb="${esc(b.program)}|${esc(b.branch)}|${esc(b.batch)}">Open →</button></td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="muted small">Abhi koi alumni nahi — rollover ke baad batches yahan automatically aayenge.</p>';
+  $('#arNote').textContent = items.length ? `${items.length} batch(es) archived` : '';
+  $('#arBatches').querySelectorAll('[data-arb]').forEach((b) => b.addEventListener('click', () => {
+    const [p, br, ba] = b.dataset.arb.split('|');
+    loadArchiveStudents(p, br, ba);
+  }));
+}
+async function loadArchiveStudents(program, branch, batch) {
+  const q = new URLSearchParams();
+  if (program) q.set('program', program); else if ($('#arQ').value.trim()) q.set('q', $('#arQ').value.trim());
+  if (branch) q.set('branch', branch);
+  if (batch) q.set('batch', batch);
+  const { items } = await api('/api/archive/students' + (q.toString() ? '?' + q.toString() : ''));
+  $('#arStudents').innerHTML = items.length ? `<div class="card"><h2>🗃️ ${items.length} alumni${program ? ' · ' + esc(program) : ''}${batch ? ' · batch ' + esc(batch) : ''}</h2>
+    <div class="table-wrap"><table><thead><tr><th>Roll</th><th>Name</th><th>Class</th><th>Batch</th><th>Graduated</th><th></th></tr></thead>
+    <tbody>${items.map((s) => `<tr><td>${esc(s.rollNo || '—')}</td><td style="text-align:left;">${esc(s.name)}</td>
+    <td>${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · S${s.semester ?? '—'}</td>
+    <td>${esc(s.batch || '—')}</td><td>${esc(s.graduatedOn || '—')}</td>
+    <td><button class="btn btn-ghost btn-sm" data-ars="${s.id}">📋 Full record</button></td></tr>`).join('')}</tbody></table></div></div>`
+    : '<div class="card"><p class="muted small">Koi alumni nahi mila.</p></div>';
+  $('#arStudents').querySelectorAll('[data-ars]').forEach((b) => b.addEventListener('click', safe(() => showArchiveStudent(b.dataset.ars))));
+}
+async function showArchiveStudent(id) {
+  const d = await api(`/api/archive/student/${encodeURIComponent(id)}`);
+  const s = d.student, a = d.attendance;
+  $('#arDetail').innerHTML = `<div class="card"><div class="card-head"><h2>📋 ${esc(s.name)} <span class="muted small">${esc(s.rollNo || '')} · ${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · Batch ${esc(s.batch || '—')} · ${s.status === 'alumni' ? '🎓 graduated ' + esc(s.graduatedOn || '') : 'active'}</span></h2>
+    <button class="btn btn-ghost btn-sm no-print" id="arClose">Close</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <span class="pill pill-${pctClass(a.pct)}">Attendance ${a.pct}%</span>
+      <span class="pill pill-soft">${a.present} present</span><span class="pill pill-warn">${a.late} late</span>
+      <span class="pill pill-bad">${a.absent} absent</span><span class="pill pill-soft">${a.total} total</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Subject</th><th>Exam</th><th>Score</th><th>Status</th><th>AY</th></tr></thead>
+    <tbody>${d.marks.length ? d.marks.map((m) => `<tr><td>${esc(m.subject)}</td><td>${esc(m.exam)}</td><td>${m.score}/${m.max}</td><td>${m.status === 'scored' ? '✓' : esc(m.status)}</td><td>${esc(m.ay || '—')}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">No marks recorded.</td></tr>'}</tbody></table></div>
+    <div style="margin-top:12px;"><strong>🎓 Results:</strong> ${d.results.length ? d.results.map((r) => `<span class="pill pill-soft">Sem ${r.semester}: SGPA ${r.sgpa ?? '—'} · CGPA ${r.cgpa ?? '—'}</span>`).join(' ') : '<span class="muted small">Not entered.</span>'}</div></div>`;
+  $('#arDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#arClose').addEventListener('click', () => { $('#arDetail').innerHTML = ''; });
 }
 (async () => {
   if (state.token) {

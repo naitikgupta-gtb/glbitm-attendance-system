@@ -1,8 +1,9 @@
 /**
- * GL Bajaj Attendance System — v9.0.0 (Teachers' Requirements Edition)
+ * GL Bajaj Attendance System — v9.1.0 (Teachers' Requirements Edition)
  * PERSISTENT cloud DB · Rotating QR · Face · Parent Portal · Excel Import · Sections
- * NEW v9.0: Daily Work Report (DWR) · Principal auto-report at compile time · academic_year foundation
- *           (Phase 2+: Progress Report · Year Rollover · Alumni Archive · UI refresh)
+ * v9.0: Daily Work Report (DWR) · Principal auto-report at compile time · academic_year foundation
+ * NEW v9.1: Student Progress Report (SPR) · Assignments + submissions · Internal marks /25
+ *           Absent/Debarred status · Manual SGPA/CGPA · Year Rollover · Alumni Archive
  */
 const express = require('express');
 const crypto = require('crypto');
@@ -209,10 +210,66 @@ async function getDwrConfig() {
   const m = Object.fromEntries(r.map((x) => [x.key, x.value]));
   return { compileTime: m.dwr_compile_time || '16:30', periods: Math.min(12, Math.max(1, Number(m.dwr_periods) || 7)) };
 }
+
+/* ---------------- v9.1: SPR — internal marks engine ----------------
+   College rule (BCA/BBA): raw ST1=50, ST2=50, PUT=75 → report card me out of 25.
+   B.Tech alag ho sakta hai — isliye weights settings me configurable (key: internal_weights).
+   Default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25. Admin Overview se edit hota hai. */
+const DEFAULT_WEIGHTS = { outOf: 25, parts: [
+  { exam: 'ST1', label: 'ST-1', max: 50, weight: 8 },
+  { exam: 'ST2', label: 'ST-2', max: 50, weight: 8 },
+  { exam: 'PUT', label: 'PUT', max: 75, weight: 9 },
+] };
+function examCategory(exam) {
+  const e = String(exam || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!e) return null;
+  if (e.includes('PUT') || e.includes('PREUNI')) return 'PUT';
+  if (e.includes('FINAL') || e.includes('ENDSEM') || e.includes('UNIVERSITY') || e.includes('EXTERNAL') || e === 'UNIV' || e === 'SEM') return 'FINAL';
+  const m = e.match(/(?:ST|MST|SST|SESS|SES|SESSIONAL|SA|UT|T|AL)(\d)$/);
+  if (m) return m[1] === '1' ? 'ST1' : m[1] === '2' ? 'ST2' : null;
+  return null;
+}
+async function getWeightsRaw() {
+  const r = await sql`SELECT value FROM settings WHERE key = 'internal_weights'`;
+  try { const v = JSON.parse(r[0]?.value); if (v && typeof v === 'object') return v; } catch {}
+  return {};
+}
+async function getInternalWeights(program) {
+  const raw = await getWeightsRaw();
+  const base = raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw.default : DEFAULT_WEIGHTS;
+  const ov = program && raw.programs && raw.programs[program];
+  return ov && Array.isArray(ov.parts) && ov.parts.length ? ov : base;
+}
+/* marksByExam: { ST1: {score, max, status}, ... } → { internal, outOf, missing[] } */
+function computeInternal(marksByExam, weights) {
+  const outOf = Number(weights.outOf) > 0 ? Number(weights.outOf) : 25;
+  let sum = 0; const missing = []; const details = [];
+  for (const part of weights.parts || []) {
+    const raw = marksByExam[part.exam];
+    const status = raw ? String(raw.status || 'scored') : null;
+    if (!raw) { missing.push(part.exam); details.push({ exam: part.exam, label: part.label || part.exam, missing: true }); continue; }
+    if (status !== 'scored') { details.push({ exam: part.exam, label: part.label || part.exam, status }); continue; }
+    const max = Number(raw.max) > 0 ? Number(raw.max) : Number(part.max);
+    const earned = Math.max(0, Math.min(1, Number(raw.score) / max)) * Number(part.weight);
+    sum += earned;
+    details.push({ exam: part.exam, label: part.label || part.exam, score: Number(raw.score), max, earned: Math.round(earned * 10) / 10, weight: Number(part.weight) });
+  }
+  return { internal: Math.round(sum * 10) / 10, outOf, missing, details };
+}
+async function getResults(studentId) {
+  return sql`SELECT semester, sgpa, cgpa, remark, ts FROM results WHERE student_id = ${studentId} ORDER BY semester`;
+}
+/* v9.1: teacher subject-guard — req.user raw DB row hota hai (subjects JSON string), isliye parse karke do */
+function assignedSubjects(u) {
+  if (Array.isArray(u && u.subjects)) return u.subjects.filter(Boolean);
+  try { const a = JSON.parse((u && u.subjects) || '[]'); return Array.isArray(a) ? a.filter(Boolean) : []; } catch { return []; }
+}
+/* v9.1: active-student condition (rollover ke baad alumni rosters me nahi dikhne chahiye) */
+const isActiveUser = (col) => sql`(${sql(col)} = 'active' OR ${sql(col)} = '' OR ${sql(col)} IS NULL)`;
 function publicUser(u) {
   if (!u) return null;
   let subjects = []; try { subjects = JSON.parse(u.subjects || '[]'); } catch {}
-  return { id: u.id, role: u.role, name: u.name, username: u.username, program: u.program || '', branch: u.branch || '', semester: u.semester ?? null, section: u.section || '', rollNo: u.roll_no || '', email: u.email || '', subjects, hasFace: !!u.face, cardId: u.card_id || '', parentOf: u.parent_of || '', twofa: !!u.twofa };
+  return { id: u.id, role: u.role, name: u.name, username: u.username, program: u.program || '', branch: u.branch || '', semester: u.semester ?? null, section: u.section || '', rollNo: u.roll_no || '', email: u.email || '', subjects, hasFace: !!u.face, cardId: u.card_id || '', parentOf: u.parent_of || '', twofa: !!u.twofa, batch: u.batch || '', status: u.status || 'active', graduatedOn: u.graduated_on || '' };
 }
 
 /* ---------------- auth middleware ---------------- */
@@ -336,7 +393,7 @@ app.post('/api/me/face', requireAuth, H(async (req, res) => {
 }));
 
 /* ================= SETTINGS & HOLIDAYS & SECTIONS ================= */
-app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig() })));
+app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig(), internalWeights: await getWeightsRaw() })));
 app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req, res) => {
   const t = Number((req.body || {}).threshold);
   if (!Number.isFinite(t) || t < 40 || t > 95) return res.status(400).json({ error: 'Threshold 40–95 ke beech rakho.' });
@@ -347,6 +404,18 @@ app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req
   if (b.academicYear && /^\d{4}-\d{2}$/.test(String(b.academicYear))) { await sql`INSERT INTO settings (key, value) VALUES ('academic_year', ${String(b.academicYear)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · AY ${b.academicYear}`; }
   if (b.dwrCompileTime && /^\d{2}:\d{2}$/.test(String(b.dwrCompileTime))) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_compile_time', ${String(b.dwrCompileTime)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · DWR compile ${b.dwrCompileTime}`; }
   if (b.dwrPeriods && Number(b.dwrPeriods) >= 1 && Number(b.dwrPeriods) <= 12) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_periods', ${String(Number(b.dwrPeriods))}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · periods ${Number(b.dwrPeriods)}`; }
+  /* v9.1: internal marks weights (SPR) — default config edit hota hai; per-program override bhi JSON me allowed */
+  if (b.internalWeights && typeof b.internalWeights === 'object') {
+    const w = b.internalWeights;
+    const partsOk = Array.isArray(w.parts) && w.parts.length >= 1 && w.parts.length <= 6
+      && w.parts.every((p) => ['ST1', 'ST2', 'PUT', 'FINAL'].includes(String(p.exam)) && Number(p.max) > 0 && Number(p.weight) >= 0);
+    if (!(Number(w.outOf) > 0 && Number(w.outOf) <= 100 && partsOk))
+      return res.status(400).json({ error: 'Weights invalid: outOf (1-100) + parts (exam ST1/ST2/PUT/FINAL, max>0, weight>=0) chahiye.' });
+    const clean = { outOf: Number(w.outOf), parts: w.parts.map((p) => ({ exam: String(p.exam), label: String(p.label || p.exam).slice(0, 12), max: Number(p.max), weight: Number(p.weight) })) };
+    const prev = await getWeightsRaw();
+    await sql`INSERT INTO settings (key, value) VALUES ('internal_weights', ${JSON.stringify({ ...prev, default: clean })}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+    extra += ' · internal weights';
+  }
   await addAudit('SETTINGS', req.user.username, `threshold=${t}${extra}`);
   res.json({ ok: true, threshold: t, message: `Threshold set to ${t}%.${extra}` });
 }));
@@ -435,7 +504,7 @@ app.post('/api/admin/promote', requireAuth, requireRole('admin'), H(async (req, 
   const caseSql = sql.join(Object.entries(PROGRAMS).map(([p, v]) => sql`WHEN ${p} THEN ${v.sems}`), sql` `);
   const r = program
     ? await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND program = ${program} AND semester < ${PROGRAMS[program].sems}`
-    : await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND semester < (CASE program ${caseSql} END)`;
+    : await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND semester < (CASE program ${caseSql} END)::int`;
   await addAudit('PROMOTE', req.user.username, `${r.count} students`);
   res.json({ ok: true, message: `${r.count} students promoted. 🎓` });
 }));
@@ -469,6 +538,8 @@ app.patch('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, res
   if ('section' in b) sets.push(sql`section = ${String(b.section || '').trim().toUpperCase()}`);
   if ('email' in b) sets.push(sql`email = ${String(b.email || '').trim()}`);
   if ('rollNo' in b) sets.push(sql`roll_no = ${String(b.rollNo || '').trim()}`);
+  if ('batch' in b) sets.push(sql`batch = ${String(b.batch || '').trim().slice(0, 30)}`);
+  if ('status' in b && ['active', 'alumni'].includes(String(b.status))) { sets.push(sql`status = ${String(b.status)}`); if (String(b.status) === 'alumni' && !row.graduated_on) sets.push(sql`graduated_on = ${todayStamp()}`); if (String(b.status) === 'active') sets.push(sql`graduated_on = ''`); }
   if ('cardId' in b) sets.push(sql`card_id = ${String(b.cardId || '').trim().toUpperCase()}`);
   if ('subjects' in b) { if (row.role !== 'teacher' && !(('role' in b) && b.role === 'teacher')) return res.status(400).json({ error: 'Teachers only.' }); sets.push(sql`subjects = ${JSON.stringify(parseSubjectList(b.subjects))}`); }
   if ('password' in b) { const p = String(b.password || ''); if (p.length < 4) return res.status(400).json({ error: 'Min 4 chars.' }); sets.push(sql`password_hash = ${hashPassword(p)}`); }
@@ -497,7 +568,7 @@ app.delete('/api/users/:id', requireAuth, requireRole('admin'), H(async (req, re
 
 /* ================= TEACHER: roster & attendance ================= */
 app.get('/api/students', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
-  const conds = [sql`role = 'student'`];
+  const conds = [sql`role = 'student'`, isActiveUser('status')];
   if (req.query.program) conds.push(sql`program = ${req.query.program}`);
   if (req.query.branch) conds.push(sql`branch = ${req.query.branch}`);
   if (req.query.semester) conds.push(sql`semester = ${Number(req.query.semester)}`);
@@ -520,7 +591,7 @@ app.post('/api/attendance', requireAuth, requireRole('teacher', 'admin'), H(asyn
   const subject = String((req.body || {}).subject || '').trim();
   const note = String((req.body || {}).note || '').slice(0, 200);
   if (!date || !program || !semester || !subject) return res.status(400).json({ error: 'Program, semester, subject, date required.' });
-  const assigned = Array.isArray(req.user.subjects) ? req.user.subjects.filter(Boolean) : [];
+  const assigned = assignedSubjects(req.user);
   if (assigned.length && !assigned.includes(subject)) return res.status(403).json({ error: `"${subject}" tumhara subject nahi. Yours: ${assigned.join(', ')}.` });
   if (!Array.isArray(req.body.entries) || !req.body.entries.length) return res.status(400).json({ error: 'No entries.' });
   const clean = req.body.entries.filter((e) => e && e.studentId && VALID_STATUSES.includes(e.status)).map((e) => ({ studentId: e.studentId, status: e.status }));
@@ -624,15 +695,20 @@ app.post('/api/marks/bulk', requireAuth, requireRole('teacher', 'admin'), H(asyn
   const { subject, exam } = req.body || {};
   const max = Number((req.body || {}).max);
   if (!subject || !exam || !max || max <= 0) return res.status(400).json({ error: 'Subject, exam, max required.' });
-  const assigned = Array.isArray(req.user.subjects) ? req.user.subjects.filter(Boolean) : [];
+  const assigned = assignedSubjects(req.user);
   if (assigned.length && !assigned.includes(subject)) return res.status(403).json({ error: `"${subject}" tumhara nahi hai.` });
-  const list = Array.isArray(req.body.entries) ? req.body.entries.filter((e) => e && e.studentId && Number.isFinite(Number(e.score))) : [];
+  /* v9.1: status support — scored (default) / absent / debarred. Absent/Debarred me score optional (0 count hota hai). */
+  const list = Array.isArray(req.body.entries) ? req.body.entries.filter((e) => e && e.studentId
+    && (Number.isFinite(Number(e.score)) || ['absent', 'debarred'].includes(String(e.status || '')))) : [];
   if (!list.length) return res.status(400).json({ error: 'No valid scores.' });
+  const ay = await getAcademicYear();
   let n = 0;
   for (const e of list) {
-    const score = Math.max(0, Math.min(max, Number(e.score)));
+    const status = ['absent', 'debarred'].includes(String(e.status)) ? String(e.status) : 'scored';
+    const rawScore = Number(e.score);
+    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(max, rawScore)) : 0;
     await sql`DELETE FROM marks WHERE student_id = ${e.studentId} AND subject = ${subject} AND exam = ${exam}`;
-    await sql`INSERT INTO marks (student_id, subject, exam, score, max, ts) VALUES (${e.studentId}, ${subject}, ${exam}, ${score}, ${max}, ${nowISO()})`;
+    await sql`INSERT INTO marks (student_id, subject, exam, score, max, status, academic_year, ts) VALUES (${e.studentId}, ${subject}, ${exam}, ${score}, ${max}, ${status}, ${ay}, ${nowISO()})`;
     n++;
   }
   await addAudit('MARKS', req.user.username, `${subject} ${exam} (${n})`);
@@ -645,7 +721,7 @@ app.get('/api/marks/child', requireAuth, requireRole('parent'), H(async (req, re
   res.json({ items: await sql`SELECT subject, exam, score, max, ts FROM marks WHERE student_id = ${req.user.parent_of} ORDER BY subject, exam` });
 }));
 app.get('/api/marks/class', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
-  res.json({ items: await sql`SELECT m.student_id, m.score, m.max FROM marks m JOIN users u ON u.id = m.student_id WHERE m.subject = ${String(req.query.subject)} AND m.exam = ${String(req.query.exam)} AND u.program = ${String(req.query.program)} AND u.branch = ${String(req.query.branch || '')} AND u.semester = ${Number(req.query.semester)} AND u.section = ${String(req.query.section || '')}` });
+  res.json({ items: await sql`SELECT m.student_id, m.score, m.max, m.status, m.ts FROM marks m JOIN users u ON u.id = m.student_id WHERE m.subject = ${String(req.query.subject)} AND m.exam = ${String(req.query.exam)} AND u.program = ${String(req.query.program)} AND u.branch = ${String(req.query.branch || '')} AND u.semester = ${Number(req.query.semester)} AND u.section = ${String(req.query.section || '')}` });
 }));
 
 /* ================= ROTATING QR SELF-MARK ================= */
@@ -761,7 +837,7 @@ app.get('/api/parent/child', requireAuth, requireRole('parent'), H(async (req, r
 /* ================= ADMIN REPORTS (batch — N+1 eliminated) ================= */
 async function batchStats(opts = {}) {
   const holidays = new Set((await sql`SELECT date FROM holidays`).map((h) => h.date));
-  const conds = [sql`u.role = 'student'`];
+  const conds = [sql`u.role = 'student'`, isActiveUser('u.status')];
   if (opts.from) conds.push(sql`r.date >= ${opts.from}`);
   if (opts.to) conds.push(sql`r.date <= ${opts.to}`);
   const rows = await sql`SELECT u.id AS sid, u.name, u.roll_no AS "rollNo", u.program, u.branch, u.semester, u.section, r.date, r.subject, e.status
@@ -1111,6 +1187,276 @@ app.post('/api/cron/dwr', H(async (req, res) => {
   res.json({ ok: true, date: today, ...out, classes: agg.classes, reports: agg.reports });
 }));
 
+/* ================= v9.1: ASSIGNMENTS (unit-wise homework → submission counts) =================
+   Teacher create karta hai → submissions mark karta hai → student panel pe SIRF counts dikhte hain. */
+app.get('/api/assignments', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const program = String(req.query.program || ''), branch = String(req.query.branch || '');
+  const semester = Number(req.query.semester), section = String(req.query.section || '');
+  if (!program || !semester) return res.status(400).json({ error: 'Program + semester required.' });
+  const ay = await getAcademicYear();
+  const rows = await sql`SELECT a.*, u.name AS "teacherName",
+      (SELECT COUNT(*)::int FROM assignment_subs sb WHERE sb.assignment_id = a.id AND sb.submitted = 1) AS done,
+      (SELECT COUNT(*)::int FROM users us WHERE us.role = 'student' AND us.program = a.program AND us.branch = a.branch AND us.semester = a.semester AND us.section = a.section AND ${isActiveUser('us.status')}) AS strength
+    FROM assignments a LEFT JOIN users u ON u.id = a.teacher_id
+    WHERE a.program = ${program} AND a.branch = ${branch} AND a.semester = ${semester} AND a.section = ${section} AND a.academic_year = ${ay}
+    ORDER BY a.subject, a.id DESC`;
+  res.json({ items: rows.map((r) => ({ id: Number(r.id), subject: r.subject, title: r.title, unit: r.unit || '', dueDate: r.due_date || '', teacherName: r.teacherName || '', done: r.done, strength: r.strength, createdAt: r.created_at })) });
+}));
+app.post('/api/assignments', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const b = req.body || {};
+  const subject = String(b.subject || '').trim(), title = String(b.title || '').trim();
+  const program = String(b.program || '').trim(), branch = String(b.branch || '').trim();
+  const semester = Number(b.semester), section = String(b.section || '').trim().toUpperCase();
+  const unit = String(b.unit || '').trim().slice(0, 40);
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate || '')) ? String(b.dueDate) : '';
+  if (!subject || !title || !program || !semester) return res.status(400).json({ error: 'Subject, title, program, semester required.' });
+  const assigned = assignedSubjects(req.user);
+  if (assigned.length && !assigned.includes(subject)) return res.status(403).json({ error: `"${subject}" tumhara subject nahi. Yours: ${assigned.join(', ')}.` });
+  const ay = await getAcademicYear();
+  await sql`INSERT INTO assignments (subject, program, branch, semester, section, title, unit, due_date, teacher_id, academic_year, created_at)
+    VALUES (${subject}, ${program}, ${branch}, ${semester}, ${section}, ${title.slice(0, 200)}, ${unit}, ${due}, ${req.user.id}, ${ay}, ${nowISO()})`;
+  await addAudit('ASSIGN_ADD', req.user.username, `${subject}: ${title.slice(0, 60)}`);
+  res.status(201).json({ ok: true, message: 'Assignment created 📚' });
+}));
+app.delete('/api/assignments/:id', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const row = (await sql`SELECT * FROM assignments WHERE id = ${Number(req.params.id)}`)[0];
+  if (!row) return res.status(404).json({ error: 'Assignment not found.' });
+  if (req.user.role !== 'admin' && row.teacher_id !== req.user.id) return res.status(403).json({ error: 'Sirf apne assignments delete kar sakte ho.' });
+  await sql`DELETE FROM assignment_subs WHERE assignment_id = ${row.id}`;
+  await sql`DELETE FROM assignments WHERE id = ${row.id}`;
+  await addAudit('ASSIGN_DEL', req.user.username, `#${row.id}`);
+  res.json({ ok: true, message: 'Assignment deleted.' });
+}));
+app.get('/api/assignments/:id/submissions', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const a = (await sql`SELECT * FROM assignments WHERE id = ${Number(req.params.id)}`)[0];
+  if (!a) return res.status(404).json({ error: 'Assignment not found.' });
+  const students = await sql`SELECT id, name, roll_no AS "rollNo" FROM users WHERE role = 'student' AND program = ${a.program} AND branch = ${a.branch} AND semester = ${a.semester} AND section = ${a.section} AND ${isActiveUser('status')} ORDER BY roll_no, name`;
+  const subs = await sql`SELECT student_id, submitted, submitted_at FROM assignment_subs WHERE assignment_id = ${a.id}`;
+  const map = new Map(subs.map((s) => [s.student_id, s]));
+  res.json({ assignment: { id: Number(a.id), subject: a.subject, title: a.title, unit: a.unit || '', dueDate: a.due_date || '' }, students: students.map((s) => ({ id: s.id, name: s.name, rollNo: s.rollNo || '', submitted: !!(map.get(s.id) && map.get(s.id).submitted), submittedAt: (map.get(s.id) || {}).submitted_at || null })) });
+}));
+app.post('/api/assignments/:id/submissions', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const a = (await sql`SELECT * FROM assignments WHERE id = ${Number(req.params.id)}`)[0];
+  if (!a) return res.status(404).json({ error: 'Assignment not found.' });
+  const items = Array.isArray((req.body || {}).items) ? req.body.items.filter((i) => i && i.studentId) : [];
+  if (!items.length) return res.status(400).json({ error: 'No students sent.' });
+  for (const i of items) {
+    const f = i.submitted ? 1 : 0;
+    await sql`INSERT INTO assignment_subs (assignment_id, student_id, submitted, submitted_at) VALUES (${a.id}, ${String(i.studentId)}, ${f}, ${f ? nowISO() : null})
+      ON CONFLICT (assignment_id, student_id) DO UPDATE SET submitted = EXCLUDED.submitted, submitted_at = EXCLUDED.submitted_at`;
+  }
+  await addAudit('ASSIGN_SUB', req.user.username, `#${a.id} (${items.length} updated)`);
+  res.json({ ok: true, message: `${items.length} students updated.` });
+}));
+async function assignmentsFor(student) {
+  const ay = await getAcademicYear();
+  const rows = await sql`SELECT a.id, a.subject, a.title, a.unit, a.due_date AS "dueDate", sb.submitted, sb.submitted_at AS "submittedAt"
+    FROM assignments a LEFT JOIN assignment_subs sb ON sb.assignment_id = a.id AND sb.student_id = ${student.id}
+    WHERE a.program = ${student.program} AND a.branch = ${student.branch || ''} AND a.semester = ${student.semester} AND a.section = ${student.section || ''} AND a.academic_year = ${ay}
+    ORDER BY COALESCE(NULLIF(a.due_date, ''), '9999-12-31'), a.id DESC`;
+  const items = rows.map((r) => ({ id: Number(r.id), subject: r.subject, title: r.title, unit: r.unit || '', dueDate: r.dueDate || '', submitted: !!r.submitted, submittedAt: r.submittedAt || null }));
+  const bySub = new Map();
+  for (const it of items) { const s = bySub.get(it.subject) || { subject: it.subject, done: 0, total: 0 }; s.total++; if (it.submitted) s.done++; bySub.set(it.subject, s); }
+  return { academicYear: ay, items, subjects: [...bySub.values()], pending: items.filter((i) => !i.submitted) };
+}
+app.get('/api/assignments/mine', requireAuth, requireRole('student'), H(async (req, res) => res.json(await assignmentsFor(req.user))));
+app.get('/api/assignments/child', requireAuth, requireRole('parent'), H(async (req, res) => {
+  const child = (await sql`SELECT * FROM users WHERE id = ${req.user.parent_of}`)[0];
+  if (!child) return res.status(404).json({ error: 'Child link missing.' });
+  res.json(await assignmentsFor(child));
+}));
+
+/* ================= v9.1: STUDENT PROGRESS REPORT (SPR) =================
+   Teacher/Admin: per-subject ST1/ST2/PUT raw + status + internal (/25 via weights) + assignment counts + attendance%.
+   Student (/mine): SIRF assignment counts + manual results — koi score/internal leak nahi (teacher ki privacy rule). */
+async function buildProgress(program, branch, semester, section, onlyStudentId = null) {
+  const ay = await getAcademicYear();
+  const weights = await getInternalWeights(program);
+  let students;
+  if (onlyStudentId) {
+    students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch, u.program, u.branch, u.semester FROM users u WHERE u.id = ${onlyStudentId}`;
+  } else {
+    students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch FROM users u WHERE u.role = 'student' AND u.program = ${program} AND u.branch = ${branch} AND u.semester = ${semester} AND u.section = ${section} AND ${isActiveUser('u.status')} ORDER BY u.roll_no, u.name`;
+  }
+  const ids = students.map((s) => s.id);
+  if (!ids.length) return { academicYear: ay, weights, subjects: [], rows: [] };
+
+  const attRows = await sql`SELECT e.student_id, r.subject, COUNT(*)::int AS total,
+      COALESCE(SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END), 0)::int AS attended
+    FROM entries e JOIN records r ON r.id = e.record_id
+    WHERE e.student_id IN ${sql(ids)} AND r.date NOT IN (SELECT date FROM holidays)
+    GROUP BY e.student_id, r.subject`;
+  const attMap = new Map(attRows.map((r) => [`${r.student_id}|${r.subject}`, r]));
+  const attTotal = new Map();
+  for (const r of attRows) { const t = attTotal.get(r.student_id) || { total: 0, attended: 0 }; t.total += r.total; t.attended += r.attended; attTotal.set(r.student_id, t); }
+
+  const mkRows = await sql`SELECT m.student_id, m.subject, m.exam, m.score, m.max, m.status FROM marks m WHERE m.student_id IN ${sql(ids)}`;
+  let asnRows;
+  if (onlyStudentId) {
+    const st = students[0];
+    asnRows = await sql`SELECT id, subject FROM assignments WHERE academic_year = ${ay} AND program = ${st.program} AND branch = ${st.branch || ''} AND semester = ${st.semester} AND section = ${st.section || ''}`;
+  } else {
+    asnRows = await sql`SELECT id, subject FROM assignments WHERE academic_year = ${ay} AND program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section}`;
+  }
+  const asnIds = asnRows.map((a) => a.id);
+  const subRows = asnIds.length ? await sql`SELECT assignment_id, student_id, submitted FROM assignment_subs WHERE assignment_id IN ${sql(asnIds)}` : [];
+  const asnTotalBySub = new Map();
+  for (const a of asnRows) asnTotalBySub.set(a.subject, (asnTotalBySub.get(a.subject) || 0) + 1);
+  const asnCount = new Map();
+  const asnRowById = new Map(asnRows.map((a) => [a.id, a]));
+  for (const s of subRows) {
+    const a = asnRowById.get(s.assignment_id); if (!a) continue;
+    const key = `${s.student_id}|${a.subject}`;
+    const c = asnCount.get(key) || { done: 0, total: 0 };
+    c.total++; if (s.submitted) c.done++;
+    asnCount.set(key, c);
+  }
+
+  const ttRows = onlyStudentId ? [] : await sql`SELECT DISTINCT subject FROM timetable WHERE program = ${program} AND branch = ${branch} AND semester = ${semester} AND section = ${section}`;
+  const subjSet = new Set([...mkRows.map((m) => m.subject), ...asnRows.map((a) => a.subject), ...ttRows.map((t) => t.subject)]);
+  const subjects = [...subjSet].sort((a, b) => a.localeCompare(b));
+
+  const mkMap = new Map();
+  for (const m of mkRows) {
+    const key = `${m.student_id}|${m.subject}`;
+    const g = mkMap.get(key) || { exams: {}, other: [] };
+    const cat = examCategory(m.exam);
+    if (cat) g.exams[cat] = { score: Number(m.score), max: Number(m.max), status: String(m.status || 'scored') };
+    else g.other.push({ exam: m.exam, score: Number(m.score), max: Number(m.max), status: String(m.status || 'scored') });
+    mkMap.set(key, g);
+  }
+
+  const results = await sql`SELECT student_id, semester, sgpa, cgpa, remark FROM results WHERE student_id IN ${sql(ids)} ORDER BY semester`;
+  const resMap = new Map();
+  for (const r of results) { const a = resMap.get(r.student_id) || []; a.push({ semester: r.semester, sgpa: r.sgpa, cgpa: r.cgpa, remark: r.remark || '' }); resMap.set(r.student_id, a); }
+
+  const rows = students.map((s) => {
+    const t = attTotal.get(s.id) || { total: 0, attended: 0 };
+    const subj = {};
+    for (const sub of subjects) {
+      const g = mkMap.get(`${s.id}|${sub}`) || { exams: {}, other: [] };
+      const internal = computeInternal(g.exams, weights);
+      const a = attMap.get(`${s.id}|${sub}`);
+      const ac = asnCount.get(`${s.id}|${sub}`) || { done: 0, total: asnTotalBySub.get(sub) || 0 };
+      subj[sub] = { internal: internal.internal, outOf: internal.outOf, missing: internal.missing, exams: g.exams, other: g.other, asgnDone: ac.done, asgnTotal: ac.total, attTotal: a ? a.total : 0, attAttended: a ? a.attended : 0, attPct: a && a.total ? Math.round((a.attended / a.total) * 100) : null };
+    }
+    return { id: s.id, rollNo: s.rollNo || '', name: s.name, section: s.section || '', batch: s.batch || '', att: { total: t.total, attended: t.attended, pct: t.total ? Math.round((t.attended / t.total) * 100) : 0 }, subjects: subj, results: resMap.get(s.id) || [] };
+  });
+  return { academicYear: ay, weights, subjects, rows };
+}
+app.get('/api/progress/class', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const program = String(req.query.program || ''), branch = String(req.query.branch || '');
+  const semester = Number(req.query.semester), section = String(req.query.section || '');
+  if (!program || !semester) return res.status(400).json({ error: 'Program + semester required.' });
+  res.json(await buildProgress(program, branch, semester, section));
+}));
+app.get('/api/progress/class.csv', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const program = String(req.query.program || ''), branch = String(req.query.branch || '');
+  const semester = Number(req.query.semester), section = String(req.query.section || '');
+  if (!program || !semester) return res.status(400).json({ error: 'Program + semester required.' });
+  const data = await buildProgress(program, branch, semester, section);
+  const rows = [['Roll No', 'Name', ...data.subjects.flatMap((s) => [`${s} Internal (/${data.weights.outOf})`, `${s} Assignments`, `${s} Att%`]), 'Overall Att%', 'SGPA (latest)', 'CGPA (latest)']];
+  for (const r of data.rows) {
+    const line = [r.rollNo, r.name];
+    for (const s of data.subjects) {
+      const x = r.subjects[s];
+      line.push(x ? `${x.internal}${x.missing.length ? ' (' + x.missing.join('+') + ' pending)' : ''}` : '', x ? `${x.asgnDone}/${x.asgnTotal}` : '', x && x.attPct != null ? x.attPct : '');
+    }
+    const last = r.results[r.results.length - 1] || {};
+    line.push(r.att.pct, last.sgpa ?? '', last.cgpa ?? '');
+    rows.push(line);
+  }
+  sendCSV(res, `progress-${program}-sem${semester}-${todayStamp()}.csv`, rows);
+}));
+app.get('/api/progress/student', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const sid = String(req.query.studentId || '');
+  const stu = (await sql`SELECT * FROM users WHERE id = ${sid} AND role = 'student'`)[0];
+  if (!stu) return res.status(404).json({ error: 'Student not found.' });
+  const data = await buildProgress(stu.program, stu.branch || '', stu.semester, stu.section || '', sid);
+  res.json({ academicYear: data.academicYear, weights: data.weights, subjects: data.subjects,
+    student: { id: stu.id, name: stu.name, rollNo: stu.roll_no, program: stu.program, branch: stu.branch, semester: stu.semester, section: stu.section, batch: stu.batch || '', status: stu.status || 'active' },
+    row: data.rows[0] || null });
+}));
+app.get('/api/progress/mine', requireAuth, requireRole('student'), H(async (req, res) => {
+  /* PRIVACY RULE (teacher requirement): student ko sirf assignment submission counts + manually-entered results.
+     Scores / internal marks yahan KABHI nahi jaate — wo sirf teacher/admin SPR me hai. */
+  const asn = await assignmentsFor(req.user);
+  res.json({ academicYear: asn.academicYear, subjects: asn.subjects, pending: asn.pending.slice(0, 12), results: await getResults(req.user.id) });
+}));
+
+/* ================= v9.1: RESULTS — manual SGPA/CGPA (auto-calc NAHI hota, teacher ki demand) ================= */
+app.post('/api/results', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
+  const b = req.body || {};
+  const studentId = String(b.studentId || ''), semester = Number(b.semester);
+  const sgpa = (b.sgpa === '' || b.sgpa == null) ? null : Number(b.sgpa);
+  const cgpa = (b.cgpa === '' || b.cgpa == null) ? null : Number(b.cgpa);
+  const remark = String(b.remark || '').slice(0, 120);
+  if (!studentId || !semester || semester < 1 || semester > 12) return res.status(400).json({ error: 'studentId + valid semester (1-12) chahiye.' });
+  if (sgpa != null && !(sgpa >= 0 && sgpa <= 10)) return res.status(400).json({ error: 'SGPA 0-10 ke beech rakho (ya khaali).' });
+  if (cgpa != null && !(cgpa >= 0 && cgpa <= 10)) return res.status(400).json({ error: 'CGPA 0-10 ke beech rakho (ya khaali).' });
+  const stu = (await sql`SELECT id FROM users WHERE id = ${studentId} AND role = 'student'`)[0];
+  if (!stu) return res.status(404).json({ error: 'Student not found.' });
+  await sql`INSERT INTO results (student_id, semester, sgpa, cgpa, remark, updated_by, ts) VALUES (${studentId}, ${semester}, ${sgpa}, ${cgpa}, ${remark}, ${req.user.username}, ${nowISO()})
+    ON CONFLICT (student_id, semester) DO UPDATE SET sgpa = EXCLUDED.sgpa, cgpa = EXCLUDED.cgpa, remark = EXCLUDED.remark, updated_by = EXCLUDED.updated_by, ts = EXCLUDED.ts`;
+  await addAudit('RESULT_SET', req.user.username, `${studentId} sem${semester}`);
+  res.json({ ok: true, message: `Semester ${semester} results saved (manual entry).` });
+}));
+
+/* ================= v9.1: YEAR ROLLOVER + ALUMNI ARCHIVE =================
+   Rollover: final-year students → status='alumni' (+graduated_on), baaki semester+1, optional new academic year.
+   Archive: purane batches (e.g. 2020 BCA) ke students + unka poora record hamesha searchable. */
+const gradCase = () => sql.join(Object.entries(PROGRAMS).map(([p, v]) => sql`WHEN ${p} THEN ${v.sems}`), sql` `);
+app.get('/api/admin/rollover/preview', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const cs = gradCase();
+  const [{ c: grads }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'student' AND ${isActiveUser('status')} AND semester >= (CASE program ${cs} END)::int`;
+  const [{ c: promo }] = await sql`SELECT COUNT(*)::int AS c FROM users WHERE role = 'student' AND ${isActiveUser('status')} AND semester < (CASE program ${cs} END)::int`;
+  const ay = await getAcademicYear();
+  const sy = Number(String(ay).split('-')[0]) || new Date().getFullYear();
+  res.json({ academicYear: ay, nextAY: `${sy + 1}-${String(sy + 2).slice(2)}`, willGraduate: grads, willPromote: promo });
+}));
+app.post('/api/admin/rollover', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const b = req.body || {};
+  if (!b.confirm) return res.status(400).json({ error: 'confirm:true bhejo — ye bulk action hai.' });
+  const cs = gradCase();
+  const ay = await getAcademicYear();
+  let newAY = null;
+  if (b.newAcademicYear && /^\d{4}-\d{2}$/.test(String(b.newAcademicYear))) {
+    await sql`INSERT INTO settings (key, value) VALUES ('academic_year', ${String(b.newAcademicYear)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
+    newAY = String(b.newAcademicYear);
+  }
+  const g = await sql`UPDATE users SET status = 'alumni', graduated_on = ${todayStamp()},
+      batch = CASE WHEN batch IS NULL OR batch = '' THEN ${ay} ELSE batch END
+    WHERE role = 'student' AND ${isActiveUser('status')} AND semester >= (CASE program ${cs} END)::int RETURNING id`;
+  const p = await sql`UPDATE users SET semester = semester + 1 WHERE role = 'student' AND ${isActiveUser('status')} AND semester < (CASE program ${cs} END)::int RETURNING id`;
+  await addAudit('ROLLOVER', req.user.username, `graduated=${g.length} promoted=${p.length} AY→${newAY || ay}`);
+  res.json({ ok: true, graduated: g.length, promoted: p.length, academicYear: newAY || ay, message: `🎓 ${g.length} graduated (alumni) · ${p.length} promoted${newAY ? ` · AY ${newAY}` : ''}.` });
+}));
+app.get('/api/archive/batches', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const rows = await sql`SELECT program, branch, COALESCE(NULLIF(batch, ''), LEFT(graduated_on, 4)) AS batch, COUNT(*)::int AS students
+    FROM users WHERE role = 'student' AND status = 'alumni'
+    GROUP BY program, branch, 3 ORDER BY program, batch DESC`;
+  res.json({ items: rows });
+}));
+app.get('/api/archive/students', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const conds = [sql`role = 'student'`, sql`status = 'alumni'`];
+  if (req.query.program) conds.push(sql`program = ${String(req.query.program)}`);
+  if (req.query.branch) conds.push(sql`branch = ${String(req.query.branch)}`);
+  if (req.query.batch) conds.push(sql`COALESCE(NULLIF(batch, ''), LEFT(graduated_on, 4)) = ${String(req.query.batch)}`);
+  if (req.query.q) { const like = `%${String(req.query.q).toLowerCase()}%`; conds.push(sql`(LOWER(name) LIKE ${like} OR LOWER(roll_no) LIKE ${like})`); }
+  const rows = await sql`SELECT id, name, roll_no AS "rollNo", program, branch, semester, section, batch, graduated_on AS "graduatedOn"
+    FROM users WHERE ${sql.join(conds, sql` AND `)} ORDER BY program, batch DESC, roll_no LIMIT 300`;
+  res.json({ items: rows });
+}));
+app.get('/api/archive/student/:id', requireAuth, requireRole('admin'), H(async (req, res) => {
+  const u = (await sql`SELECT * FROM users WHERE id = ${req.params.id} AND role = 'student'`)[0];
+  if (!u) return res.status(404).json({ error: 'Student not found.' });
+  const stats = await studentStats(u.id);
+  const marks = await sql`SELECT subject, exam, score, max, status, academic_year AS "ay" FROM marks WHERE student_id = ${u.id} ORDER BY COALESCE(NULLIF(academic_year, ''), 'zzz'), subject, exam`;
+  res.json({ student: { id: u.id, name: u.name, rollNo: u.roll_no, program: u.program, branch: u.branch, semester: u.semester, section: u.section, batch: u.batch || '', status: u.status || 'active', graduatedOn: u.graduated_on || '' },
+    attendance: { total: stats.total, present: stats.present, late: stats.late, absent: stats.absent, pct: stats.percentage, subjects: stats.subjects },
+    marks, results: await getResults(u.id) });
+}));
+
 app.use(express.static(__dirname + '/public'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
 app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html'));
@@ -1121,7 +1467,7 @@ app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html')
   function startServer(port, tries = 10) {
     const server = app.listen(port, () => {
       console.log('──────────────────────────────────────────────');
-      console.log('  🎓 GLBITM Attendance v9.0 — Daily Work Report Edition');
+      console.log('  🎓 GLBITM Attendance v9.1 — Progress Report + Archive Edition');
       console.log(`  ➜  http://localhost:${port}`);
       console.log('  💾 DB: PERSISTENT (cloud) · 👑 Role promote/demote active');
       console.log('──────────────────────────────────────────────');
