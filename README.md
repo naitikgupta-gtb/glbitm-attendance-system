@@ -1,112 +1,139 @@
-🎓 GLBITM Attendance Intelligence System
-A production-ready, role-based Attendance Management System built forGL Bajaj Institute of Technology & Management, Greater Noida — supporting7 programs (B.Tech ×9 branches, BCA, BBA, MCA, MBA, PGDM, M.Tech) withanti-proxy smart marking, analytics, and a real SQLite database.
+# GLBITM Attendance Intelligence System
 
-Live Demo
+Production-ready, role-based **Attendance Management System** for **G.L. Bajaj Institute of Technology & Management, Greater Noida** — 7 programs (B.Tech ×9 branches, BCA, BBA, MCA, MBA, PGDM, M.Tech), anti-proxy self-marking, Daily Work Reports, Student Progress Reports, year rollover + alumni archive, and a persistent cloud PostgreSQL database.
 
-NodeExpressSQLitePWALicense
+**Live:** https://glbitm-attendance-system.onrender.com · **Version:** v9.3
 
-📸 Screenshots
-Apne project ke screenshots lena hai to: screenshot lo → screenshots/ naam ka folder banao → images daalo → niche ke paths sahi kar do. (Optional hai — chaho to ye section abhi chhod do.)
+---
 
-Login	Student Analytics
-Login	Student
-Teacher Marking	Rotating QR Self-Mark
-Teacher	QR
-✨ Feature Highlights (45+)
-Category	Features
-Roles	Admin · Teacher · Student · Parent (read-only child view)
-Marking	Manual Present/Late/Absent, ⌨️ keyboard shortcuts, 🎙️ voice commands, 🎲 random student picker, 📝 session notes
-Anti-Proxy Self-Marking	⏱️ Rotating QR code (30s, TOTP-style) · 📍 GPS geo-fencing (~800m campus radius) · device/IP proxy detection · 🤳 selfie proof · 🧠 face recognition
-Analytics	📊 Doughnut & trend charts · 🔥 streaks · 🏅 badges · 🏆 leaderboard · 🧠 pattern detection ("aapke Mondays me sabse zyada absent") · 🔮 risk prediction · 🧮 what-if calculator · 📈 attendance↔marks correlation scatter plot
-Academic	🗓️ Timetable manager + 🔄 teacher substitution · 🏛️ holiday calendar · 🎓 bulk promotion · 📝 marks module (MST/Quiz) · Sections A/B/C · ⚙️ configurable attendance threshold
-Workflows	📝 Leave applications (casual/medical/duty) · ⚠️ attendance correction requests · 📢 announcements with email blast
-Reports	📅 custom date-range · 📊 Excel export (BOM) · 🖨️ Print/Save-as-PDF · 📋 classic monthly register (printable grid) · 👨‍🏫 teacher workload · 📉 subject-wise stats · 📧 defaulter email alerts
-Security	scrypt password hashing · 🔐 2FA (email OTP) · login rate-limiting (5 fails = 15min lock) · ⏳ 24-hour edit-lock on old sessions · full 📜 audit log · persistent DB sessions
-Platform	📲 PWA (mobile-installable, offline shell) · ⌨️ Ctrl+K command palette · 🌐 Hindi/English toggle · 🌙 dark/light mode · 🔍 live table search
-Integrations	📶 RFID/biometric hardware endpoint · 🧾 verified attendance certificates (public /verify/:id page with QR) · nodemailer SMTP emails
-🏗️ Tech Stack
-Layer	Technology
-Backend	Node.js 22.5+, Express.js
-Database	SQLite via node:sqlite (zero extra install — single file DB)
-Auth	scrypt password hashing + token sessions (7-day, DB-persisted)
-Frontend	Vanilla JS SPA, glassmorphism UI, Space Grotesk/Inter
-Charts & QR	Chart.js 4, QRCode.js
-Face Recognition	face-api.js (TinyFaceDetector + 128-d descriptors)
-PWA	Service Worker + Web App Manifest
-Why SQLite? Zero-configuration, single-file, real SQL (joins, indexes, transactions) — production-grade se bina kisi external DB server ke.
+## Features
 
-🚀 Quick Start (Local)
-git clone https://github.com/naitikgupta-gtb/glbitm-attendance-system.gitcd glbitm-attendance-system npm install npm start
-Open → http://localhost:3000 (busy port pe auto-shift: 3001, 3002…)
+### Core attendance (v8)
+- **4 roles** — Admin · Teacher · Student · Parent (read-only child view)
+- Manual Present/Late/Absent marking with keyboard shortcuts and voice commands
+- **Anti-proxy self-marking** — rotating QR code (30 s), GPS geo-fencing (~800 m campus radius), device/IP proxy detection, selfie proof, optional face recognition
+- Analytics — trend charts, streaks, badges, leaderboard, pattern detection, risk prediction, what-if calculator
+- Timetable manager + teacher substitution, holiday calendar, bulk promotion
+- Leave applications, correction requests, announcements, monthly printable register
+- Excel/CSV export, print/PDF, certificates with public `/verify/:id` page
+- RFID/biometric hardware endpoint (`/api/hardware/rfid`)
+- PWA (installable, offline shell), Ctrl+K command palette, Hindi/English, light/dark
+- Security — scrypt hashing, email-OTP 2FA, login rate-limiting, 24 h edit-lock, audit log
 
-⚠️ Requires Node.js 22.5+ (built-in node:sqlite). Download: https://nodejs.org
+### v9 additions
+- **Daily Work Report (DWR)** — teacher fills a 1-minute report after every period (present count auto-filled, topics taught, assignment + due date). After **4:30 PM IST** each class's 7 periods compile into one report for the Principal (dashboard + printable + CSV).
+- **Student Progress Report (SPR)** — per subject × student: ST/PUT scores, Absent/Debarred status, internal marks (**converted out of 25**, weights configurable in Admin → Settings), assignments submitted, attendance %. Students see only assignment counts — scores stay teacher-only.
+- **Assignments** — teachers create per class, track `submitted X/Y` counts.
+- **Year Rollover wizard** — semester +1 for everyone, final-year students graduate to **alumni**, academic year label advances (backup first!).
+- **Alumni & past-batch archive** — search any past student by name/roll and open their full record (marks, attendance, results) years after graduation.
+- **Institutional UI** — deep navy + GL Bajaj maroon, solid surfaces, flat register-style tables, print-first.
 
-🧪 Demo Accounts
-Role	Username	Password	Notes
-👑 Admin	admin	admin123	Full console
-🧑‍🏫 Teacher	arjun	teach123	B.Tech CSE, subject-restricted
-🧑‍🎓 Student	riya	stud123	B.Tech CSE Sem 3 — seeded data
-👨‍👩‍👧 Parent	(admin banata hai)	—	Students table → 👨‍👩‍👧 button
-Fresh start pe database khud demo data seed karta hai. Purana data/ folder delete karo = factory reset.
+---
 
-⚙️ Environment Variables (sab optional)
-Variable	Default	Purpose
-PORT	3000	Server port
-NODE_VERSION	—	Render/Railway pe 22 set karo (zaroori)
-SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM / SMTP_SECURE	console mode	Real emails: 2FA OTP, defaulter alerts, announcements
-GL_CAMPUS_LAT	28.4702	Geo-fence center latitude (GLBITM)
-GL_CAMPUS_LNG	77.6718	Geo-fence center longitude
-GL_CAMPUS_RADIUS	800	Allowed radius in meters
-HARDWARE_KEY	demo-hardware-key	RFID hardware endpoint auth
-📡 RFID / Biometric Hardware Endpoint
-Koi bhi USB RFID reader (keyboard-emulation mode) ya biometric device ye API hit kar sakta hai:
+## Tech stack
 
-curl -X POST https://glbitm-attendance.onrender.com/api/hardware/rfid  \  -H "X-Device-Key: demo-hardware-key" \  -H "Content-Type: application/json" \  -d '{"cardId":"CARD-001","program":"B.Tech","branch":"CSE","semester":3,"section":"A","subject":"DBMS"}'
-🔑 API Overview
-Method	Endpoint	Role	Kaam
-POST	/api/login	—	Login (2FA support)
-POST	/api/login/verify	—	OTP verify
-GET	/api/me/attendance	student	Own stats (date-range support)
-POST	/api/selfmark/open	teacher	Rotating-QR session start
-POST	/api/selfmark/mark	student	Self-mark (code+geo+face+proxy checks)
-POST	/api/attendance	teacher	Manual attendance save
-GET	/api/reports/overall	admin	Global report (date-range)
-GET	/api/register	teacher/admin	Monthly register grid
-POST	/api/leaves	student	Leave apply
-POST	/api/corrections/:id/decide	admin	Correction approve/reject
-POST	/api/marks/bulk	teacher	Marks entry
-GET	/api/admin/backup	admin	Full JSON backup
-GET	/verify/:id	public	Certificate verification page
-POST	/api/hardware/rfid	device-key	RFID tap marking
-📁 Project Structure
-glbitm-attendance-system/├── server.js                 # Express API + SQLite schema + all business logic├── package.json├── data/                     # (gitignored) SQLite DB + selfie proofs├── public/│   ├── index.html            # SPA shell (glassmorphism UI)│   ├── app.js                # All frontend logic (routing, dashboards, i18n)│   ├── manifest.json         # PWA manifest│   ├── sw.js                 # Service worker (offline shell)│   ├── icon.svg│   └── assets/               # logo.png, campus.jpg (custom branding)
-🚢 Deployment
-Live deployed on Render → https://glbitm-attendance-system.onrender.com/
+| Layer | Technology |
+| --- | --- |
+| Backend | Node.js 22, Express |
+| Database | **PostgreSQL (Supabase)** via `postgres` driver — schema auto-migrates on boot |
+| Auth | scrypt password hashing, DB-persisted token sessions (7 days), email OTP 2FA |
+| Email | nodemailer SMTP (optional — console fallback without env vars) |
+| Frontend | Vanilla JS SPA, Chart.js 4, QRCode.js, SheetJS, face-api.js |
+| PWA | Service worker + manifest |
+| Deploy | Render (free) + Supabase (free) + cron-job.org keep-alive |
 
-Deployment guide (Render / Railway / Oracle VPS — step by step): DEPLOYMENT.md
+## Quick start (local)
 
-Quick summary:
+```bash
+git clone https://github.com/naitikgupta-gtb/glbitm-attendance-system.git
+cd glbitm-attendance-system
+npm install
+DATABASE_URL="postgres://user:pass@host:5432/db" npm start
+```
 
-Platform	Free?	DB Persistent?	Best for
-Render	✅	❌ (redeploy pe reset — backup/restore use karo)	Demo, presentations
-Railway	$5 credit	✅ (Volume attach karo)	Semi-production
-Oracle VPS	✅ lifetime	✅	Real production
-🧪 Suggested Demo Flow (2 minutes)
-Teacher (arjun) login → class load → 📲 Open Rotating-QR Self-Marking → QR screen
-Student (phone pe riya) → Self Mark → session+code → GPS allow → ✅ marked (teacher ki screen pe live dikhega)
-Ek student galt code daalne ki koshish kare / bahar khade ho ke → 🚫 rejected (rotating + geo-fence)
-Student dashboard → charts, streak, 🧠 patterns, 🧾 certificate → QR scan se /verify/:id
-Admin → defaulters + 🔮 risk prediction → 📋 monthly register print → 💾 backup
-🛣️ Future Scope
-Google OAuth (college Gmail) login
-Twilio SMS/WhatsApp alerts to parents
-BLE beacon-based automatic attendance
-Multi-college SaaS architecture
-📄 License
-MIT — free to use, modify aur apne college me deploy karne ke liye.
+Open http://localhost:3000. All tables and columns are created automatically on first boot.
 
-👨‍💻 Author
-Your Name — GL Bajaj Institute of Technology & Management, Greater Noida
+**Demo data:** run with `SEED_DEMO=1` **only on an empty local database**. Never set it on Render — it re-runs the seed against your live data.
 
-GitHub: @naitikgupta-gtb
-LinkedIn: Naitik Kumar Gupta
+| Role | Username | Password |
+| --- | --- | --- |
+| Admin | admin | admin123 |
+| Teacher | arjun | teach123 |
+| Student | riya | stud123 |
+
+First boot on a fresh DB (without seed) shows a **setup wizard** to create the first admin.
+
+## Environment variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | ✅ | Supabase/Postgres connection string |
+| `NODE_VERSION` | on Render | `22` |
+| `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASS` | optional | Real emails: OTP 2FA, defaulter alerts, announcements, leave decisions. Without them emails log to console and OTP shows as a dev code on screen. Gmail: use an **App Password** with `SMTP_PORT=465`. |
+| `SMTP_FROM` | optional | Custom From address (defaults to `SMTP_USER`) |
+| `GL_CAMPUS_LAT` / `GL_CAMPUS_LNG` / `GL_CAMPUS_RADIUS` | optional | Geo-fence (defaults: GLBITM campus, 28.4702 / 77.6718 / 800 m) |
+| `HARDWARE_KEY` | optional | RFID device endpoint key (default `demo-hardware-key`) |
+| `SEED_DEMO` | local only | `1` seeds demo data. **Do not set in production.** |
+
+## Deployment (Render + Supabase)
+
+1. **Supabase** → new project → copy the connection string (Session pooler works) → `DATABASE_URL`.
+2. **Render** → New Web Service → connect this repo → Build `npm install`, Start `npm start` → add `DATABASE_URL` and `NODE_VERSION=22`.
+3. **Keep-alive cron** (free tier sleeps after 15 min idle, Supabase pauses after 7 days of inactivity):
+   - [cron-job.org](https://cron-job.org) → every 5 min → `GET https://<your-app>.onrender.com/health` (hitting `/health` also counts as DB activity, keeping both awake).
+   - Backup monitor: [UptimeRobot](https://uptimerobot.com) → HTTP monitor → same URL → 5 min interval.
+4. Verify after deploy:
+
+```bash
+node scripts/smoke.js https://<your-app>.onrender.com
+node scripts/smoke.js https://<your-app>.onrender.com admin yourpassword
+```
+
+The smoke test checks `/health`, the SPA shell, security headers, login, and role-based endpoints (DWR, archive, assignments) — exit code `0` means all good.
+
+## API overview (v9 endpoints in bold)
+
+| Method | Endpoint | Role | Purpose |
+| --- | --- | --- | --- |
+| POST | `/api/login`, `/api/login/verify` | — | Login (+ 2FA OTP) |
+| POST | `/api/attendance` | teacher | Save attendance |
+| POST | `/api/selfmark/open` / `/api/selfmark/mark` | teacher / student | Rotating-QR self-marking |
+| GET | `/api/reports/overall`, `/api/register` | admin / teacher | Reports, monthly register |
+| **GET** | **`/api/dwr/mine`** | teacher | Today's periods from timetable + filled status |
+| **POST** | **`/api/dwr`** | teacher | Save one period's work report |
+| **GET** | **`/api/dwr/day`** · **`/api/dwr/principal`** · **`/api/dwr/principal.csv`** | teacher / admin | Class day sheet · Principal 4:30 PM compiled view + CSV |
+| **POST** | **`/api/dwr/compile`** | admin | Manual compile trigger |
+| **GET/POST** | **`/api/assignments`** (+ `/mine`, `/child`, `/:id/submissions`) | teacher / student / parent | Assignments & submission counts |
+| **GET** | **`/api/progress/class`** (+ `.csv`, `/student`, `/mine`) | teacher / admin / student | SPR — internal marks out of 25 |
+| **GET** | **`/api/archive/batches`** · **`/api/archive/students`** · **`/api/archive/student/:id`** | admin | Alumni & past-batch search |
+| POST | `/api/admin/rollover` | admin | Year-end semester+1 / graduate wizard |
+| POST | `/api/hardware/rfid` | device key | RFID tap marking |
+| GET | `/health` | — | Uptime + DB check |
+
+## Project structure
+
+```
+glbitm-attendance-system/
+├── server.js            # Express API, schema auto-migration, all business logic
+├── scripts/smoke.js     # Post-deploy smoke test (zero dependencies)
+├── public/
+│   ├── index.html       # SPA shell (institutional navy/maroon theme, inline CSS)
+│   ├── app.js           # Frontend logic — routing, dashboards, DWR/SPR/archive UI
+│   ├── sw.js, manifest.json, icon.svg, assets/
+│   └── (legacy teacher/student/admin.html demo shells, unused)
+└── package.json
+```
+
+## Changelog
+
+- **v9.3** — Real SMTP email (nodemailer, console fallback), security headers, JSON error handling, post-deploy smoke test, README rewrite.
+- **v9.2** — Institutional UI redesign: navy + maroon, flat tables, no glassmorphism, text nav, light default.
+- **v9.1** — SPR (internal /25 + weights in settings), assignments tracking, year rollover wizard, alumni archive.
+- **v9.0** — Daily Work Report: per-period teacher reports, 4:30 PM IST compiled Principal view, CSV, print.
+- **v8.6** — Admin promote/demote with last-admin protection, self profile edit.
+
+## License
+
+MIT — free to use, modify and deploy in your college.
+
+**Author:** Naitik Kumar Gupta — [@naitikgupta-gtb](https://github.com/naitikgupta-gtb) · G.L. Bajaj Institute of Technology & Management, Greater Noida

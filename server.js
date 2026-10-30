@@ -40,7 +40,18 @@ const PROGRAMS = {
 };
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json({ limit: '4mb' }));
+
+/* ---------------- security headers (zero-dependency) ---------------- */
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(self), microphone=(self)');
+  res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
 
 /* ---------------- passwords ---------------- */
 function hashPassword(pw) { const salt = crypto.randomBytes(16).toString('hex'); return `${salt}:${crypto.scryptSync(String(pw), salt, 64).toString('hex')}`; }
@@ -50,11 +61,26 @@ function verifyPassword(pw, stored) {
   return hb.length === h.length && crypto.timingSafeEqual(h, hb);
 }
 
-/* ---------------- misc helpers ---------------- */
+/* ---------------- mail (real SMTP with console fallback) ----------------
+   Env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM (optional)
+   SMTP set nahi ho to purana behaviour — email console me log hota hai aur
+   OTP login screen par devCode ke roop me dikhta hai. */
+let nodemailer = null;
+try { nodemailer = require('nodemailer'); } catch {}
+let mailer = null;
+(function initMailer() {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  if (!nodemailer || !SMTP_HOST || !SMTP_USER || !SMTP_PASS) { console.log('  ℹ️ SMTP off — emails console hook pe jayenge (OTP devCode mode).'); return; }
+  const port = Number(SMTP_PORT || (String(SMTP_HOST).includes('gmail') ? 465 : 587));
+  mailer = nodemailer.createTransport({ host: SMTP_HOST, port, secure: port === 465, auth: { user: SMTP_USER, pass: SMTP_PASS } });
+  console.log(`  📧 SMTP ready → ${SMTP_HOST}:${port}`);
+})();
+const MAIL_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || 'glbitm-attendance';
 async function sendMail(to, subject, text) {
   if (!to) return false;
-  console.log(`  📧 [email hook] to=${to} | ${subject} | ${String(text).slice(0, 80)}`);
-  return false;
+  if (!mailer) { console.log(`  📧 [email hook] to=${to} | ${subject} | ${String(text).slice(0, 80)}`); return false; }
+  try { await mailer.sendMail({ from: MAIL_FROM, to, subject, text }); return true; }
+  catch (e) { console.error(`  📧 send fail (${to}):`, e.message); return false; }
 }
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371000, r = Math.PI / 180;
@@ -1473,6 +1499,12 @@ app.get('/api/archive/student/:id', requireAuth, requireRole('admin'), H(async (
 app.use(express.static(__dirname + '/public'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
 app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html'));
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON body.' });
+  console.error('  ⚠️ Unhandled:', err && err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Server error.' });
+});
 
 (async () => {
   await ready();
@@ -1480,7 +1512,7 @@ app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html')
   function startServer(port, tries = 10) {
     const server = app.listen(port, () => {
       console.log('──────────────────────────────────────────────');
-      console.log('  🎓 GLBITM Attendance v9.2 — Institutional Edition');
+      console.log('  🎓 GLBITM Attendance v9.3 — Production Edition');
       console.log(`  ➜  http://localhost:${port}`);
       console.log('  💾 DB: PERSISTENT (cloud) · 👑 Role promote/demote active');
       console.log('──────────────────────────────────────────────');
