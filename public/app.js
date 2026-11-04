@@ -50,7 +50,7 @@ function confetti() {
 const DEVICE_ID = (() => { let d = localStorage.getItem('ams_device'); if (!d) { d = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()); localStorage.setItem('ams_device', d); } return d; })();
 
 /* ================= logo & campus ================= */
-const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#1d4ed8" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
+const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#9c2431" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
 function mountLogo(el) {
   const img = document.createElement('img');
   img.src = 'assets/logo.png'; img.alt = 'GLBITM';
@@ -1381,7 +1381,7 @@ async function loadAdminReport() {
     report.forEach((r) => { (map[r.program || '?'] = map[r.program || '?'] || []).push(r.percentage); });
     const progs = Object.keys(map);
     _charts.push(new Chart($('#branchChart'), { type:'bar',
-      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: ['#1d4ed8','#0891b2','#7c3aed','#059669','#d97706','#dc2626','#0ea5e9'], borderRadius: 8 }] },
+      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: ['#41689f','#25869b','#6f5cb3','#2f7d4f','#b07c1a','#c0392b','#bb5480'], borderRadius: 6 }] },
       options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
     try {
       const { items } = await api('/api/reports/correlation' + q);
@@ -1861,13 +1861,13 @@ async function loadStudentAll() {
   $('#streakLine').textContent = st > 0 ? `🔥 ${st}-day streak!` : '';
   if (window.Chart) {
     _charts.push(new Chart($('#pieChart'), { type:'doughnut',
-      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#059669','#d97706','#dc2626'], borderWidth: 0 }] },
-      options: { plugins: { legend: { position:'bottom', labels: { color:'#8296b4', font: { size: 11 } } } }, cutout: '65%' } }));
+      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#2f7d4f','#b07c1a','#c0392b'], borderWidth: 0 }] },
+      options: { plugins: { legend: { position:'bottom', labels: { color:'#8b7a5f', font: { size: 11 } } } }, cutout: '65%' } }));
     const days = [...dayMap(stats.logs).entries()].sort((a, b) => a[0].localeCompare(b[0]));
     let a = 0, t2 = 0;
     const pts = days.map(([d, v]) => { a += v.a; t2 += v.t; return { d, p: Math.round((a / t2) * 100) }; });
     _charts.push(new Chart($('#trendChart'), { type:'line',
-      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,.12)', fill: true, tension: .35, pointRadius: 3 }] },
+      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#9c2431', backgroundColor: 'rgba(156,36,49,.12)', fill: true, tension: .35, pointRadius: 3 }] },
       options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
   }
   const badges = calcBadges(stats);
@@ -1954,7 +1954,7 @@ async function makeCertificate() {
       <h3 style="font-family:Georgia;">Attendance Certificate</h3>
       <p>This certifies that <strong>${esc(state.user.name)}</strong> (${esc(state.user.rollNo || '—')}),<br/>
       ${esc(classLabel(state.user))} · Semester ${state.user.semester ?? '—'}</p>
-      <p style="font-size:2rem;font-weight:700;color:#1d4ed8;margin:8px 0;">${st.percentage}%</p>
+      <p style="font-size:2rem;font-weight:700;color:#9c2431;margin:8px 0;">${st.percentage}%</p>
       <p class="muted small">Certificate ID: <strong>${esc(r.id)}</strong> · Issued ${todayISO()}</p>
       <canvas id="certQR" style="margin-top:10px;"></canvas></div>`;
   $('#certVerifyLink').href = r.url;
