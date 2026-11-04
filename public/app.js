@@ -175,7 +175,7 @@ function openSetupWizard() {
   host.insertAdjacentHTML('beforeend', `
     <div id="setupModal" class="modal" style="position:fixed;">
       <div class="modal-box" style="text-align:left;max-width:380px;">
-        <h2>⚙️ First-Time Setup</h2>
+        <h2>First-Time Setup</h2>
         <p class="muted small" style="margin-bottom:14px;">Pehla admin account banao. Ye sirf tab tak accessible hai jab tak koi admin na ho. Password strong rakho (min 8 chars).</p>
         <div style="display:grid;gap:12px;">
           <input class="input" id="suName" placeholder="Your full name" />
@@ -202,6 +202,32 @@ function openSetupWizard() {
 }
 
 /* ================= navigation ================= */
+const SVG = (p, s = 17) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const IC = {
+  overview: SVG('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
+  students: SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.7c2.4.7 4 2.3 4 5.3"/>'),
+  teachers: SVG('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4"/><path d="M8 20h8"/><path d="M7 8.5h6M7 11.5h4"/>'),
+  timetable: SVG('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10.5h18"/>'),
+  dwreports: SVG('<path d="M9 4h6v3H9z"/><path d="M15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h4"/>'),
+  progress: SVG('<path d="M3 17l6-6 4 4 8-9"/><path d="M15.5 6H21v5.5"/>'),
+  reports: SVG('<path d="M6 20v-7M12 20V5M18 20v-4"/><path d="M3 20h18"/>'),
+  archive: SVG('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/>'),
+  requests: SVG('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>'),
+  announce: SVG('<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'),
+  audit: SVG('<path d="M12 22s8-3.5 8-10V5.5L12 2 4 5.5V12c0 6.5 8 10 8 10z"/><path d="M9 11.5l2 2 4-4.5"/>'),
+  mark: SVG('<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 13.5l2 2 4-4"/>'),
+  marks: SVG('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  dwr: SVG('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>'),
+  sessions: SVG('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  attendance: SVG('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10.5h18"/><path d="M9 15.5l2 2 4-4"/>'),
+  selfmark: SVG('<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01"/>'),
+  leave: SVG('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'),
+  child: SVG('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>'),
+  assn: SVG('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+  users: SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M17.5 14.7c2.4.7 4 2.3 4 5.3"/>', 19),
+  clock: SVG('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 19),
+  chart: SVG('<path d="M6 20v-7M12 20V5M18 20v-4"/><path d="M3 20h18"/>', 19),
+};
 const NAVS = {
   admin: [ ['overview',''],['students',''],['teachers',''],['timetable',''],['dwreports',''],['progress',''],['reports',''],['archive',''],['requests',''],['announce',''],['audit',''] ],
   teacher: [ ['mark',''],['marks',''],['dwr',''],['assn',''],['progress',''],['timetable',''],['sessions',''] ],
@@ -213,8 +239,8 @@ function navLabel(id) { return t(id); }
 
 function buildNav() {
   const nav = $('#navLinks');
-  nav.innerHTML = NAVS[state.user.role].map(([id, icon], i) =>
-    `<button class="nav-link" data-nav="${id}">${icon ? icon + ' ' : ''}${navLabel(id)}${i < 9 ? `<span class="k">${i+1}</span>` : ''}</button>`).join('');
+  nav.innerHTML = NAVS[state.user.role].map(([id], i) =>
+    `<button class="nav-link" data-nav="${id}">${IC[id] ? `<span class="nav-ic c${i % 6}">${IC[id]}</span>` : ''}<span class="nav-txt">${navLabel(id)}</span>${i < 9 ? `<span class="k">${i+1}</span>` : ''}</button>`).join('');
   nav.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => go(b.dataset.nav)));
 }
 async function startApp() {
@@ -357,7 +383,7 @@ const SECTIONS = {
 admin: {
   dwreports: {
     html: () => `
-      <div class="card"><h2>📋 ${t('dwreports')} — Principal View</h2>
+      <div class="card"><h2>${t('dwreports')} — Principal View</h2>
         <div class="filter-grid">
           <label>${t('date')}<input type="date" class="input" id="dwrpDate" /></label>
           <button class="btn btn-primary" id="dwrpLoad">${t('load')} →</button>
@@ -378,12 +404,12 @@ admin: {
   overview: {
     html: () => `
       <div class="stat-grid">
-        <div class="stat-card"><div class="stat-icon">ST</div><div><div class="stat-value" id="statStudents">0</div><div class="stat-label">Students</div></div></div>
-        <div class="stat-card"><div class="stat-icon purple">TC</div><div><div class="stat-value" id="statTeachers">0</div><div class="stat-label">Teachers</div></div></div>
-        <div class="stat-card"><div class="stat-icon amber">SS</div><div><div class="stat-value" id="statSessions">0</div><div class="stat-label">Sessions</div></div></div>
-        <div class="stat-card"><div class="stat-icon green">%</div><div><div class="stat-value" id="statOverall">0%</div><div class="stat-label">Overall</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue">${IC.users}</div><div><div class="stat-value" id="statStudents">0</div><div class="stat-label">Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple">${IC.teachers}</div><div><div class="stat-value" id="statTeachers">0</div><div class="stat-label">Teachers</div></div></div>
+        <div class="stat-card"><div class="stat-icon amber">${IC.clock}</div><div><div class="stat-value" id="statSessions">0</div><div class="stat-label">Sessions</div></div></div>
+        <div class="stat-card"><div class="stat-icon green">${IC.chart}</div><div><div class="stat-value" id="statOverall">0%</div><div class="stat-label">Overall</div></div></div>
       </div>
-      <div class="card"><h2>⚙️ System Settings</h2>
+      <div class="card"><h2>System Settings</h2>
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
           <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">${t('threshold')} (%)
             <input class="input" type="number" id="setTh" min="40" max="95" style="max-width:130px;" /></label>
@@ -425,16 +451,16 @@ admin: {
           </div>
           <p class="muted small" style="margin-top:6px;">BCA/BBA default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25 (college internal 25 + university semester exam 75 = 100). B.Tech ka alag hai to yahan badal do.</p>
         </div></div>
-      <div class="card def-card"><div class="card-head"><h2>🚨 Defaulters + 🔮 Risk Prediction</h2>
+      <div class="card def-card"><div class="card-head"><h2>Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
         <div id="defList"><p class="muted">Loading…</p></div></div>
-      <div class="card"><div class="card-head"><h2>👑 Administrators</h2>
+      <div class="card"><div class="card-head"><h2>Administrators</h2>
         <span class="muted small">Last admin protected 🛡️</span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>
-      <div class="card"><h2>🎓 Bulk Promotion</h2>
+      <div class="card"><h2>Bulk Promotion</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <select class="input" id="promoProg" style="max-width:220px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <button class="btn btn-primary" id="promoBtn">🎓 Promote</button></div></div>
-      <div class="card"><h2>💾 Backup & Restore</h2>
+      <div class="card"><h2>Backup & Restore</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
           <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div></div>`,
@@ -497,7 +523,7 @@ admin: {
   },
   students: {
     html: () => `
-      <div class="card"><h2>➕ Add Student</h2>
+      <div class="card"><h2>Add Student</h2>
         <form id="addStudentForm" class="form-grid">
           <input class="input" id="stName" placeholder="Full name" required />
           <input class="input" id="stRoll" placeholder="Roll no" />
@@ -512,7 +538,7 @@ admin: {
           <input class="input" id="stPassword" placeholder="Password" required />
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
-      <div class="card"><h2>📥 Bulk Import — Excel (.xlsx) ya CSV</h2>
+      <div class="card"><h2>Bulk Import — Excel (.xlsx) ya CSV</h2>
         <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. <code>role</code> column me "teacher" likhoge to wo teacher banega!</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
           <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ User Template</button>
@@ -521,7 +547,7 @@ admin: {
           <input type="file" id="bulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
           <button class="btn btn-primary" id="bulkBtn">📥 Import</button></div>
         <div id="bulkResult" class="muted small" style="margin-top:10px;"></div></div>
-      <div class="card"><h2>🎓 Enrolled Students</h2>
+      <div class="card"><h2>Enrolled Students</h2>
         <input class="input search-input" id="stSearch" placeholder="🔍 Search name / roll / class…" />
         <div class="table-wrap"><table>
           <thead><tr><th>Roll</th><th>Name</th><th>Username</th><th>Class</th><th>Sem/Sec</th><th></th></tr></thead>
@@ -536,7 +562,7 @@ admin: {
   },
   teachers: {
     html: () => `
-      <div class="card"><h2>➕ Add Teacher</h2>
+      <div class="card"><h2>Add Teacher</h2>
         <form id="addTeacherForm" class="form-grid">
           <input class="input" id="tcName" placeholder="Full name" required />
           <label>${t('program')}<select class="input" id="tcProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
@@ -547,7 +573,7 @@ admin: {
           <input class="input" id="tcPassword" placeholder="Password" required />
           <button class="btn btn-primary">＋ Add</button>
         </form></div>
-      <div class="card"><h2>📥 Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
+      <div class="card"><h2>Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
         <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
           <button class="btn btn-ghost btn-sm" id="tTplBtn">⬇️ Teacher Template</button>
@@ -556,7 +582,7 @@ admin: {
           <input type="file" id="tBulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
           <button class="btn btn-primary" id="tBulkBtn">📥 Import Teachers</button></div>
         <div id="tBulkResult" class="muted small" style="margin-top:10px;"></div></div>
-      <div class="card"><h2>🧑‍🏫 Teaching Staff</h2>
+      <div class="card"><h2>Teaching Staff</h2>
         <input class="input search-input" id="tcSearch" placeholder="🔍 Search…" />
         <div class="table-wrap"><table>
           <thead><tr><th>Name</th><th>Username</th><th>Dept</th><th>Subjects</th><th></th></tr></thead>
@@ -571,7 +597,7 @@ admin: {
   },
   timetable: {
     html: () => `
-      <div class="card"><h2>➕ Add Class Slot</h2>
+      <div class="card"><h2>Add Class Slot</h2>
         <form id="ttForm" class="form-grid">
           <label>${t('program')}<select class="input" id="ttProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
           <label>${t('branch')}<select class="input" id="ttBranch"></select></label>
@@ -583,13 +609,13 @@ admin: {
           <input class="input" id="ttSubject" placeholder="Subject" required />
           <button class="btn btn-primary">＋ Add Slot</button>
         </form></div>
-      <div class="card"><h2>🏛️ Holiday Calendar</h2>
+      <div class="card"><h2>Holiday Calendar</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
           <input class="input" type="date" id="holDate" style="max-width:180px;" />
           <input class="input" id="holTitle" placeholder="Holiday title" style="max-width:220px;" />
           <button class="btn btn-primary btn-sm" id="holAdd">＋ Add Holiday</button></div>
         <div id="holList" class="muted small">Loading…</div></div>
-      <div class="card"><h2>🗓️ Weekly Timetable (🔄 = substitution)</h2>
+      <div class="card"><h2>Weekly Timetable (🔄 = substitution)</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
           <select class="input" id="vtProgram" style="max-width:150px;">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <select class="input" id="vtBranch" style="max-width:220px;"></select>
@@ -622,7 +648,7 @@ admin: {
   },
   reports: {
     html: () => `
-      <div class="card"><div class="card-head"><h2>📋 Global Report</h2>
+      <div class="card"><div class="card-head"><h2>Global Report</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" id="excelBtn">📊 Excel</button>
           <button class="btn btn-ghost btn-sm" id="printBtn">🖨️ Print / PDF</button></div></div>
@@ -636,15 +662,15 @@ admin: {
         <div class="table-wrap"><table>
           <thead><tr><th>Roll</th><th>Name</th><th>Class</th><th>Sessions</th><th>P/L/A</th><th>%</th></tr></thead>
           <tbody id="reportBody"></tbody></table></div></div>
-      <div class="card"><h2>📊 Program-wise Average</h2><div class="chart-box"><canvas id="branchChart"></canvas></div></div>
-      <div class="card"><h2>📚 Subject-wise Attendance (weakest first)</h2><div id="subjStats" class="muted small">Loading…</div></div>
-      <div class="card"><h2>🧑‍🏫 Teacher Workload</h2>
+      <div class="card"><h2>Program-wise Average</h2><div class="chart-box"><canvas id="branchChart"></canvas></div></div>
+      <div class="card"><h2>Subject-wise Attendance (weakest first)</h2><div id="subjStats" class="muted small">Loading…</div></div>
+      <div class="card"><h2>Teacher Workload</h2>
         <div class="table-wrap"><table>
           <thead><tr><th>Teacher</th><th>Sessions</th><th>Entries</th><th>Avg Class %</th></tr></thead>
           <tbody id="workBody"></tbody></table></div></div>
-      <div class="card"><h2>📈 Attendance vs Marks Correlation</h2><div class="chart-box"><canvas id="corrChart"></canvas></div>
+      <div class="card"><h2>Attendance vs Marks Correlation</h2><div class="chart-box"><canvas id="corrChart"></canvas></div>
         <p class="muted small" id="corrNote"></p></div>
-      <div class="card"><h2>📋 Monthly Register (printable)</h2>
+      <div class="card"><h2>Monthly Register (printable)</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
           <select class="input" id="rgProgram" style="max-width:150px;">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <select class="input" id="rgBranch" style="max-width:220px;"></select>
@@ -665,12 +691,12 @@ admin: {
     },
   },
   requests: {
-    html: () => `<div class="card"><h2>📝 Leave Applications</h2><div id="leaveAdminList"><p class="muted">Loading…</p></div></div>
-      <div class="card"><h2>⚠️ Correction Requests</h2><div id="fixAdminList"><p class="muted">Loading…</p></div></div>`,
+    html: () => `<div class="card"><h2>Leave Applications</h2><div id="leaveAdminList"><p class="muted">Loading…</p></div></div>
+      <div class="card"><h2>Correction Requests</h2><div id="fixAdminList"><p class="muted">Loading…</p></div></div>`,
     init: () => Promise.all([loadLeaveAdmin(), loadFixAdmin()]),
   },
   announce: {
-    html: () => `<div class="card"><h2>📢 Post Announcement</h2>
+    html: () => `<div class="card"><h2>Post Announcement</h2>
       <form id="annForm" style="display:grid;gap:12px;">
         <input class="input" id="annTitle" placeholder="Title" required />
         <textarea class="input" id="annBody" rows="2" placeholder="Details"></textarea>
@@ -688,17 +714,17 @@ admin: {
     },
   },
   audit: {
-    html: () => `<div class="card"><h2>📜 Audit Log</h2><div class="table-wrap"><table>
+    html: () => `<div class="card"><h2>Audit Log</h2><div class="table-wrap"><table>
       <thead><tr><th>Type</th><th>User</th><th>Detail</th><th>Time</th></tr></thead>
       <tbody id="auditBody"></tbody></table></div></div>`,
     init: () => loadAudit(),
   },
   archive: {
     html: () => `
-      <div class="card"><h2>🎓 Academic Year Rollover</h2>
+      <div class="card"><h2>Academic Year Rollover</h2>
         <p class="muted small">Saal khatam hone par: final-year students <strong>alumni</strong> bante hain (poora record archive me safe), baaki sab <strong>semester +1</strong>, aur naya academic year set hota hai. Rollover se pehle <strong>Overview → ⬇️ Backup</strong> le lo.</p>
         <div id="roBox" class="muted small">Loading…</div></div>
-      <div class="card"><h2>🗃️ Alumni & Past Batches</h2>
+      <div class="card"><h2>Alumni & Past Batches</h2>
         <p class="muted small">Purane batch search karo — e.g. 2020 ka BCA batch. Har student ka attendance, marks, results permanent milta hai.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
           <input class="input" id="arQ" placeholder="🔍 Name ya roll no…" style="max-width:240px;" />
@@ -718,7 +744,7 @@ admin: {
 teacher: {
   mark: {
     html: () => `
-      <div class="card"><h2>🏫 Class & Session</h2>
+      <div class="card"><h2>Class & Session</h2>
         <div class="filter-grid">
           <label>${t('program')}<select class="input" id="mProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
           <label>${t('branch')}<select class="input" id="mBranch"></select></label>
@@ -780,7 +806,7 @@ teacher: {
   },
   marks: {
     html: () => `
-      <div class="card"><h2>📝 Marks Entry (MST / Quiz / Assignment)</h2>
+      <div class="card"><h2>Marks Entry (MST / Quiz / Assignment)</h2>
         <div class="filter-grid">
           <label>${t('program')}<select class="input" id="mkProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
           <label>${t('branch')}<select class="input" id="mkBranch"></select></label>
@@ -809,7 +835,7 @@ teacher: {
   },
   assn: {
     html: () => `
-      <div class="card"><h2>📚 Assignments — create & track submissions</h2>
+      <div class="card"><h2>Assignments — create & track submissions</h2>
         <div class="filter-grid">
           <label>${t('program')}<select class="input" id="asProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
           <label>${t('branch')}<select class="input" id="asBranch"></select></label>
@@ -834,7 +860,7 @@ teacher: {
   },
   progress: {
     html: () => `
-      <div class="card"><h2>🎓 Student Progress Report (SPR)</h2>
+      <div class="card"><h2>Student Progress Report (SPR)</h2>
         <div class="filter-grid">
           <label>${t('program')}<select class="input" id="pgProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
           <label>${t('branch')}<select class="input" id="pgBranch"></select></label>
@@ -858,7 +884,7 @@ teacher: {
   },
   dwr: {
     html: () => `
-      <div class="card"><h2>📋 ${t('dwr')} — Daily Work Report</h2>
+      <div class="card"><h2>${t('dwr')} — Daily Work Report</h2>
         <div class="filter-grid">
           <label>${t('date')}<input type="date" class="input" id="dwrDate" /></label>
           <button class="btn btn-primary" id="dwrLoad">${t('load')} →</button>
@@ -874,11 +900,11 @@ teacher: {
     },
   },
   timetable: {
-    html: () => `<div class="card"><h2>🗓️ My Weekly Schedule</h2><div id="ttView"><p class="muted">Loading…</p></div></div>`,
+    html: () => `<div class="card"><h2>My Weekly Schedule</h2><div id="ttView"><p class="muted">Loading…</p></div></div>`,
     init: () => loadTimetableView(),
   },
   sessions: {
-    html: () => `<div class="card"><div class="card-head"><h2>🗂️ My Sessions</h2>
+    html: () => `<div class="card"><div class="card-head"><h2>My Sessions</h2>
       <button class="btn btn-ghost btn-sm" id="exportBtn">📊 Excel</button></div>
       <div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Class</th><th>Subject</th><th>Note</th><th>P/L/T</th><th>%</th></tr></thead>
@@ -911,20 +937,20 @@ student: {
               <div><strong id="statAbsent">0</strong><span>${t('absent')}</span></div>
               <div><strong id="statTotal">0</strong><span>Classes</span></div></div>
             <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:12px;">🧾 Attendance Certificate</button></div>
-          <div class="card"><h2>🏅 Badges</h2><div id="badgeList" class="badges"></div></div>
-          <div class="card"><h2>🧠 Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div>
-          <div class="card"><h2>📝 Marks hint</h2><div id="myMarks" class="muted small">SPR me dekho — Progress Report tab.</div></div>
-          <div class="card"><h2>📚 Assignments</h2><div id="attAssn" class="muted small">Loading…</div></div>
-          <div class="card"><h2>🎓 Results</h2><div id="attResults" class="muted small">Loading…</div></div>
-          <div class="card"><h2>🧮 What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
+          <div class="card"><h2>Badges</h2><div id="badgeList" class="badges"></div></div>
+          <div class="card"><h2>Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div>
+          <div class="card"><h2>Marks hint</h2><div id="myMarks" class="muted small">SPR me dekho — Progress Report tab.</div></div>
+          <div class="card"><h2>Assignments</h2><div id="attAssn" class="muted small">Loading…</div></div>
+          <div class="card"><h2>Results</h2><div id="attResults" class="muted small">Loading…</div></div>
+          <div class="card"><h2>What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
         </div>
         <div>
           <div class="charts">
             <div class="card" style="margin:0;"><h2>Split</h2><div class="chart-box"><canvas id="pieChart"></canvas></div></div>
-            <div class="card" style="margin:0;"><h2>📈 Trend</h2><div class="chart-box"><canvas id="trendChart"></canvas></div></div></div>
-          <div class="card"><h2>📚 Subject-wise</h2><div id="subjectList" class="subject-list"></div></div>
-          <div class="card"><h2>🗓️ Last 10 Weeks</h2><div id="heat" class="heat"></div></div>
-          <div class="card"><h2>🏆 Leaderboard</h2><div id="lbList" class="muted small">Loading…</div></div></div></div>
+            <div class="card" style="margin:0;"><h2>Trend</h2><div class="chart-box"><canvas id="trendChart"></canvas></div></div></div>
+          <div class="card"><h2>Subject-wise</h2><div id="subjectList" class="subject-list"></div></div>
+          <div class="card"><h2>Last 10 Weeks</h2><div id="heat" class="heat"></div></div>
+          <div class="card"><h2>Leaderboard</h2><div id="lbList" class="muted small">Loading…</div></div></div></div>
       <div class="card"><div class="card-head"><h2>Recent Log</h2><span class="muted small">Absent pe "⚠️ Fix" — admin approve karega</span></div>
         <div class="table-wrap"><table>
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th></th></tr></thead>
@@ -933,13 +959,13 @@ student: {
   },
   assn: {
     html: () => `
-      <div class="card"><h2>📚 My Assignments</h2>
+      <div class="card"><h2>My Assignments</h2>
         <p class="muted small" id="saSum" style="margin-bottom:10px;"></p>
         <div id="saPending"></div>
         <div class="table-wrap" style="margin-top:10px;"><table>
           <thead><tr><th>Subject</th><th>Submitted</th><th>Progress</th></tr></thead>
           <tbody id="saBody"></tbody></table></div></div>
-      <div class="card"><h2>🎓 Results (SGPA / CGPA)</h2>
+      <div class="card"><h2>Results (SGPA / CGPA)</h2>
         <p class="muted small">Ye exam cell manually enter karta hai — system auto-calculate nahi karta.</p>
         <div id="saResults" class="muted small">Loading…</div></div>`,
     init: () => loadStudentAssn(),
@@ -947,7 +973,7 @@ student: {
   selfmark: {
     html: () => `
       <div class="card center" style="max-width:540px;margin:0 auto;">
-        <h2>📲 Self Mark Attendance</h2>
+        <h2>Self Mark Attendance</h2>
         <p class="muted small">QR scan karne se Session auto-fill hota hai. 6-digit <strong>rotating code</strong> teacher ki screen se lo — har 30 sec badalta hai!</p>
         <input class="input" id="smSessionInput" placeholder="Session ID (QR se auto)" style="margin-bottom:10px;" />
         <input class="input big-code-input" id="smCodeInput" maxlength="6" inputmode="numeric" placeholder="______" style="margin-bottom:12px;" />
@@ -975,7 +1001,7 @@ student: {
     },
   },
   leave: {
-    html: () => `<div class="card" style="max-width:560px;"><h2>📝 New Leave</h2>
+    html: () => `<div class="card" style="max-width:560px;"><h2>New Leave</h2>
       <form id="leaveForm" style="display:grid;gap:12px;">
         <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">${t('date')}<input class="input" type="date" id="lvDate" required /></label>
         <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Type
@@ -994,7 +1020,7 @@ student: {
     },
   },
   timetable: {
-    html: () => `<div class="card"><h2>🗓️ Weekly Schedule</h2><div id="ttView"><p class="muted">Loading…</p></div></div>`,
+    html: () => `<div class="card"><h2>Weekly Schedule</h2><div id="ttView"><p class="muted">Loading…</p></div></div>`,
     init: () => loadTimetableView(),
   },
 },
@@ -1016,9 +1042,9 @@ parent: {
           <div><strong id="statLate">0</strong><span>Late</span></div>
           <div><strong id="statAbsent">0</strong><span>Absent</span></div>
           <div><strong id="statTotal">0</strong><span>Classes</span></div></div></div>
-      <div class="card"><h2>📚 Subject-wise</h2><div id="pcSubjects" class="subject-list"></div></div>
-      <div class="card"><h2>📚 Assignments</h2><div id="pcAssn" class="muted small">Loading…</div></div>
-      <div class="card"><h2>📝 Leaves</h2><div id="pcLeaves" class="muted small">Loading…</div></div>
+      <div class="card"><h2>Subject-wise</h2><div id="pcSubjects" class="subject-list"></div></div>
+      <div class="card"><h2>Assignments</h2><div id="pcAssn" class="muted small">Loading…</div></div>
+      <div class="card"><h2>Leaves</h2><div id="pcLeaves" class="muted small">Loading…</div></div>
       <div class="card"><h2>Recent Log</h2><div class="table-wrap"><table>
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
         <tbody id="pcLog"></tbody></table></div></div>`,
@@ -2147,7 +2173,7 @@ async function loadDwrPrincipal() {
     const pill = day ? (day.status === 'sent'
       ? '<span class="pill pill-soft">✅ Compiled</span>'
       : `<span class="pill pill-soft">⏳ ${day.filled}/${day.expected || '?'} filled</span>`) : '';
-    return `<div class="card dwr-report"><div class="card-head"><h2>🏛️ ${esc(cls.label)} ${pill}</h2></div>
+    return `<div class="card dwr-report"><div class="card-head"><h2>${esc(cls.label)} ${pill}</h2></div>
       <div class="table-wrap"><table>
         <thead><tr><th>P#</th><th>Subject</th><th>Teacher</th><th>Present/Total</th><th>Topics Taught</th><th>Assignment</th><th>Due</th><th>Remarks</th></tr></thead>
         <tbody>${cls.items.map((r) => `<tr><td><strong>${r.period}</strong></td><td>${esc(r.subject)}</td><td>${esc(r.teacherName || '—')}</td><td>${r.present_count ?? '—'} / ${r.total_count ?? '—'}</td><td>${esc(r.taught || '—')}</td><td>${esc(r.assignment_title || '—')}</td><td>${esc(r.assignment_due || '—')}</td><td>${esc(r.remarks || '')}</td></tr>`).join('')}</tbody>
@@ -2202,7 +2228,7 @@ async function createAssignment() {
 async function manageAssnSubs(id) {
   const d = await api(`/api/assignments/${id}/submissions`);
   const host = $('#asManage');
-  host.innerHTML = `<div class="card"><div class="card-head"><h2>✅ Submissions — ${esc(d.assignment.title)}</h2>
+  host.innerHTML = `<div class="card"><div class="card-head"><h2>Submissions — ${esc(d.assignment.title)}</h2>
     <div><button class="btn btn-primary btn-sm" id="asSaveSubs">💾 Save</button>
     <button class="btn btn-ghost btn-sm" id="asCloseSubs">Close</button></div></div>
     <p class="muted small">${esc(d.assignment.subject)}${d.assignment.dueDate ? ' · due ' + esc(d.assignment.dueDate) : ''} — jisne notebook/file submit ki, tick karo.</p>
@@ -2261,7 +2287,7 @@ async function showProgressStudent(id) {
   const st = d.student, row = d.row;
   const host = $('#pgDetail');
   if (!row) { host.innerHTML = '<div class="card"><p class="muted">Data nahi mila.</p></div>'; return; }
-  host.innerHTML = `<div class="card"><div class="card-head"><h2>📋 ${esc(st.name)} <span class="muted small">${esc(st.rollNo || '')} · ${esc(st.program)}${st.branch && st.branch !== 'General' ? ' · ' + esc(st.branch) : ''} · Sem ${st.semester}${st.section ? ' · ' + esc(st.section) : ''}${st.batch ? ' · Batch ' + esc(st.batch) : ''}</span></h2>
+  host.innerHTML = `<div class="card"><div class="card-head"><h2>${esc(st.name)} <span class="muted small">${esc(st.rollNo || '')} · ${esc(st.program)}${st.branch && st.branch !== 'General' ? ' · ' + esc(st.branch) : ''} · Sem ${st.semester}${st.section ? ' · ' + esc(st.section) : ''}${st.batch ? ' · Batch ' + esc(st.batch) : ''}</span></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
       <button class="btn btn-primary btn-sm" id="pgrSet">🎓 Set SGPA/CGPA</button>
       <button class="btn btn-ghost btn-sm" id="pgrClose">Close</button></div></div>
@@ -2327,7 +2353,7 @@ async function loadArchiveStudents(program, branch, batch) {
   if (branch) q.set('branch', branch);
   if (batch) q.set('batch', batch);
   const { items } = await api('/api/archive/students' + (q.toString() ? '?' + q.toString() : ''));
-  $('#arStudents').innerHTML = items.length ? `<div class="card"><h2>🗃️ ${items.length} alumni${program ? ' · ' + esc(program) : ''}${batch ? ' · batch ' + esc(batch) : ''}</h2>
+  $('#arStudents').innerHTML = items.length ? `<div class="card"><h2>${items.length} alumni${program ? ' · ' + esc(program) : ''}${batch ? ' · batch ' + esc(batch) : ''}</h2>
     <div class="table-wrap"><table><thead><tr><th>Roll</th><th>Name</th><th>Class</th><th>Batch</th><th>Graduated</th><th></th></tr></thead>
     <tbody>${items.map((s) => `<tr><td>${esc(s.rollNo || '—')}</td><td style="text-align:left;">${esc(s.name)}</td>
     <td>${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · S${s.semester ?? '—'}</td>
@@ -2339,7 +2365,7 @@ async function loadArchiveStudents(program, branch, batch) {
 async function showArchiveStudent(id) {
   const d = await api(`/api/archive/student/${encodeURIComponent(id)}`);
   const s = d.student, a = d.attendance;
-  $('#arDetail').innerHTML = `<div class="card"><div class="card-head"><h2>📋 ${esc(s.name)} <span class="muted small">${esc(s.rollNo || '')} · ${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · Batch ${esc(s.batch || '—')} · ${s.status === 'alumni' ? '🎓 graduated ' + esc(s.graduatedOn || '') : 'active'}</span></h2>
+  $('#arDetail').innerHTML = `<div class="card"><div class="card-head"><h2>${esc(s.name)} <span class="muted small">${esc(s.rollNo || '')} · ${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · Batch ${esc(s.batch || '—')} · ${s.status === 'alumni' ? '🎓 graduated ' + esc(s.graduatedOn || '') : 'active'}</span></h2>
     <button class="btn btn-ghost btn-sm no-print" id="arClose">Close</button></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
       <span class="pill pill-${pctClass(a.pct)}">Attendance ${a.pct}%</span>
