@@ -14,9 +14,10 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 /* ============================================================
-   GLBITM Attendance System — "Ink & Paper" theme (v10)
-   Handcrafted campus journal · warm paper · ink · GL maroon
-   Fraunces display serif + Karla text + Caveat margin notes
+   GLBITM Attendance System — "Ink & Paper" theme (v10.1)
+   Handcrafted campus journal · NEW ALIGNMENT:
+   top masthead with folder-tab nav · centered page column ·
+   bento overview · sticky-note notices · hero-band login
    ============================================================ */
 *{margin:0;padding:0;box-sizing:border-box}[hidden]{display:none!important}
 :root{
@@ -100,36 +101,33 @@ select.input{cursor:pointer}.input::placeholder{color:var(--muted);opacity:.7}
 .input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px var(--surface-solid) inset;-webkit-text-fill-color:var(--text);caret-color:var(--text)}
 input[type=range]{width:100%;accent-color:var(--primary)}input[type=file].input{padding:8px}
 
-/* ============ Login — the chalkboard ============ */
+/* ============ Login — chalkboard band + two-column register ============ */
 .auth-body{min-height:100vh;display:grid;place-items:center;padding:24px;
   background:radial-gradient(800px 480px at 6% -10%,#efe6d0 0%,rgba(239,230,208,0) 60%),radial-gradient(700px 460px at 104% 110%,#ecdfc9 0%,rgba(236,223,201,0) 55%),var(--bg)}
 body.dark .auth-body{background:radial-gradient(800px 480px at 6% -10%,rgba(156,36,49,.16) 0%,rgba(24,17,9,0) 60%),radial-gradient(700px 460px at 104% 110%,rgba(34,96,74,.18) 0%,rgba(24,17,9,0) 55%),var(--bg)}
-.auth-shell{display:grid;grid-template-columns:1.06fr 1fr;width:min(1040px,100%);border-radius:22px 26px 22px 26px;overflow:hidden;box-shadow:var(--shadow-lg);border:1.5px solid #3c2f1c}
-.auth-brand{position:relative;background:var(--slate);color:var(--chalk);padding:44px 42px;display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:hidden}
+.auth-shell{width:min(1060px,100%);border-radius:22px 26px 22px 26px;overflow:hidden;box-shadow:var(--shadow-lg);border:1.5px solid #3c2f1c}
+.auth-brand{position:relative;background:var(--slate);color:var(--chalk);padding:22px 210px 22px 32px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .auth-brand::before{content:'';position:absolute;inset:0;opacity:.14;pointer-events:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23c)'/%3E%3C/svg%3E")}
-.auth-brand::after{content:'';position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 8%,rgba(255,255,255,.06) 0%,rgba(0,0,0,0) 45%),radial-gradient(140% 110% at 50% 115%,rgba(0,0,0,.35) 0%,rgba(0,0,0,0) 55%);pointer-events:none}
+.auth-brand::after{content:'';position:absolute;inset:0;background:radial-gradient(120% 120% at 50% -20%,rgba(255,255,255,.07) 0%,rgba(0,0,0,0) 50%),linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.28) 100%);pointer-events:none}
 .auth-brand>*{position:relative;z-index:2}
-.gl-logo svg,.gl-logo img{width:56px;height:56px;border-radius:12px 14px 12px 14px;background:var(--chalk);padding:4px;box-shadow:3px 4px 0 rgba(0,0,0,.3)}
-.inst-name{font-family:'Fraunces',Georgia,serif;font-size:1.62rem;font-weight:600;line-height:1.18;letter-spacing:.005em}
-.inst-sub{font-size:.83rem;opacity:.82;margin-top:5px}
-.chalk-line{width:230px;height:10px;margin:2px 0 4px;opacity:.85}
-.brand-feats{list-style:none;display:grid;gap:9px;margin:8px 0 6px}
-.brand-feats li{border-left:2px solid rgba(246,241,224,.55);padding:8px 14px;font-size:.845rem;background:rgba(255,255,255,.055);border-radius:0 12px 12px 0}
-.polaroid{position:relative;background:#fdfaf0;width:216px;padding:8px 8px 4px;border-radius:4px;transform:rotate(-2.4deg);box-shadow:0 10px 22px rgba(0,0,0,.38);margin:6px 0 4px}
-.polaroid .campus{width:100%;height:106px;background-size:cover;background-position:center;border-radius:2px;filter:saturate(.92)}
-.polaroid .cap{font-family:'Caveat',cursive;color:#4a3b28;font-size:1.02rem;text-align:center;line-height:1.4;padding:3px 0 2px}
-.polaroid .tape{position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(2.5deg);width:92px;height:24px;background:var(--tape);border-left:2px dashed rgba(255,255,255,.55);border-right:2px dashed rgba(255,255,255,.55);box-shadow:0 2px 5px rgba(0,0,0,.18)}
-.accred{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.accred span{font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;border:1.5px dashed rgba(246,241,224,.5);padding:4px 11px;border-radius:99px;font-weight:800}
-.brand-foot{font-size:.7rem;opacity:.62;margin-top:10px}
-.auth-panel{background:var(--surface);padding:42px 42px 38px;display:grid;place-items:center;position:relative}
-.auth-panel::before{content:'';position:absolute;top:9px;left:50%;transform:translateX(-50%) rotate(-1.6deg);width:128px;height:26px;background:var(--tape);border-left:2px dashed rgba(156,36,49,.35);border-right:2px dashed rgba(156,36,49,.35)}
-.auth-theme{position:absolute;top:14px;right:14px;width:auto;padding:6px 13px;border-radius:99px;background:var(--surface-2);font-size:.75rem;font-weight:800;border:1.5px solid var(--border)}
+.gl-logo svg,.gl-logo img{width:54px;height:54px;border-radius:12px 14px 12px 14px;background:var(--chalk);padding:4px;box-shadow:3px 4px 0 rgba(0,0,0,.3)}
+.inst-name{font-family:'Fraunces',Georgia,serif;font-size:1.42rem;font-weight:600;line-height:1.2;letter-spacing:.005em;max-width:430px}
+.inst-sub{font-size:.8rem;opacity:.82;margin-top:4px}
+.chalk-line{width:190px;height:9px;flex-shrink:0;opacity:.85}
+.accred{display:flex;gap:8px;flex-wrap:wrap}
+.accred span{font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;border:1.5px dashed rgba(246,241,224,.5);padding:4px 11px;border-radius:99px;font-weight:800}
+.polaroid{position:absolute;right:24px;top:26px;z-index:3;background:#fdfaf0;width:184px;padding:7px 7px 3px;border-radius:4px;transform:rotate(3deg);box-shadow:0 10px 22px rgba(0,0,0,.38)}
+.polaroid .campus{width:100%;height:74px;background-size:cover;background-position:center;border-radius:2px;filter:saturate(.92)}
+.polaroid .cap{font-family:'Caveat',cursive;color:#4a3b28;font-size:1rem;text-align:center;line-height:1.35;padding:2px 0}
+.polaroid .tape{position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(-3deg);width:88px;height:24px;background:var(--tape);border-left:2px dashed rgba(255,255,255,.55);border-right:2px dashed rgba(255,255,255,.55);box-shadow:0 2px 5px rgba(0,0,0,.18)}
+.auth-lower{display:grid;grid-template-columns:1.12fr .88fr}
+.auth-form-col{background:var(--surface);padding:34px 38px 36px;display:grid;place-items:center;position:relative;border-right:1.5px dashed var(--border)}
+.auth-theme{position:absolute;top:12px;right:12px;width:auto;padding:6px 13px;border-radius:99px;background:var(--surface-2);font-size:.75rem;font-weight:800;border:1.5px solid var(--border)}
 .auth-card{width:100%;max-width:352px;text-align:center}
-#brandLogoSmall img{width:82px;height:82px;object-fit:contain}
-#brandLogoSmall svg{width:66px;height:66px}
-.auth-card h1{font-size:1.7rem;margin-top:12px}
+#brandLogoSmall img{width:78px;height:78px;object-fit:contain}
+#brandLogoSmall svg{width:62px;height:62px}
+.auth-card h1{font-size:1.66rem;margin-top:12px}
 .auth-sub{color:var(--muted);font-size:.88rem;margin:6px 0 24px}
 .auth-card form{text-align:left;display:grid;gap:15px}
 .auth-card .input{padding:12px 15px;border-radius:11px 14px 11px 14px}
@@ -142,68 +140,86 @@ body.dark .auth-body{background:radial-gradient(800px 480px at 6% -10%,rgba(156,
 .demo-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .chip{border:1.5px dashed var(--border-strong);background:var(--surface);border-radius:99px;padding:8px 16px;font:inherit;font-size:.76rem;font-weight:800;cursor:pointer;transition:all .15s;color:var(--text)}
 .chip:hover{border-color:var(--primary);border-style:solid;color:var(--primary);background:var(--primary-soft);transform:translateY(-1px)}
+.auth-side-col{background:var(--bg);padding:30px 30px 34px;display:grid;align-content:center;gap:13px}
+.side-title{font-size:1.55rem;color:var(--primary);transform:rotate(-1.2deg)}
+body.dark .side-title{color:#d98a6a}
+.brand-feats{list-style:none;display:grid;gap:9px}
+.brand-feats li{border-left:2px solid var(--border-strong);padding:9px 14px;font-size:.83rem;background:var(--surface);box-shadow:2px 3px 0 rgba(76,58,32,.07);border-radius:0 12px 12px 0}
+body.dark .brand-feats li{box-shadow:2px 3px 0 rgba(0,0,0,.3)}
+.side-foot{font-size:.7rem;color:var(--muted);margin-top:6px}
 
-/* ============ Layout & sidebar — notebook index ============ */
-.layout{display:grid;grid-template-columns:242px 1fr;min-height:100vh}
-.sidebar{background:var(--sidebar);color:var(--side-text);padding:20px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;border-right:1.5px dashed var(--border-strong)}
-.brand{display:flex;align-items:center;gap:10px;font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:1.06rem;color:var(--text);padding:0 4px}
-.brand svg,.brand img{width:38px;height:38px;border-radius:10px 12px 10px 12px;background:#fff;padding:2px;border:1.5px solid var(--border)}
+/* ============ Shell — top masthead + folder-tab nav ============ */
+.shell{min-height:100vh;display:flex;flex-direction:column}
+.masthead{position:sticky;top:0;z-index:60;background:var(--sidebar);border-bottom:1.5px dashed var(--border-strong);display:flex;align-items:flex-end;gap:16px;padding:12px 22px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:1.05rem;color:var(--text);padding:0 4px 10px;flex-shrink:0}
+.brand svg,.brand img{width:36px;height:36px;border-radius:10px 12px 10px 12px;background:#fff;padding:2px;border:1.5px solid var(--border)}
 body.dark .brand svg,body.dark .brand img{background:var(--surface-2)}
-.brand small{display:block;font-family:'Karla',sans-serif;font-size:.56rem;letter-spacing:.17em;color:var(--side-mut);text-transform:uppercase;font-weight:800}
-.nav{flex:1;display:flex;flex-direction:column}
-.nav-label{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--side-mut);padding:0 12px;margin-bottom:8px;font-weight:800}
-.nav-links{display:flex;flex-direction:column;gap:3px}
-.nav-link{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--side-text);font:inherit;font-weight:700;font-size:.87rem;padding:8px 10px;border-radius:10px 14px 10px 14px;cursor:pointer;text-align:left;transition:background .15s,color .15s}
+.brand small{display:block;font-family:'Karla',sans-serif;font-size:.55rem;letter-spacing:.17em;color:var(--side-mut);text-transform:uppercase;font-weight:800}
+.mast-nav{order:3;flex-basis:100%;min-width:0;display:flex;align-items:flex-end}
+.nav-links{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.nav-link{display:inline-flex;align-items:center;gap:7px;background:none;border:1.5px dashed transparent;border-bottom:none;color:var(--side-text);font:inherit;font-weight:700;font-size:.85rem;padding:9px 14px 11px;border-radius:12px 16px 0 0;cursor:pointer;white-space:nowrap;position:relative;top:1.5px;transition:background .15s,color .15s}
 .nav-link:hover{color:var(--text);background:var(--side-hover)}
-.nav-link.active{background:var(--side-active);color:var(--side-active-text);box-shadow:2px 3px 0 rgba(76,58,32,.22)}
-body.dark .nav-link.active{box-shadow:2px 3px 0 rgba(0,0,0,.4)}
-.nav-link .k{margin-left:auto;font-size:.6rem;color:var(--side-mut);border:1px solid var(--border-strong);border-radius:5px;padding:1px 6px;font-weight:800}
-.nav-link.active .k{color:rgba(255,248,239,.85);border-color:rgba(255,248,239,.4)}
-.nav-ic{width:28px;height:28px;border-radius:9px 11px 9px 11px;display:grid;place-items:center;flex-shrink:0}
-.nav-ic svg{display:block}
-.nav-ic.c0{background:var(--c1-soft);color:var(--c1)}
-.nav-ic.c1{background:var(--c2-soft);color:var(--c2)}
-.nav-ic.c2{background:var(--c3-soft);color:var(--c3)}
-.nav-ic.c3{background:var(--c4-soft);color:var(--c4)}
-.nav-ic.c4{background:var(--c5-soft);color:var(--c5)}
-.nav-ic.c5{background:var(--c6-soft);color:var(--c6)}
-.nav-link.active .nav-ic{background:rgba(255,248,239,.18)!important;color:#fff8ef!important}
-.sidebar-footer{border-top:1.5px dashed var(--border-strong);padding-top:14px;display:grid;gap:10px}
-.user-chip{display:flex;align-items:center;gap:10px;padding:8px 9px;background:var(--side-hover);border-radius:12px 15px 12px 15px}
-.avatar{width:36px;height:36px;border-radius:11px 13px 11px 13px;background:var(--primary);color:#fff8ef;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.nav-link.active{background:var(--bg);border-color:var(--border-strong);color:var(--primary);font-weight:800}
+body.dark .nav-link.active{color:#d98a6a}
+.nav-link .k{font-size:.58rem;color:var(--side-mut);border:1px solid var(--border-strong);border-radius:5px;padding:1px 6px;font-weight:800}
+.nav-link.active .k{color:var(--primary);border-color:var(--primary)}
+body.dark .nav-link.active .k{color:#d98a6a}
+.nav-ic{display:none}
+.mast-user{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-left:auto;flex-shrink:0}
+.user-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;background:var(--side-hover);border-radius:99px;border:1.5px dashed var(--border-strong)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff8ef;display:grid;place-items:center;font-weight:800;flex-shrink:0}
 body.dark .avatar{background:#9c2431;color:#fff8ef}
 .avatar.sm{width:32px;height:32px;font-size:.85rem}
-.user-name{color:var(--text);font-weight:800;font-size:.86rem}.user-role{font-size:.7rem;color:var(--side-mut);font-weight:700}
-.footer-actions{display:flex;gap:6px}
+.user-meta{display:grid;line-height:1.15;padding-right:4px}
+.user-name{color:var(--text);font-weight:800;font-size:.8rem}.user-role{font-size:.64rem;color:var(--side-mut);font-weight:700}
+.footer-actions{display:flex;gap:6px;align-items:center}
 .btn-icon{width:auto;padding:8px 10px;background:var(--side-hover);color:var(--side-text);border-radius:9px 11px 9px 11px;font-size:.72rem;font-weight:800;border:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s}
 .btn-icon:hover{background:var(--primary-soft);color:var(--primary)}
 body.dark .btn-icon:hover{color:#d98a6a}
-.footer-actions .btn-logout{flex:1;width:auto;white-space:nowrap;background:var(--side-hover);color:var(--side-text)}
-.footer-actions .btn-logout:hover{background:var(--red-soft);color:var(--red)}
+.btn-logout{background:var(--side-hover);color:var(--side-text);padding:8px 13px;font-size:.78rem}
+.btn-logout:hover{background:var(--red-soft);color:var(--red)}
 
-/* ============ Main, cards, stats — paper sheets ============ */
-.main{padding:24px 28px 48px;max-width:1400px}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;border-bottom:1.5px dashed var(--border-strong);padding-bottom:16px}
-.topbar h1{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8' viewBox='0 0 120 8'%3E%3Cpath d='M2 5.5 Q 10 1.5 18 5.5 T 34 5.5 T 50 5.5 T 66 5.5 T 82 5.5 T 98 5.5 T 114 5.5' fill='none' stroke='%239c2431' stroke-width='2.2' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E") repeat-x left bottom/110px 8px;padding-bottom:12px}
-body.dark .topbar h1{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8' viewBox='0 0 120 8'%3E%3Cpath d='M2 5.5 Q 10 1.5 18 5.5 T 34 5.5 T 50 5.5 T 66 5.5 T 82 5.5 T 98 5.5 T 114 5.5' fill='none' stroke='%23d98a6a' stroke-width='2.2' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E")}
-.topbar .sub{font-size:.8rem;color:var(--muted);font-weight:700}
+/* ============ Main column, page head, cards ============ */
+.main{width:100%;max-width:1180px;margin:0 auto;padding:28px 26px 64px;flex:1}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.page-head h1{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8' viewBox='0 0 120 8'%3E%3Cpath d='M2 5.5 Q 10 1.5 18 5.5 T 34 5.5 T 50 5.5 T 66 5.5 T 82 5.5 T 98 5.5 T 114 5.5' fill='none' stroke='%239c2431' stroke-width='2.2' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E") repeat-x left bottom/110px 8px;padding-bottom:12px}
+body.dark .page-head h1{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8' viewBox='0 0 120 8'%3E%3Cpath d='M2 5.5 Q 10 1.5 18 5.5 T 34 5.5 T 50 5.5 T 66 5.5 T 82 5.5 T 98 5.5 T 114 5.5' fill='none' stroke='%23d98a6a' stroke-width='2.2' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E")}
+.page-head .sub{font-size:.8rem;color:var(--muted);font-weight:700;margin-top:6px}
+.colophon{text-align:center;color:var(--muted);font-size:1.15rem;opacity:.75;margin-top:44px;transform:rotate(-.6deg)}
 .card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px 20px 16px 20px;box-shadow:var(--shadow);padding:22px 24px;margin-bottom:18px}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
 .card-head h2{margin-bottom:0}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:14px;margin-bottom:18px}
-.stat-card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px 20px 16px 20px;box-shadow:var(--shadow);padding:18px;display:flex;align-items:center;gap:14px;transition:transform .18s,box-shadow .18s}
-.stat-card:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow-lg)}
-.stat-icon{width:46px;height:46px;border-radius:13px 16px 13px 16px;display:grid;place-items:center;flex-shrink:0;color:var(--primary);background:var(--primary-soft)}
-.stat-icon svg{display:block}
-.stat-icon.blue{color:var(--c1);background:var(--c1-soft)}
-.stat-icon.purple{color:var(--c5);background:var(--c5-soft)}
-.stat-icon.amber{color:var(--c3);background:var(--c3-soft)}
-.stat-icon.green{color:var(--c2);background:var(--c2-soft)}
-.stat-value{font-family:'Fraunces',Georgia,serif;font-size:1.72rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.stat-label{font-size:.72rem;color:var(--muted);font-weight:800;margin-top:2px;text-transform:uppercase;letter-spacing:.08em}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end}
 .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;align-items:end}
 .filter-grid label{display:grid;gap:6px;font-size:.78rem;font-weight:700}
+
+/* ============ Notice board — pinned sticky notes ============ */
+.notice-board{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.sticky-note{position:relative;background:#fdf3cf;border:1px solid #e7cf8c;border-radius:4px 7px 5px 8px;padding:18px 16px 12px;flex:1;min-width:230px;max-width:380px;box-shadow:3px 4px 0 rgba(76,58,32,.13);transform:rotate(-1.3deg);display:grid;gap:4px}
+.sticky-note.tilt-r{transform:rotate(1.1deg)}
+.sticky-note .pin{position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#c94455,#7e1b26);box-shadow:0 2px 3px rgba(0,0,0,.3)}
+.sticky-note strong{font-family:'Fraunces',Georgia,serif;font-weight:700}
+body.dark .sticky-note{background:#3a2f14;border-color:#5c4c1e}
+
+/* ============ Overview bento ============ */
+.bento{display:grid;grid-template-columns:1.3fr .7fr;gap:18px;align-items:stretch;margin-bottom:18px}
+.bento .card{margin-bottom:0}
+.bento-hero{display:flex;flex-direction:column;justify-content:center;gap:4px;background:linear-gradient(155deg,var(--surface) 55%,var(--primary-soft) 130%);position:relative}
+.bento-note{font-size:1.3rem;color:var(--muted);transform:rotate(-1deg);align-self:flex-start}
+.bento-big{font-family:'Fraunces',Georgia,serif;font-size:4.1rem;font-weight:700;line-height:1.05;color:var(--primary);font-variant-numeric:tabular-nums}
+body.dark .bento-big{color:#d98a6a}
+.bento-cap{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+.hero-minis{display:flex;gap:30px;flex-wrap:wrap;margin-top:16px;border-top:1.5px dashed var(--border-strong);padding-top:14px}
+.hero-minis b{font-family:'Fraunces',Georgia,serif;font-size:1.5rem;display:block;line-height:1.15}
+.hero-minis span{font-size:.66rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:800}
+.bento-rail{display:grid;gap:14px;align-content:start}
+.bento-rail h2{font-size:.98rem;margin-bottom:8px}
+.bento-rail .card{padding:18px 20px}
+.rail-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.rail-hint{font-size:.72rem;color:var(--muted);margin-top:8px;font-weight:700}
+.settings-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 34px}
+.settings-cols>div+div{border-left:1.5px dashed var(--border-strong);padding-left:34px}
+@media(max-width:980px){.settings-cols{grid-template-columns:1fr}.settings-cols>div+div{border-left:none;padding-left:0;border-top:1.5px dashed var(--border-strong);padding-top:14px;margin-top:14px}}
 
 /* ============ Tables — ruled notebook ============ */
 .table-wrap{overflow-x:auto}
@@ -250,8 +266,17 @@ body.dark .toast-info{background:#7e1b26}
 .toggle.late.on{background:var(--amber);color:#fff}
 .toggle.absent.on{background:var(--red);color:#fff}
 
-/* ============ Student dashboard ============ */
-.student-grid{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start}
+/* ============ Student dashboard — horizontal hero band ============ */
+.student-hero{display:grid;grid-template-columns:auto 1.15fr .85fr;gap:28px;align-items:center}
+.sh-ring{width:172px}
+.student-hero .ring-wrap{width:172px;margin:0 auto}
+.sh-main{display:grid;gap:8px;justify-items:start}
+.sh-main h2{margin-bottom:2px}
+.sh-side{border-left:1.5px dashed var(--border-strong);padding-left:24px;align-self:stretch;display:grid;align-content:center;gap:12px}
+.sh-side h2{font-size:.98rem;margin-bottom:0}
+.duo{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:start}
+.duo>div{display:grid;gap:18px}
+.duo .card{margin-bottom:0}
 .ring-card{text-align:center}
 .ring-wrap{position:relative;width:190px;margin:14px auto}
 .ring{width:100%;transform:rotate(-90deg)}
@@ -262,9 +287,9 @@ body.dark .toast-info{background:#7e1b26}
 .ring-center{position:absolute;inset:0;display:grid;place-content:center}
 .ring-center span{font-family:'Fraunces',Georgia,serif;font-size:2.1rem;font-weight:700}
 .ring-center small{color:var(--muted);font-weight:700}
-.ring-stats{display:flex;justify-content:space-around;border-top:1.5px dashed var(--border-strong);padding-top:14px;margin-top:10px}
-.ring-stats div{display:grid}.ring-stats strong{font-family:'Fraunces',Georgia,serif;font-size:1.2rem}
-.ring-stats span{font-size:.7rem;color:var(--muted);font-weight:700}
+.ring-stats{display:flex;gap:22px;flex-wrap:wrap}
+.ring-stats div{display:grid}.ring-stats strong{font-family:'Fraunces',Georgia,serif;font-size:1.25rem}
+.ring-stats span{font-size:.66rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.07em}
 .subject-list{display:grid;gap:16px}
 .subject-item{display:grid;gap:5px}
 .subject-head{display:flex;justify-content:space-between;align-items:center}
@@ -278,6 +303,7 @@ body.dark .badge-chip{color:#8fb0dc}
 .heat i{aspect-ratio:1;border-radius:3px 4px 3px 4px;background:var(--border);opacity:.45}
 .heat i.a{background:var(--red);opacity:.8}.heat i.b{background:var(--amber);opacity:.85}.heat i.c{background:var(--green);opacity:.9}
 .charts{display:grid;grid-template-columns:1fr 1.4fr;gap:18px;margin-bottom:18px}
+.duo .charts{grid-template-columns:1fr;margin-bottom:0}
 .chart-box{position:relative;height:225px}
 .lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px 15px 12px 15px;background:var(--surface-2);margin-bottom:7px;border:1.5px solid var(--border)}
 .lb-rank{width:26px;height:26px;border-radius:8px 10px 8px 10px;display:grid;place-items:center;background:var(--c1-soft);color:var(--c1);font-weight:800;font-size:.76rem;flex-shrink:0}
@@ -337,10 +363,29 @@ body.dark .tt-per{background:#6f1822;color:#fff8ef}
 .cert-card h2{color:var(--primary)}
 
 /* ============ Responsive ============ */
-@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto;gap:12px;padding:14px 16px;border-right:none;border-bottom:1.5px dashed var(--border-strong)}.nav-label{display:none}.nav-links{flex-direction:row;overflow-x:auto;gap:6px}.nav-link{white-space:nowrap;padding:8px 12px}.nav-ic{display:none}.sidebar-footer{display:flex;border-top:none;padding-top:0;align-items:center;gap:8px}.user-chip{flex:1;padding:6px 8px}.footer-actions{margin-left:auto}.main{padding:18px 16px 40px}.student-grid{grid-template-columns:1fr}.charts{grid-template-columns:1fr}.heat{grid-template-columns:repeat(10,1fr)}.auth-shell{grid-template-columns:1fr}.auth-brand{display:none}.auth-panel{padding:32px 22px}.sm-panel{grid-template-columns:1fr}}
+@media(max-width:1080px){.mast-user{margin-left:0}.brand{padding-bottom:10px}}
+@media(max-width:900px){
+  .masthead{padding:10px 14px 0;gap:10px}
+  .brand{padding-bottom:8px}
+  .nav-link{padding:8px 12px 9px}
+  .user-meta{display:none}
+  .main{padding:20px 16px 48px}
+  .charts{grid-template-columns:1fr}
+  .heat{grid-template-columns:repeat(10,1fr)}
+  .auth-brand{padding:20px 20px 24px}
+  .polaroid{position:static;transform:rotate(-1.6deg);margin-left:auto}
+  .auth-lower{grid-template-columns:1fr}
+  .auth-form-col{border-right:none;border-bottom:1.5px dashed var(--border);padding:30px 22px}
+  .auth-side-col{padding:26px 22px}
+  .student-hero{grid-template-columns:1fr;gap:20px}
+  .sh-ring{width:150px;margin:0 auto}
+  .sh-side{border-left:none;padding-left:0;border-top:1.5px dashed var(--border-strong);padding-top:16px}
+  .duo{grid-template-columns:1fr}
+  .sm-panel{grid-template-columns:1fr}
+}
 
 /* ============ Print (print-first) ============ */
-@media print{body::before{display:none}body{background:#fff}.sidebar,.toast-container,.no-print,#annBar{display:none!important}.main{padding:0;max-width:none}.card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;background:#fff}.card-head h2{color:#000}.print-head{display:block!important;text-align:center;margin-bottom:18px}.topbar{border-bottom:1px solid #000}.topbar h1{background:none;padding-bottom:0}}
+@media print{body::before{display:none}body{background:#fff}.masthead,.toast-container,.no-print,#annBar{display:none!important}.main{padding:0;max-width:none}.card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;background:#fff}.card-head h2{color:#000}.print-head{display:block!important;text-align:center;margin-bottom:18px}.page-head h1{background:none;padding-bottom:0}}
 .print-head{display:none}
 </style>
 </head>
@@ -350,62 +395,69 @@ body.dark .tt-per{background:#6f1822;color:#fff8ef}
   <div class="auth-shell">
     <div class="auth-brand">
       <div class="gl-logo" id="brandLogoBig"></div>
-      <div><div class="inst-name">GL Bajaj Institute of<br/>Technology &amp; Management</div>
+      <div><div class="inst-name">GL Bajaj Institute of Technology &amp; Management</div>
       <div class="inst-sub">Attendance, carefully kept · Greater Noida, UP</div></div>
-      <svg class="chalk-line" viewBox="0 0 230 10" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 6.5 Q 20 2 38 6 T 76 6 T 114 6 T 152 6 T 190 6 T 226 5" fill="none" stroke="#f6f1e0" stroke-width="2.4" stroke-linecap="round" opacity=".8"/></svg>
-      <ul class="brand-feats">
-        <li>QR-based self-marking attendance with rotating secure code</li>
-        <li>Face recognition, GPS geo-fencing and proxy detection</li>
-        <li>Parent portal, monthly register and certificates</li>
-        <li>Daily Work Reports, Student Progress Reports and alumni archive</li>
-      </ul>
-      <div class="polaroid"><i class="tape"></i><div class="campus" id="campusBg"></div><div class="cap">our campus — Knowledge Park III</div></div>
+      <svg class="chalk-line" viewBox="0 0 190 9" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 6 Q 18 2 34 5.5 T 68 5.5 T 102 5.5 T 136 5.5 T 170 5 T 187 4.5" fill="none" stroke="#f6f1e0" stroke-width="2.2" stroke-linecap="round" opacity=".8"/></svg>
       <div class="accred"><span>Approved by AICTE</span><span>Affiliated to AKTU Lucknow</span><span>NAAC Accredited</span></div>
-      <div class="brand-foot">© GLBITM · 27th KM Milestone, Knowledge Park-III, Greater Noida</div>
+      <div class="polaroid"><i class="tape"></i><div class="campus" id="campusBg"></div><div class="cap">our campus — Knowledge Park III</div></div>
     </div>
-    <div class="auth-panel">
-      <button class="btn themeToggle auth-theme" type="button">Dark</button>
-      <div class="auth-card">
-        <div id="brandLogoSmall"></div>
-        <h1>Welcome back</h1>
-        <p class="auth-sub">Sign in to your GL Bajaj register</p>
-        <form id="loginForm">
-          <div id="loginStep1">
-            <label class="field"><span>Username</span>
-              <input class="input" type="text" id="username" placeholder="e.g. admin" autocomplete="username" required /></label>
-            <label class="field" style="margin-top:15px;"><span>Password</span>
-              <div class="password-wrap">
-                <input class="input" type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
-                <button type="button" id="togglePw" class="pw-toggle">👁</button>
-              </div></label>
-          </div>
-          <div id="loginStep2" hidden>
-            <p class="muted small" id="otpHint">OTP enter karo:</p>
-            <input class="input otp-input" id="otpInput" maxlength="6" inputmode="numeric" placeholder="______" />
-          </div>
-          <p id="loginError" class="form-error" style="margin-top:12px;" hidden></p>
-          <button type="submit" id="loginBtn" class="btn btn-primary btn-block" style="margin-top:15px;">Sign in →</button>
-        </form>
-        <div class="demo-box" id="demoBox">
-          <p>Demo accounts — click to autofill:</p>
-          <div class="demo-chips">
-            <button type="button" class="chip" data-u="admin" data-p="admin123">Admin</button>
-            <button type="button" class="chip" data-u="arjun" data-p="teach123">Teacher</button>
-            <button type="button" class="chip" data-u="riya" data-p="stud123">Student</button>
+    <div class="auth-lower">
+      <div class="auth-form-col">
+        <button class="btn themeToggle auth-theme" type="button">Dark</button>
+        <div class="auth-card">
+          <div id="brandLogoSmall"></div>
+          <h1>Welcome back</h1>
+          <p class="auth-sub">Sign in to your GL Bajaj register</p>
+          <form id="loginForm">
+            <div id="loginStep1">
+              <label class="field"><span>Username</span>
+                <input class="input" type="text" id="username" placeholder="e.g. admin" autocomplete="username" required /></label>
+              <label class="field" style="margin-top:15px;"><span>Password</span>
+                <div class="password-wrap">
+                  <input class="input" type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
+                  <button type="button" id="togglePw" class="pw-toggle">👁</button>
+                </div></label>
+            </div>
+            <div id="loginStep2" hidden>
+              <p class="muted small" id="otpHint">OTP enter karo:</p>
+              <input class="input otp-input" id="otpInput" maxlength="6" inputmode="numeric" placeholder="______" />
+            </div>
+            <p id="loginError" class="form-error" style="margin-top:12px;" hidden></p>
+            <button type="submit" id="loginBtn" class="btn btn-primary btn-block" style="margin-top:15px;">Sign in →</button>
+          </form>
+          <div class="demo-box" id="demoBox">
+            <p>Demo accounts — click to autofill:</p>
+            <div class="demo-chips">
+              <button type="button" class="chip" data-u="admin" data-p="admin123">Admin</button>
+              <button type="button" class="chip" data-u="arjun" data-p="teach123">Teacher</button>
+              <button type="button" class="chip" data-u="riya" data-p="stud123">Student</button>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="auth-side-col">
+        <div class="hand side-title">is register me kya hai…</div>
+        <ul class="brand-feats">
+          <li>QR-based self-marking attendance with rotating secure code</li>
+          <li>Face recognition, GPS geo-fencing and proxy detection</li>
+          <li>Parent portal, monthly register and certificates</li>
+          <li>Daily Work Reports, Student Progress Reports and alumni archive</li>
+        </ul>
+        <div class="side-foot">© GLBITM · 27th KM Milestone, Knowledge Park-III, Greater Noida</div>
       </div>
     </div>
   </div>
 </div>
 
-<div id="view-app" class="layout" hidden>
-  <aside class="sidebar">
+<div id="view-app" class="shell" hidden>
+  <header class="masthead no-print">
     <div class="brand"><span id="brandLogoSide"></span><span><span>GL Bajaj</span><small>Attendance · GLBITM</small></span></div>
-    <nav class="nav"><div class="nav-label">Menu</div><div class="nav-links" id="navLinks"></div></nav>
-    <div class="sidebar-footer">
-      <div class="user-chip"><div class="avatar" id="avatar">?</div>
-        <div><div class="user-name" id="userName">—</div><div class="user-role" id="userRole">—</div></div></div>
+    <nav class="mast-nav"><div class="nav-links" id="navLinks"></div></nav>
+    <div class="mast-user">
+      <span class="badge-soft" id="dateBadge"></span>
+      <button class="btn btn-ghost btn-sm" id="installBtn" hidden>Install App</button>
+      <button class="btn btn-ghost btn-sm" id="cmdBtn">Search (Ctrl K)</button>
+      <div class="user-chip"><div class="avatar" id="avatar">?</div><div class="user-meta"><div class="user-name" id="userName">—</div><div class="user-role" id="userRole">—</div></div></div>
       <div class="footer-actions">
         <button class="btn btn-icon" id="langBtn" type="button" title="हिंदी / English">EN</button>
         <button class="btn btn-icon" id="keyBtn" type="button" title="Password / 2FA">Key</button>
@@ -413,18 +465,14 @@ body.dark .tt-per{background:#6f1822;color:#fff8ef}
         <button class="btn btn-logout" id="logoutBtn">Log out</button>
       </div>
     </div>
-  </aside>
+  </header>
   <main class="main">
-    <header class="topbar">
+    <header class="page-head">
       <div><h1 id="pageTitle" class="grad-text">—</h1><div class="sub" id="roleBadge"></div></div>
-      <div style="display:flex;gap:8px;align-items:center;" class="no-print">
-        <button class="btn btn-ghost btn-sm" id="installBtn" hidden>Install App</button>
-        <button class="btn btn-ghost btn-sm" id="cmdBtn">Search (Ctrl K)</button>
-        <span class="badge-soft" id="dateBadge"></span>
-      </div>
     </header>
     <div id="annBar"></div>
     <div id="pageContent"></div>
+    <div class="colophon hand no-print">GLBITM attendance register — haath se, pyaar se likha gaya</div>
   </main>
 </div>
 
@@ -434,6 +482,6 @@ body.dark .tt-per{background:#6f1822;color:#fff8ef}
 <div id="certModal" class="modal" hidden><div style="display:grid;gap:14px;justify-items:center;"><div id="certHost"></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;" class="no-print"><button class="btn btn-primary" id="certPrint">Print / Save PDF</button><a id="certVerifyLink" class="btn btn-ghost" target="_blank">Verify URL</a><button class="btn btn-ghost" id="certClose">Close</button></div></div></div>
 <div id="toastBox" class="toast-container"></div>
 
-<script src="app.js?v=95"></script>
+<script src="app.js?v=96"></script>
 </body>
 </html>

@@ -307,7 +307,7 @@ async function checkNotifications() {
 async function renderAnnouncements() {
   try {
     const { items } = await api('/api/announcements');
-    $('#annBar').innerHTML = items.length ? `<div class="card" style="padding:14px 20px">${items.slice(0,3).map((a) => `<div class="ann-item"><strong>📢 ${esc(a.title)}</strong> <span class="muted small">— ${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
+    $('#annBar').innerHTML = items.length ? `<div class="notice-board">${items.slice(0,3).map((a,i) => `<div class="sticky-note ${i%2?'tilt-r':''}"><i class="pin"></i><strong>📌 ${esc(a.title)}</strong><span class="muted small">${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
   } catch {}
 }
 
@@ -403,13 +403,33 @@ admin: {
   },
   overview: {
     html: () => `
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-icon blue">${IC.users}</div><div><div class="stat-value" id="statStudents">0</div><div class="stat-label">Students</div></div></div>
-        <div class="stat-card"><div class="stat-icon purple">${IC.teachers}</div><div><div class="stat-value" id="statTeachers">0</div><div class="stat-label">Teachers</div></div></div>
-        <div class="stat-card"><div class="stat-icon amber">${IC.clock}</div><div><div class="stat-value" id="statSessions">0</div><div class="stat-label">Sessions</div></div></div>
-        <div class="stat-card"><div class="stat-icon green">${IC.chart}</div><div><div class="stat-value" id="statOverall">0%</div><div class="stat-label">Overall</div></div></div>
+      <div class="bento">
+        <div class="card bento-hero">
+          <div class="hand bento-note">aaj ka overall record</div>
+          <div class="bento-big" id="statOverall">0%</div>
+          <div class="bento-cap">Overall attendance · college-wide</div>
+          <div class="hero-minis">
+            <div><b id="statStudents">0</b><span>Students</span></div>
+            <div><b id="statTeachers">0</b><span>Teachers</span></div>
+            <div><b id="statSessions">0</b><span>Sessions</span></div>
+          </div>
+        </div>
+        <div class="bento-rail">
+          <div class="card"><h2>🎓 Bulk Promotion</h2>
+            <div class="rail-row">
+              <select class="input" id="promoProg" style="flex:1;min-width:150px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
+              <button class="btn btn-primary" id="promoBtn">Promote</button></div>
+            <p class="rail-hint">Saal khatam → final-year alumni, baaki semester +1.</p></div>
+          <div class="card"><h2>💾 Backup &amp; Restore</h2>
+            <div class="rail-row">
+              <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
+              <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div>
+            <p class="rail-hint">Rollover se pehle ek backup zaroor le lo.</p></div>
+        </div>
       </div>
       <div class="card"><h2>System Settings</h2>
+        <div class="settings-cols">
+        <div>
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;">
           <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">${t('threshold')} (%)
             <input class="input" type="number" id="setTh" min="40" max="95" style="max-width:130px;" /></label>
@@ -425,6 +445,8 @@ admin: {
           </div>
           <p class="muted small" style="margin-top:6px;">Sab dropdowns me apply hoga. Uppercase auto.</p>
         </div>
+        </div>
+        <div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
             <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Academic Year
@@ -450,20 +472,14 @@ admin: {
             <button class="btn btn-primary btn-sm" id="wSave">Save Weights</button>
           </div>
           <p class="muted small" style="margin-top:6px;">BCA/BBA default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25 (college internal 25 + university semester exam 75 = 100). B.Tech ka alag hai to yahan badal do.</p>
+        </div>
+        </div>
         </div></div>
       <div class="card def-card"><div class="card-head"><h2>Defaulters + 🔮 Risk Prediction</h2>
         <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
         <div id="defList"><p class="muted">Loading…</p></div></div>
       <div class="card"><div class="card-head"><h2>Administrators</h2>
-        <span class="muted small">Last admin protected 🛡️</span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>
-      <div class="card"><h2>Bulk Promotion</h2>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <select class="input" id="promoProg" style="max-width:220px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
-          <button class="btn btn-primary" id="promoBtn">🎓 Promote</button></div></div>
-      <div class="card"><h2>Backup & Restore</h2>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
-          <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div></div>`,
+        <span class="muted small">Last admin protected 🛡️</span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>`,
     init: async () => {
       const s = await api('/api/reports/summary');
       state.settings.threshold = s.threshold;
@@ -919,38 +935,43 @@ teacher: {
 student: {
   attendance: {
     html: () => `
-      <div class="student-grid">
-        <div>
-          <div class="card ring-card">
-            <h2>${t('attendance')}</h2>
-            <div class="ring-wrap">
-              <svg viewBox="0 0 120 120" class="ring">
-                <circle class="ring-bg" cx="60" cy="60" r="52" pathLength="100"></circle>
-                <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52" pathLength="100"></circle></svg>
-              <div class="ring-center"><span id="ringPct">—</span><small>attendance</small></div></div>
-            <div id="eligPill"></div>
-            <p class="muted small center" id="ringMsg"></p>
-            <p class="center" id="streakLine" style="font-weight:700;margin-top:6px;"></p>
-            <div class="ring-stats">
-              <div><strong id="statPresent">0</strong><span>${t('present')}</span></div>
-              <div><strong id="statLate">0</strong><span>${t('late')}</span></div>
-              <div><strong id="statAbsent">0</strong><span>${t('absent')}</span></div>
-              <div><strong id="statTotal">0</strong><span>Classes</span></div></div>
-            <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:12px;">🧾 Attendance Certificate</button></div>
-          <div class="card"><h2>Badges</h2><div id="badgeList" class="badges"></div></div>
-          <div class="card"><h2>Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div>
-          <div class="card"><h2>Marks hint</h2><div id="myMarks" class="muted small">SPR me dekho — Progress Report tab.</div></div>
-          <div class="card"><h2>Assignments</h2><div id="attAssn" class="muted small">Loading…</div></div>
-          <div class="card"><h2>Results</h2><div id="attResults" class="muted small">Loading…</div></div>
-          <div class="card"><h2>What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
-        </div>
+      <div class="card student-hero">
+        <div class="sh-ring">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle class="ring-bg" cx="60" cy="60" r="52" pathLength="100"></circle>
+              <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52" pathLength="100"></circle></svg>
+            <div class="ring-center"><span id="ringPct">—</span><small>attendance</small></div></div>
+          <div id="eligPill" class="center"></div></div>
+        <div class="sh-main">
+          <h2>${t('attendance')}</h2>
+          <p class="muted small" id="ringMsg"></p>
+          <p id="streakLine" style="font-weight:700;margin:0;"></p>
+          <div class="ring-stats">
+            <div><strong id="statPresent">0</strong><span>${t('present')}</span></div>
+            <div><strong id="statLate">0</strong><span>${t('late')}</span></div>
+            <div><strong id="statAbsent">0</strong><span>${t('absent')}</span></div>
+            <div><strong id="statTotal">0</strong><span>Classes</span></div></div>
+          <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:4px;">🧾 Attendance Certificate</button></div>
+        <div class="sh-side">
+          <div><h2>Badges</h2><div id="badgeList" class="badges"></div></div>
+          <div><h2>Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div></div>
+      </div>
+      <div class="duo">
         <div>
           <div class="charts">
             <div class="card" style="margin:0;"><h2>Split</h2><div class="chart-box"><canvas id="pieChart"></canvas></div></div>
             <div class="card" style="margin:0;"><h2>Trend</h2><div class="chart-box"><canvas id="trendChart"></canvas></div></div></div>
           <div class="card"><h2>Subject-wise</h2><div id="subjectList" class="subject-list"></div></div>
           <div class="card"><h2>Last 10 Weeks</h2><div id="heat" class="heat"></div></div>
-          <div class="card"><h2>Leaderboard</h2><div id="lbList" class="muted small">Loading…</div></div></div></div>
+        </div>
+        <div>
+          <div class="card"><h2>Leaderboard</h2><div id="lbList" class="muted small">Loading…</div></div>
+          <div class="card"><h2>Marks hint</h2><div id="myMarks" class="muted small">SPR me dekho — Progress Report tab.</div></div>
+          <div class="card"><h2>Assignments</h2><div id="attAssn" class="muted small">Loading…</div></div>
+          <div class="card"><h2>Results</h2><div id="attResults" class="muted small">Loading…</div></div>
+          <div class="card"><h2>What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
+        </div></div>
       <div class="card"><div class="card-head"><h2>Recent Log</h2><span class="muted small">Absent pe "⚠️ Fix" — admin approve karega</span></div>
         <div class="table-wrap"><table>
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th></th></tr></thead>
