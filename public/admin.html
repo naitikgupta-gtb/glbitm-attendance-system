@@ -3,79 +3,152 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard · AttendEase</title>
+  <title>Records Office · GL Bajaj Attendance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;700;800&family=Caveat:wght@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css?v=11" />
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">🎓</span> AttendEase</div>
-      <nav class="nav" id="adminNav">
-        <button class="nav-link active" data-section="overview">📊 Overview</button>
+  <div class="shell">
+    <header class="masthead">
+      <div class="brand">
+        <span class="mark">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="36" height="36" rx="8" fill="#9c2431"/><path d="M11 27V13h5.2c3.4 0 5.6 2.6 5.6 7s-2.2 7-5.6 7H11z" stroke="#fff8ef" stroke-width="2.4" stroke-linejoin="round"/><path d="M27 12v10.4c0 2.6 1.5 4.4 4 4.4" stroke="#f6f1e0" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </span>
+        <span><span>GL Bajaj</span><small>Records Office · Admin</small></span>
+      </div>
+      <nav class="mast-nav"><div class="nav-links" id="adminNav">
+        <button class="nav-link active" data-section="overview">📋 Overview</button>
         <button class="nav-link" data-section="students">🧑‍🎓 Students</button>
         <button class="nav-link" data-section="teachers">🧑‍🏫 Teachers</button>
         <button class="nav-link" data-section="reports">📈 Reports</button>
-      </nav>
-      <div class="sidebar-footer">
+      </div></nav>
+      <div class="mast-user">
+        <span class="badge-soft" id="dateBadge">—</span>
+        <button class="btn btn-icon themeToggle" type="button">Dark</button>
         <div class="user-chip">
           <div class="avatar" id="avatar">A</div>
-          <div>
+          <div class="user-meta">
             <div class="user-name" id="userName">—</div>
             <div class="user-role">Administrator</div>
           </div>
         </div>
         <button class="btn btn-logout" id="logoutBtn">Log out</button>
       </div>
-    </aside>
+    </header>
 
     <main class="main">
-      <header class="topbar">
-        <h1 id="pageTitle">Overview</h1>
-        <span class="badge-soft">Admin Console</span>
+      <header class="page-head">
+        <div>
+          <h1 id="pageTitle">Overview</h1>
+          <div class="sub">G.L. Bajaj Institute of Technology &amp; Management · 27th KM Milestone, Knowledge Park-III, Greater Noida</div>
+        </div>
       </header>
 
       <!-- Overview -->
       <section class="section active" id="section-overview">
-        <div class="stat-grid">
-          <div class="stat-card"><div class="stat-icon blue">🧑‍🎓</div><div><div class="stat-value" id="statStudents">—</div><div class="stat-label">Total Students</div></div></div>
-          <div class="stat-card"><div class="stat-icon purple">🧑‍🏫</div><div><div class="stat-value" id="statTeachers">—</div><div class="stat-label">Total Teachers</div></div></div>
-          <div class="stat-card"><div class="stat-icon amber">🗂️</div><div><div class="stat-value" id="statSessions">—</div><div class="stat-label">Sessions Marked</div></div></div>
-          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="statOverall">—</div><div class="stat-label">Overall Attendance</div></div></div>
+        <div class="bento">
+          <div class="card bento-hero">
+            <div class="bento-note hand">Overall attendance across campus</div>
+            <div class="bento-big" id="statOverall">—</div>
+            <p class="muted small">Minimum requirement <strong>75%</strong> · refreshes live as teachers mark sessions</p>
+          </div>
+          <div class="stat-rail">
+            <div class="stat-card"><div class="stat-icon blue">🧑‍🎓</div><div><div class="stat-value" id="statStudents">—</div><div class="stat-label">Students enrolled</div></div></div>
+            <div class="stat-card"><div class="stat-icon purple">🧑‍🏫</div><div><div class="stat-value" id="statTeachers">—</div><div class="stat-label">Faculty on staff</div></div></div>
+            <div class="stat-card"><div class="stat-icon amber">🗂️</div><div><div class="stat-value" id="statSessions">—</div><div class="stat-label">Sessions marked</div></div></div>
+          </div>
         </div>
-        <div class="card">
-          <h2>Welcome back 👋</h2>
-          <p class="muted">Manage students and teachers from the sidebar. The <strong>Reports</strong> tab shows live attendance for every student — percentages refresh automatically as teachers mark sessions.</p>
+        <div class="sticky-note">
+          <span class="pin"></span>
+          <strong>Welcome back 👋</strong>
+          <p class="hand scribble">Enrol students &amp; onboard faculty from the tabs above — the register does the rest.</p>
+          <p>The <strong>Reports</strong> tab shows live attendance for every student; percentages update automatically as teachers mark sessions.</p>
         </div>
       </section>
 
       <!-- Students -->
       <section class="section" id="section-students">
-        <div class="card">
-          <h2>Add a Student</h2>
-          <form id="addStudentForm" class="form-grid">
-            <input class="input" id="stName" placeholder="Full name" required />
-            <input class="input" id="stRoll" placeholder="Roll no (e.g. CSE-3-06)" />
-            <select class="input" id="stBranch" required>
-              <option value="CSE">CSE</option>
-              <option value="ECE">ECE</option>
-              <option value="IT">IT</option>
-              <option value="MECH">MECH</option>
-            </select>
-            <select class="input" id="stSem" required>
-              <option value="1">Sem 1</option><option value="2">Sem 2</option>
-              <option value="3">Sem 3</option><option value="4">Sem 4</option>
-              <option value="5">Sem 5</option><option value="6">Sem 6</option>
-              <option value="7">Sem 7</option><option value="8">Sem 8</option>
-            </select>
-            <input class="input" id="stUsername" placeholder="Username" required />
-            <input class="input" id="stPassword" placeholder="Password" required />
-            <button class="btn btn-primary">Add Student</button>
+        <div class="card form-card">
+          <div class="form-head">
+            <div class="form-stamp">🎓</div>
+            <div>
+              <h2>Student Enrolment Form</h2>
+              <p class="muted">Records Office · complete all required fields marked <strong style="color:var(--primary)">*</strong></p>
+            </div>
+          </div>
+          <form id="addStudentForm" class="entry-form" autocomplete="off">
+            <fieldset class="fset">
+              <legend><span class="fset-no">1</span> Student Details</legend>
+              <div class="fgrid">
+                <div class="field span-2">
+                  <label for="stName">Full name <em>*</em></label>
+                  <input class="input" id="stName" placeholder="e.g. Aarav Sharma" required />
+                  <span class="hint">As printed on the admission slip</span>
+                </div>
+                <div class="field span-2">
+                  <label for="stRoll">Roll number</label>
+                  <input class="input" id="stRoll" placeholder="e.g. 2214407" />
+                  <span class="hint">Optional — appears on the ID card &amp; attendance reports</span>
+                </div>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend><span class="fset-no">2</span> Class Assignment</legend>
+              <div class="fgrid">
+                <div class="field">
+                  <label for="stBranch">Branch <em>*</em></label>
+                  <select class="input" id="stBranch" required>
+                    <option value="CSE">CSE — Computer Science</option>
+                    <option value="ECE">ECE — Electronics</option>
+                    <option value="IT">IT — Information Technology</option>
+                    <option value="MECH">MECH — Mechanical</option>
+                  </select>
+                  <span class="hint">B.Tech programme branch</span>
+                </div>
+                <div class="field">
+                  <label for="stSem">Semester <em>*</em></label>
+                  <select class="input" id="stSem" required>
+                    <option value="1">Sem 1</option><option value="2">Sem 2</option>
+                    <option value="3">Sem 3</option><option value="4">Sem 4</option>
+                    <option value="5">Sem 5</option><option value="6">Sem 6</option>
+                    <option value="7">Sem 7</option><option value="8">Sem 8</option>
+                  </select>
+                  <span class="hint">Current academic semester</span>
+                </div>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend><span class="fset-no">3</span> Portal Credentials</legend>
+              <div class="fgrid">
+                <div class="field">
+                  <label for="stUsername">Login username <em>*</em></label>
+                  <input class="input" id="stUsername" placeholder="e.g. aarav.sh" required />
+                  <span class="hint">Student signs in with this on the login page</span>
+                </div>
+                <div class="field">
+                  <label for="stPassword">Temporary password <em>*</em></label>
+                  <div class="password-wrap">
+                    <input class="input" id="stPassword" type="password" placeholder="minimum 6 characters" required />
+                    <button type="button" class="pw-toggle" data-target="stPassword" title="Show / hide">👁</button>
+                  </div>
+                  <span class="hint">Share privately — the student can change it later</span>
+                </div>
+              </div>
+            </fieldset>
+            <div class="form-foot">
+              <span class="req-note">✍️ One record per submission — duplicates in a class are rejected by the register.</span>
+              <div class="foot-actions">
+                <button type="button" class="btn btn-ghost" data-clear="addStudentForm">Clear form</button>
+                <button class="btn btn-primary">Enrol Student →</button>
+              </div>
+            </div>
           </form>
         </div>
+
         <div class="card">
-          <h2>Enrolled Students</h2>
+          <div class="card-head"><h2>Enrolled Students — Class Ledger</h2><span class="badge-soft">Live register</span></div>
           <div class="table-wrap">
             <table id="studentsTable">
               <thead><tr><th>Roll No</th><th>Name</th><th>Username</th><th>Branch</th><th>Semester</th><th></th></tr></thead>
@@ -87,23 +160,65 @@
 
       <!-- Teachers -->
       <section class="section" id="section-teachers">
-        <div class="card">
-          <h2>Add a Teacher</h2>
-          <form id="addTeacherForm" class="form-grid">
-            <input class="input" id="tcName" placeholder="Full name" required />
-            <select class="input" id="tcBranch">
-              <option value="CSE">CSE</option>
-              <option value="ECE">ECE</option>
-              <option value="IT">IT</option>
-              <option value="MECH">MECH</option>
-            </select>
-            <input class="input" id="tcUsername" placeholder="Username" required />
-            <input class="input" id="tcPassword" placeholder="Password" required />
-            <button class="btn btn-primary">Add Teacher</button>
+        <div class="card form-card">
+          <div class="form-head">
+            <div class="form-stamp" style="background:var(--accent)">🧑‍🏫</div>
+            <div>
+              <h2>Faculty Onboarding Form</h2>
+              <p class="muted">HR Desk · complete all required fields marked <strong style="color:var(--primary)">*</strong></p>
+            </div>
+          </div>
+          <form id="addTeacherForm" class="entry-form" autocomplete="off">
+            <fieldset class="fset">
+              <legend><span class="fset-no">1</span> Faculty Details</legend>
+              <div class="fgrid">
+                <div class="field span-2">
+                  <label for="tcName">Full name <em>*</em></label>
+                  <input class="input" id="tcName" placeholder="e.g. Dr. Meera Kapoor" required />
+                  <span class="hint">Designation prefix (Dr. / Prof.) recommended</span>
+                </div>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend><span class="fset-no">2</span> Department &amp; Portal Credentials</legend>
+              <div class="fgrid">
+                <div class="field">
+                  <label for="tcBranch">Department <em>*</em></label>
+                  <select class="input" id="tcBranch">
+                    <option value="CSE">CSE — Computer Science</option>
+                    <option value="ECE">ECE — Electronics</option>
+                    <option value="IT">IT — Information Technology</option>
+                    <option value="MECH">MECH — Mechanical</option>
+                  </select>
+                  <span class="hint">Default class branch for attendance</span>
+                </div>
+                <div class="field">
+                  <label for="tcUsername">Login username <em>*</em></label>
+                  <input class="input" id="tcUsername" placeholder="e.g. m.kapoor" required />
+                  <span class="hint">Faculty signs in with this on the login page</span>
+                </div>
+                <div class="field">
+                  <label for="tcPassword">Temporary password <em>*</em></label>
+                  <div class="password-wrap">
+                    <input class="input" id="tcPassword" type="password" placeholder="minimum 6 characters" required />
+                    <button type="button" class="pw-toggle" data-target="tcPassword" title="Show / hide">👁</button>
+                  </div>
+                  <span class="hint">Share privately — change on first sign-in</span>
+                </div>
+              </div>
+            </fieldset>
+            <div class="form-foot">
+              <span class="req-note">✍️ New faculty can mark attendance for their department immediately.</span>
+              <div class="foot-actions">
+                <button type="button" class="btn btn-ghost" data-clear="addTeacherForm">Clear form</button>
+                <button class="btn btn-primary">Onboard Faculty →</button>
+              </div>
+            </div>
           </form>
         </div>
+
         <div class="card">
-          <h2>Teaching Staff</h2>
+          <div class="card-head"><h2>Teaching Staff — Faculty Register</h2><span class="badge-soft">Live register</span></div>
           <div class="table-wrap">
             <table id="teachersTable">
               <thead><tr><th>Name</th><th>Username</th><th>Branch</th><th></th></tr></thead>
@@ -116,8 +231,8 @@
       <!-- Reports -->
       <section class="section" id="section-reports">
         <div class="card">
-          <h2>Global Attendance Report</h2>
-          <p class="muted" style="margin-bottom: 14px;">Minimum requirement: <strong>75%</strong>. Percentage = present ÷ total sessions marked.</p>
+          <div class="card-head"><h2>Global Attendance Report — Campus Ledger</h2><span class="badge-soft">Auto-refreshing</span></div>
+          <p class="muted small" style="margin-bottom:14px;">Minimum requirement: <strong>75%</strong> · Percentage = present ÷ total sessions marked.</p>
           <div class="table-wrap">
             <table id="reportTable">
               <thead><tr><th>Roll No</th><th>Name</th><th>Class</th><th>Sessions</th><th>P / A</th><th>Attendance</th></tr></thead>
@@ -126,10 +241,13 @@
           </div>
         </div>
       </section>
+
+      <div class="colophon hand">GLBITM records office — haath se, pyaar se likha gaya</div>
     </main>
   </div>
 
-  <script src="js/common.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/common.js?v=11"></script>
+  <script src="js/admin.js?v=11"></script>
+  <script src="js/panel.js?v=11"></script>
 </body>
 </html>
