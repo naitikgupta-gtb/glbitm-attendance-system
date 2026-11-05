@@ -247,7 +247,7 @@ function navLabel(id) { return t(id); }
 function buildNav() {
   const nav = $('#navLinks');
   nav.innerHTML = NAVS[state.user.role].map(([id], i) =>
-    `<button class="nav-link" data-nav="${id}">${IC[id] ? `<span class="nav-ic c${i % 6}">${IC[id]}</span>` : ''}<span class="nav-txt">${navLabel(id)}</span>${i < 9 ? `<span class="k">${i+1}</span>` : ''}</button>`).join('');
+    `<button class="nav-link" data-nav="${id}">${IC[id] ? `<span class="nav-ic c${i % 6}">${IC[id]}</span>` : ''}<span class="nav-txt">${navLabel(id)}</span></button>`).join('');
   nav.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => go(b.dataset.nav)));
 }
 async function startApp() {
