@@ -69,7 +69,13 @@ const server = http.createServer((req, res) => {
       const send = (obj) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
       const role = roleOf(req);
 
-      if (p === '/api/login') return send({ token: 'mock-token-123', user: USERS.admin });
+      if (p === '/api/login') {
+        let r = 'admin';
+        const un = String(data.username || '');
+        if (/riya|stud/i.test(un)) r = 'student';
+        else if (/arjun|m\.kapoor|teach/i.test(un)) r = 'teacher';
+        return send({ token: 'mock-token-123', user: USERS[r] });
+      }
       if (p === '/api/me') return send({ user: USERS[role] });
       if (p === '/api/logout') return send({ ok: true });
       if (p === '/api/settings') return send({ sections: ['A', 'B', 'C'], threshold: 75, academicYear: '2026-27' });

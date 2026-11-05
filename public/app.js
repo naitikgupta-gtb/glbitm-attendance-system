@@ -50,7 +50,7 @@ function confetti() {
 const DEVICE_ID = (() => { let d = localStorage.getItem('ams_device'); if (!d) { d = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()); localStorage.setItem('ams_device', d); } return d; })();
 
 /* ================= logo & campus ================= */
-const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#9c2431" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
+const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#24387f" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
 function mountLogo(el) {
   const img = document.createElement('img');
   img.src = 'assets/logo.png'; img.alt = 'GLBITM';
@@ -119,6 +119,13 @@ function bindLogin() {
   const err = $('#loginError'), btn = $('#loginBtn');
   document.querySelectorAll('.chip').forEach((ch) => ch.addEventListener('click', () => { $('#username').value = ch.dataset.u; $('#password').value = ch.dataset.p; err.hidden = true; }));
   $('#togglePw').addEventListener('click', () => { $('#password').type = $('#password').type === 'password' ? 'text' : 'password'; });
+  /* v12: generic show/hide + clear-form wiring for entry forms (delegated) */
+  document.addEventListener('click', (e) => {
+    const pw = e.target.closest('.pw-toggle[data-target]');
+    if (pw) { const inp = document.getElementById(pw.dataset.target); if (inp) { inp.type = inp.type === 'password' ? 'text' : 'password'; pw.textContent = inp.type === 'password' ? '👁' : '🙈'; } return; }
+    const clr = e.target.closest('[data-reset]');
+    if (clr) { const f = document.getElementById(clr.dataset.reset); if (f) { f.reset(); toast('Form cleared', 'info'); } }
+  });
   $('#loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     err.hidden = true; btn.disabled = true;
@@ -539,21 +546,42 @@ admin: {
   },
   students: {
     html: () => `
-      <div class="card"><h2>Add Student</h2>
-        <form id="addStudentForm" class="form-grid">
-          <input class="input" id="stName" placeholder="Full name" required />
-          <input class="input" id="stRoll" placeholder="Roll no" />
-          <select class="input" id="stProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
-          <select class="input" id="stBranch"></select>
-          <select class="input" id="stSem"></select>
-          <select class="input" id="stSec"><option value="">No Section</option>${secOptions()}</select>
-          <input class="input" id="stEmail" type="email" placeholder="Email (alerts)" />
-          <input class="input" id="stCard" placeholder="RFID Card ID (optional)" />
-          <input class="input" id="stBatch" placeholder="Batch (e.g. 2023-27)" />
-          <input class="input" id="stUsername" placeholder="Username" required />
-          <input class="input" id="stPassword" placeholder="Password" required />
-          <button class="btn btn-primary">＋ Add</button>
-        </form></div>
+      <div class="card">
+        <div class="card-head"><h2>Add Student</h2><span class="badge-soft">New enrollment</span></div>
+        <form id="addStudentForm" class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Personal details</b><small>Student ki identity — name, contact aur card</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Full name <em>*</em></span><input class="input" id="stName" placeholder="e.g. Aarav Sharma" required /><small class="hint">AKTU records ke hisaab se pura naam</small></label>
+              <label class="f"><span>Roll number</span><input class="input" id="stRoll" placeholder="e.g. 230101001" /><small class="hint">Blank chhoda to auto-generate hoga</small></label>
+              <label class="f"><span>Email (alerts)</span><input class="input" id="stEmail" type="email" placeholder="student@glbitm.ac.in" /><small class="hint">Is par attendance alerts jayenge</small></label>
+              <label class="f"><span>RFID card ID</span><input class="input" id="stCard" placeholder="Optional" /><small class="hint">Gate scanning ke liye</small></label>
+            </div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">2</span><div><b>Academic details</b><small>Class aur batch — timetable isse link hota hai</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Program</span><select class="input" id="stProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Branch</span><select class="input" id="stBranch"></select></label>
+              <label class="f"><span>Semester</span><select class="input" id="stSem"></select></label>
+              <label class="f"><span>Section</span><select class="input" id="stSec"><option value="">No Section</option>${secOptions()}</select></label>
+              <label class="f"><span>Batch</span><input class="input" id="stBatch" placeholder="e.g. 2023-27" /></label>
+            </div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Login account</b><small>Student portal ke liye credentials</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Username <em>*</em></span><input class="input" id="stUsername" placeholder="e.g. aarav.sharma" required /><small class="hint">Login me yahi use hoga</small></label>
+              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="stPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="stPassword">👁</button></div><small class="hint">Min 6 characters recommended</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer">* required fields</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-reset="addStudentForm">Clear form</button>
+            <button class="btn btn-primary">＋ Add student</button>
+          </div>
+        </form>
+      </div>
       <div class="card"><h2>Bulk Import — Excel (.xlsx) ya CSV</h2>
         <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. <code>role</code> column me "teacher" likhoge to wo teacher banega!</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -578,17 +606,38 @@ admin: {
   },
   teachers: {
     html: () => `
-      <div class="card"><h2>Add Teacher</h2>
-        <form id="addTeacherForm" class="form-grid">
-          <input class="input" id="tcName" placeholder="Full name" required />
-          <label>${t('program')}<select class="input" id="tcProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
-          <label>Department<select class="input" id="tcBranch"></select></label>
-          <input class="input" id="tcEmail" type="email" placeholder="Email (2FA OTP)" />
-          <input class="input" id="tcSubjects" placeholder="Subjects (comma-separated)" />
-          <input class="input" id="tcUsername" placeholder="Username" required />
-          <input class="input" id="tcPassword" placeholder="Password" required />
-          <button class="btn btn-primary">＋ Add</button>
-        </form></div>
+      <div class="card">
+        <div class="card-head"><h2>Add Teacher</h2><span class="badge-soft">New faculty</span></div>
+        <form id="addTeacherForm" class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Staff details</b><small>Faculty ki identity aur contact</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Full name <em>*</em></span><input class="input" id="tcName" placeholder="e.g. Dr. Meera Verma" required /><small class="hint">Official college records ke hisaab se</small></label>
+              <label class="f"><span>Email (2FA OTP)</span><input class="input" id="tcEmail" type="email" placeholder="teacher@glbitm.ac.in" /><small class="hint">Login OTP isi par aayega</small></label>
+              <label class="f"><span>Subjects taught</span><input class="input" id="tcSubjects" placeholder="e.g. DSA, DBMS, OS" /><small class="hint">Comma-separated</small></label>
+            </div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">2</span><div><b>Department</b><small>Program aur branch allocation</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>${t('program')}</span><select class="input" id="tcProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Department</span><select class="input" id="tcBranch"></select></label>
+            </div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Login account</b><small>Teacher portal ke liye credentials</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Username <em>*</em></span><input class="input" id="tcUsername" placeholder="e.g. meera.verma" required /><small class="hint">Login me yahi use hoga</small></label>
+              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="tcPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="tcPassword">👁</button></div><small class="hint">Min 6 characters recommended</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer">* required fields</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-reset="addTeacherForm">Clear form</button>
+            <button class="btn btn-primary">＋ Add teacher</button>
+          </div>
+        </form>
+      </div>
       <div class="card"><h2>Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
         <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -1402,13 +1451,13 @@ async function loadAdminReport() {
     report.forEach((r) => { (map[r.program || '?'] = map[r.program || '?'] || []).push(r.percentage); });
     const progs = Object.keys(map);
     _charts.push(new Chart($('#branchChart'), { type:'bar',
-      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: ['#41689f','#25869b','#6f5cb3','#2f7d4f','#b07c1a','#c0392b','#bb5480'], borderRadius: 6 }] },
+      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: ['#4a6ac7','#5eb2e8','#38b2a3','#9b8aec','#f0b057','#ef8ed9','#24387f'], borderRadius: 6 }] },
       options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
     try {
       const { items } = await api('/api/reports/correlation' + q);
       if (items.length) {
         _charts.push(new Chart($('#corrChart'), { type:'scatter',
-          data: { datasets: [{ label: 'Student', data: items.map((i) => ({ x: i.pct, y: i.marksPct })), backgroundColor: 'rgba(29,78,216,.6)' }] },
+          data: { datasets: [{ label: 'Student', data: items.map((i) => ({ x: i.pct, y: i.marksPct })), backgroundColor: 'rgba(74,106,199,.65)' }] },
           options: { scales: { x: { title: { display: true, text: 'Attendance %' }, min: 0, max: 100 }, y: { title: { display: true, text: 'Avg Marks %' }, min: 0, max: 100 } } } }));
         const n = items.length;
         const mx = items.reduce((a,i)=>a+i.pct,0)/n, my = items.reduce((a,i)=>a+i.marksPct,0)/n;
@@ -1882,13 +1931,13 @@ async function loadStudentAll() {
   $('#streakLine').textContent = st > 0 ? `🔥 ${st}-day streak!` : '';
   if (window.Chart) {
     _charts.push(new Chart($('#pieChart'), { type:'doughnut',
-      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#2f7d4f','#b07c1a','#c0392b'], borderWidth: 0 }] },
-      options: { plugins: { legend: { position:'bottom', labels: { color:'#8b7a5f', font: { size: 11 } } } }, cutout: '65%' } }));
+      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#1f9d6d','#e9a23b','#e64c4c'], borderWidth: 0 }] },
+      options: { plugins: { legend: { position:'bottom', labels: { color:'#8e97b3', font: { size: 11 } } } }, cutout: '65%' } }));
     const days = [...dayMap(stats.logs).entries()].sort((a, b) => a[0].localeCompare(b[0]));
     let a = 0, t2 = 0;
     const pts = days.map(([d, v]) => { a += v.a; t2 += v.t; return { d, p: Math.round((a / t2) * 100) }; });
     _charts.push(new Chart($('#trendChart'), { type:'line',
-      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#9c2431', backgroundColor: 'rgba(156,36,49,.12)', fill: true, tension: .35, pointRadius: 3 }] },
+      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#24387f', backgroundColor: 'rgba(36,56,127,.12)', fill: true, tension: .35, pointRadius: 3 }] },
       options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
   }
   const badges = calcBadges(stats);
@@ -1975,7 +2024,7 @@ async function makeCertificate() {
       <h3 style="font-family:Georgia;">Attendance Certificate</h3>
       <p>This certifies that <strong>${esc(state.user.name)}</strong> (${esc(state.user.rollNo || '—')}),<br/>
       ${esc(classLabel(state.user))} · Semester ${state.user.semester ?? '—'}</p>
-      <p style="font-size:2rem;font-weight:700;color:#9c2431;margin:8px 0;">${st.percentage}%</p>
+      <p style="font-size:2rem;font-weight:800;color:#24387f;margin:8px 0;">${st.percentage}%</p>
       <p class="muted small">Certificate ID: <strong>${esc(r.id)}</strong> · Issued ${todayISO()}</p>
       <canvas id="certQR" style="margin-top:10px;"></canvas></div>`;
   $('#certVerifyLink').href = r.url;
