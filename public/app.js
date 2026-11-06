@@ -59,7 +59,7 @@ function mountLogo(el) {
   setTimeout(() => { if (!el.firstChild) el.innerHTML = GL_SVG; }, 1500);
 }
 ['brandLogoBig','brandLogoSmall','brandLogoSide'].forEach((id) => { const el = document.getElementById(id); if (el) mountLogo(el); });
-(() => { const t2 = new Image(); t2.onload = () => { $('#campusBg').style.backgroundImage = 'url(assets/campus.jpg)'; }; t2.src = 'assets/campus.jpg'; })();
+(() => { const cb = $('#campusBg'); if (!cb) return; const t2 = new Image(); t2.onload = () => { cb.style.backgroundImage = 'url(assets/campus.jpg)'; }; t2.src = 'assets/campus.jpg'; })();
 
 /* ================= theme ================= */
 function setTheme(dark) {
@@ -314,7 +314,8 @@ async function checkNotifications() {
 async function renderAnnouncements() {
   try {
     const { items } = await api('/api/announcements');
-    $('#annBar').innerHTML = items.length ? `<div class="notice-board">${items.slice(0,3).map((a,i) => `<div class="sticky-note ${i%2?'tilt-r':''}"><i class="pin"></i><strong>📌 ${esc(a.title)}</strong><span class="muted small">${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
+    const bar = $('#annBar'); if (!bar) return;
+    bar.innerHTML = items.length ? `<div class="notice-board">${items.slice(0,3).map((a,i) => `<div class="sticky-note ${i%2?'tilt-r':''}"><i class="pin"></i><strong>📌 ${esc(a.title)}</strong><span class="muted small">${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
   } catch {}
 }
 
