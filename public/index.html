@@ -8,7 +8,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -96,45 +96,76 @@ select.input{cursor:pointer}.input::placeholder{color:var(--muted);opacity:.7}
 .input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px var(--surface-solid) inset;-webkit-text-fill-color:var(--text);caret-color:var(--text)}
 input[type=range]{width:100%;accent-color:var(--primary)}input[type=file].input{padding:8px}
 
-/* ============ Login — navy panel + white form card ============ */
-.auth-body{min-height:100vh;display:grid;place-items:center;padding:24px;
-  background:radial-gradient(760px 480px at 4% -8%,#f8e3f4 0%,rgba(248,227,244,0) 58%),radial-gradient(720px 460px at 102% 108%,#dbe6fa 0%,rgba(219,230,250,0) 55%),var(--bg)}
-body.dark .auth-body{background:radial-gradient(760px 480px at 4% -8%,rgba(226,111,200,.12) 0%,rgba(14,21,48,0) 58%),radial-gradient(720px 460px at 102% 108%,rgba(74,106,199,.16) 0%,rgba(14,21,48,0) 55%),var(--bg)}
-.auth-shell{width:min(1060px,100%);display:grid;grid-template-columns:1.04fr .96fr;border-radius:24px;overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid rgba(255,255,255,.6)}
-body.dark .auth-shell{border-color:var(--border)}
-.auth-brand{position:relative;background:linear-gradient(160deg,#2a4390 0%,#1b2a63 62%,#15204e 100%);color:#fff;padding:44px 42px;display:flex;flex-direction:column;justify-content:center;gap:0;overflow:hidden}
-.auth-brand-photo{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.16;mix-blend-mode:luminosity;pointer-events:none}
-.auth-brand::after{content:'';position:absolute;inset:0;background:radial-gradient(110% 90% at 88% -10%,rgba(226,111,200,.28) 0%,rgba(0,0,0,0) 55%);pointer-events:none}
-.auth-brand>*{position:relative;z-index:2}
-.gl-logo svg,.gl-logo img{width:56px;height:56px;border-radius:14px;background:#fff;padding:5px;box-shadow:0 8px 20px rgba(0,0,0,.3)}
-.inst-name{font-size:1.5rem;font-weight:800;line-height:1.25;margin-top:22px;max-width:430px}
-.inst-sub{font-size:.82rem;opacity:.85;margin-top:8px;font-weight:600}
-.brand-feats{list-style:none;display:grid;gap:11px;margin:26px 0 28px}
-.brand-feats li{display:flex;align-items:flex-start;gap:11px;font-size:.85rem;font-weight:600;opacity:.95}
-.brand-feats li::before{content:'✓';flex-shrink:0;width:22px;height:22px;border-radius:99px;background:rgba(226,111,200,.28);color:#fbd7f2;display:grid;place-items:center;font-size:.7rem;font-weight:800;margin-top:1px}
-.accred{display:flex;gap:8px;flex-wrap:wrap}
-.accred span{font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;background:rgba(255,255,255,.12);padding:5px 12px;border-radius:99px;font-weight:800}
-.side-foot{font-size:.68rem;opacity:.6;margin-top:26px}
-.auth-form-col{background:var(--surface);padding:40px 42px 36px;display:grid;place-items:center;position:relative}
-.auth-theme{position:absolute;top:16px;right:16px;width:auto;padding:7px 15px;border-radius:99px;background:var(--surface-2);font-size:.75rem;font-weight:800;border:1.5px solid var(--border);color:var(--text)}
-.auth-card{width:100%;max-width:360px;text-align:center}
-#brandLogoSmall img{width:64px;height:64px;object-fit:contain}
-#brandLogoSmall svg{width:56px;height:56px;border-radius:14px}
-.auth-card h1{font-size:1.62rem;margin-top:14px}
-.auth-sub{color:var(--muted);font-size:.88rem;margin:6px 0 24px;font-weight:600}
+/* ============ Login — "Regalia": dark cinematic + gold, VIVIDHATA-inspired ============ */
+.auth-body{min-height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden;color:#f2ecdf;
+  background:radial-gradient(1100px 760px at 50% 115%,rgba(201,162,39,.14) 0%,rgba(12,10,8,0) 55%),radial-gradient(900px 620px at 90% -12%,rgba(201,162,39,.07) 0%,rgba(12,10,8,0) 52%),#0c0a08}
+body.dark .auth-body{background:radial-gradient(1100px 760px at 50% 115%,rgba(201,162,39,.14) 0%,rgba(12,10,8,0) 55%),radial-gradient(900px 620px at 90% -12%,rgba(201,162,39,.07) 0%,rgba(12,10,8,0) 52%),#0c0a08}
+.auth-body::after{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(115% 92% at 50% 46%,rgba(0,0,0,0) 52%,rgba(0,0,0,.62) 100%)}
+#campusBg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;opacity:.09;filter:saturate(.55) contrast(1.08);mix-blend-mode:luminosity;pointer-events:none}
+.auth-top{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px clamp(24px,5vw,46px)}
+.auth-wordmark{display:flex;align-items:center;gap:13px}
+.auth-wordmark b{display:block;font-size:.98rem;font-weight:800;letter-spacing:.26em;color:#f2ecdf}
+.auth-wordmark small{display:block;font-size:.64rem;font-weight:700;letter-spacing:.18em;color:rgba(242,236,223,.5);text-transform:uppercase;margin-top:3px}
+#brandLogoSmall img{width:42px;height:42px;object-fit:contain;background:#fff;border-radius:11px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.45),0 0 0 1px rgba(212,175,55,.45)}
+#brandLogoSmall svg{width:42px;height:42px;border-radius:11px;box-shadow:0 0 0 1px rgba(212,175,55,.45)}
+.auth-top-right{display:flex;align-items:center;gap:10px}
+.wm-acc{font-size:.58rem;font-weight:800;letter-spacing:.18em;color:rgba(242,236,223,.42);text-transform:uppercase;padding:6px 11px;border:1px solid rgba(244,239,230,.14);border-radius:99px}
+.auth-theme{width:auto;padding:7px 15px;border-radius:99px;background:rgba(255,255,255,.05);font-size:.72rem;font-weight:800;border:1px solid rgba(244,239,230,.2);color:#f2ecdf;cursor:pointer;transition:border-color .15s,color .15s}
+.auth-theme:hover{border-color:rgba(212,175,55,.6);color:#e8cf82}
+.auth-main{position:relative;z-index:2;flex:1;width:100%;max-width:1240px;margin:0 auto;display:grid;grid-template-columns:1.08fr .92fr;align-items:center;gap:clamp(28px,4vw,56px);padding:10px clamp(24px,5vw,64px) 26px}
+/* --- hero: emblem + serif display --- */
+.auth-hero{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.emblem{position:relative;width:min(380px,64vw);aspect-ratio:1;margin:0 0 30px}
+.emblem>svg{width:100%;height:100%;display:block;animation:ring-spin 48s linear infinite;transform-origin:50% 50%}
+.ring-line{fill:none;stroke:rgba(212,175,55,.55);stroke-width:1.6}
+.ring-line.thin{stroke:rgba(212,175,55,.28);stroke-width:1}
+.ring-txt{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;fill:rgba(242,236,223,.8);letter-spacing:4.5px;font-size:14px}
+.ring-txt2{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;fill:rgba(232,207,130,.88);letter-spacing:3px;font-size:12.5px}
+.orbit-a,.orbit-b{transform-origin:150px 150px}
+.orbit-a{animation:ring-spin 30s linear infinite reverse}
+.orbit-b{animation:ring-spin 40s linear infinite}
+.emblem-core{position:absolute;top:50%;left:50%;width:33%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 34% 28%,#fdf6df 0%,#f0dfae 40%,#d4af37 100%);box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 56px rgba(212,175,55,.3),inset 0 2px 6px rgba(255,255,255,.7),inset 0 -3px 8px rgba(146,109,21,.45);border:2.5px solid rgba(255,251,235,.85)}
+.emblem-core img,.emblem-core svg{width:74%;height:74%;object-fit:contain;border-radius:12px}
+.hero-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.32em;text-transform:uppercase;color:rgba(242,236,223,.48);display:flex;align-items:center;gap:12px;animation:hero-in .7s .05s both}
+.hero-eyebrow::before,.hero-eyebrow::after{content:'';height:1px;width:34px;background:rgba(212,175,55,.5)}
+.hero-line{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:clamp(2.9rem,5.6vw,4.5rem);line-height:1.02;color:#f2ecdf;margin:16px 0 10px;animation:hero-in .7s .14s both}
+.hero-line em{font-style:italic;color:#d4af37}
+.hero-red{font-size:.76rem;font-weight:800;letter-spacing:.38em;text-transform:uppercase;color:#e85454;animation:hero-in .7s .22s both}
+.hero-rule{display:block;width:66px;height:2px;background:linear-gradient(90deg,#d4af37,rgba(212,175,55,.15));margin:18px 0 16px;animation:hero-in .7s .28s both}
+.hero-copy{font-size:.92rem;line-height:1.78;color:rgba(242,236,223,.6);max-width:430px;font-weight:500;animation:hero-in .7s .34s both}
+.accred{display:flex;gap:9px;flex-wrap:wrap;margin-top:26px;animation:hero-in .7s .42s both}
+.accred span{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:#e8d9a0;background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.4);padding:7px 14px;border-radius:99px;font-weight:800}
+@keyframes hero-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes ring-spin{to{transform:rotate(360deg)}}
+/* --- sign-in panel --- */
+.auth-panel{display:grid;place-items:center;animation:hero-in .8s .3s both}
+.auth-card{width:100%;max-width:392px;text-align:center;background:rgba(21,17,13,.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(212,175,55,.24);border-radius:24px;padding:38px 36px 34px;box-shadow:0 34px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.07)}
+.panel-eyebrow{font-size:.64rem;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:#d4af37}
+.panel-title{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:2.15rem;color:#f2ecdf;margin-top:10px;line-height:1.1}
+.auth-sub{color:rgba(242,236,223,.52);font-size:.86rem;margin:7px 0 26px;font-weight:600}
 .auth-card form{text-align:left;display:grid;gap:15px}
-.auth-card .input{padding:12px 15px}
-.field span{display:block;font-size:.72rem;font-weight:800;margin-bottom:6px;letter-spacing:.05em;color:var(--side-text)}
-body.dark .field span{color:var(--muted)}
+.auth-card .input{padding:13px 15px;background:rgba(255,255,255,.045);border:1px solid rgba(244,239,230,.17);color:#f2ecdf;border-radius:13px;transition:border-color .15s,box-shadow .15s}
+.auth-card .input::placeholder{color:rgba(242,236,223,.32)}
+.auth-card .input:focus{outline:none;border-color:rgba(212,175,55,.75);box-shadow:0 0 0 3.5px rgba(212,175,55,.16)}
+.auth-card .input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #1c1712 inset;-webkit-text-fill-color:#f2ecdf;caret-color:#f2ecdf}
+.field span{display:block;font-size:.7rem;font-weight:800;margin-bottom:7px;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,236,223,.58)}
 .password-wrap{position:relative}.password-wrap .input{padding-right:42px}
 .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:.95rem;opacity:.6}
-.form-error{background:var(--red-soft);color:var(--red);font-size:.84rem;padding:10px 13px;border-radius:12px;animation:shake .35s ease;font-weight:700}
-.demo-box{margin-top:26px;padding-top:18px;border-top:1.5px dashed var(--border-strong)}
-.demo-box p{font-size:.74rem;color:var(--muted);margin-bottom:10px;font-weight:800}
+.form-error{background:rgba(190,45,55,.16);color:#ff9da2;border:1px solid rgba(190,45,55,.4);font-size:.84rem;padding:10px 13px;border-radius:12px;animation:shake .35s ease;font-weight:700}
+#loginBtn{margin-top:6px;padding:15px 18px;border-radius:14px;border:none;cursor:pointer;background:linear-gradient(160deg,#e3c25a 0%,#d4af37 45%,#b8952e 100%);color:#201605;font-weight:800;font-size:.82rem;letter-spacing:.22em;text-transform:uppercase;box-shadow:0 10px 30px rgba(212,175,55,.22),inset 0 1px 0 rgba(255,255,255,.55);transition:transform .15s,box-shadow .15s}
+#loginBtn:hover{transform:translateY(-1px);box-shadow:0 16px 40px rgba(212,175,55,.32),inset 0 1px 0 rgba(255,255,255,.55)}
+#loginBtn:disabled{opacity:.75;cursor:wait;transform:none}
+.demo-box{margin-top:24px;padding-top:18px;border-top:1px dashed rgba(244,239,230,.18)}
+.demo-box p{font-size:.7rem;color:rgba(242,236,223,.5);margin-bottom:10px;font-weight:800;letter-spacing:.06em}
 .demo-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.chip{border:1.5px solid var(--border-strong);background:var(--surface);border-radius:99px;padding:8px 16px;font:inherit;font-size:.76rem;font-weight:800;cursor:pointer;transition:all .15s;color:var(--text)}
-.chip:hover{border-color:var(--accent);color:#c2449e;background:var(--accent-soft);transform:translateY(-1px)}
-body.dark .chip:hover{color:var(--accent)}
+.chip{border:1px solid rgba(244,239,230,.22);background:rgba(255,255,255,.04);border-radius:99px;padding:8px 17px;font:inherit;font-size:.74rem;font-weight:800;cursor:pointer;transition:all .15s;color:#f2ecdf}
+.chip:hover{border-color:rgba(212,175,55,.7);color:#e8cf82;background:rgba(212,175,55,.1);transform:translateY(-1px)}
+/* --- footer + vertical marker --- */
+.auth-foot{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px clamp(24px,5vw,46px);border-top:1px solid rgba(244,239,230,.08);font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(242,236,223,.38)}
+.side-vertical{position:fixed;z-index:2;right:26px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font-size:.6rem;font-weight:800;letter-spacing:.42em;text-transform:uppercase;color:rgba(242,236,223,.32)}
+.side-vertical::after{content:'';display:block;width:1px;height:52px;background:linear-gradient(180deg,rgba(212,175,55,.7),rgba(212,175,55,0));margin:14px auto 0}
 
 /* ============ Shell — sidebar + topbar ============ */
 .shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height:100vh}
@@ -393,10 +424,15 @@ body.dark .tt-per{background:#4a5fa8;color:#fff}
 @media(max-width:900px){
   .charts{grid-template-columns:1fr}
   .heat{grid-template-columns:repeat(10,1fr)}
-  .auth-shell{grid-template-columns:1fr}
-  .auth-brand{padding:30px 24px}
-  .brand-feats{margin:20px 0}
-  .auth-form-col{padding:30px 22px}
+  .auth-main{grid-template-columns:1fr;gap:30px;padding-top:8px}
+  .auth-hero{align-items:center;text-align:center}
+  .emblem{width:min(240px,58vw);margin-bottom:18px}
+  .hero-copy{max-width:520px}
+  .accred{justify-content:center}
+  .wm-acc{display:none}
+  .side-vertical{display:none}
+  .auth-card{padding:30px 24px 28px}
+  .auth-foot{flex-direction:column;gap:6px;text-align:center}
   .student-hero{grid-template-columns:1fr;gap:20px}
   .sh-ring{width:150px;margin:0 auto}
   .sh-side{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:16px}
@@ -413,26 +449,47 @@ body.dark .tt-per{background:#4a5fa8;color:#fff}
 <body>
 
 <div id="view-login" class="auth-body">
-  <div class="auth-shell">
-    <div class="auth-brand">
-      <div class="auth-brand-photo" id="campusBg"></div>
-      <div class="gl-logo" id="brandLogoBig"></div>
-      <div class="inst-name">GL Bajaj Institute of Technology &amp; Management</div>
-      <div class="inst-sub">Attendance Intelligence System · Greater Noida, UP</div>
-      <ul class="brand-feats">
-        <li>QR-based self-marking attendance with rotating secure code</li>
-        <li>Face recognition, GPS geo-fencing and proxy detection</li>
-        <li>Parent portal, monthly register and certificates</li>
-        <li>Daily Work Reports, Student Progress Reports and alumni archive</li>
-      </ul>
-      <div class="accred"><span>Approved by AICTE</span><span>Affiliated to AKTU Lucknow</span><span>NAAC Accredited</span></div>
-      <div class="side-foot">© GLBITM · 27th KM Milestone, Knowledge Park-III, Greater Noida</div>
+  <div id="campusBg"></div>
+  <header class="auth-top">
+    <div class="auth-wordmark">
+      <span id="brandLogoSmall"></span>
+      <div><b>GLBITM</b><small>Attendance Intelligence System</small></div>
     </div>
-    <div class="auth-form-col">
+    <div class="auth-top-right">
+      <span class="wm-acc">AICTE Approved</span>
+      <span class="wm-acc">AKTU Affiliated</span>
+      <span class="wm-acc">NAAC Accredited</span>
       <button class="btn themeToggle auth-theme" type="button">Dark</button>
+    </div>
+  </header>
+  <main class="auth-main">
+    <section class="auth-hero">
+      <div class="emblem">
+        <svg viewBox="0 0 300 300" aria-hidden="true">
+          <defs>
+            <path id="ringTop" d="M 32,150 A 118,118 0 0 1 268,150" />
+            <path id="ringBottom" d="M 16,150 A 134,134 0 0 0 284,150" />
+          </defs>
+          <circle cx="150" cy="150" r="146" class="ring-line" />
+          <circle cx="150" cy="150" r="104" class="ring-line thin" />
+          <text class="ring-txt"><textPath href="#ringTop" startOffset="50%" text-anchor="middle">GL BAJAJ INSTITUTE</textPath></text>
+          <text class="ring-txt2"><textPath href="#ringBottom" startOffset="50%" text-anchor="middle">OF TECHNOLOGY &amp; MANAGEMENT</textPath></text>
+          <g class="orbit-a"><ellipse cx="150" cy="150" rx="92" ry="32" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.3" transform="rotate(58 150 150)" /></g>
+          <g class="orbit-b"><ellipse cx="150" cy="150" rx="92" ry="32" fill="none" stroke="rgba(212,175,55,.38)" stroke-width="1.1" transform="rotate(-58 150 150)" /></g>
+        </svg>
+        <div class="emblem-core" id="brandLogoBig"></div>
+      </div>
+      <p class="hero-eyebrow">GL Bajaj Institute of Technology &amp; Management</p>
+      <h1 class="hero-line">Every lecture<br><em>counts.</em></h1>
+      <p class="hero-red">Attendance · Intelligence · Discipline</p>
+      <span class="hero-rule"></span>
+      <p class="hero-copy">Rotating-QR self-marking, geo-fenced sessions, live dashboards aur principal-grade reports — poora campus ek hi jagah, GL Bajaj standard ke saath.</p>
+      <div class="accred"><span>Approved by AICTE</span><span>Affiliated to AKTU Lucknow</span><span>NAAC Accredited</span></div>
+    </section>
+    <section class="auth-panel">
       <div class="auth-card">
-        <div id="brandLogoSmall"></div>
-        <h1>Welcome back</h1>
+        <p class="panel-eyebrow">✦ Member Check-in</p>
+        <h2 class="panel-title">Welcome back</h2>
         <p class="auth-sub">Sign in to your GL Bajaj account</p>
         <form id="loginForm">
           <div id="loginStep1">
@@ -460,8 +517,14 @@ body.dark .tt-per{background:#4a5fa8;color:#fff}
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
+  <footer class="auth-foot">
+    <span>© GLBITM · 27th KM Milestone, Knowledge Park-III, Greater Noida</span>
+    <span>✦ ✦ ✦</span>
+    <span>Attendance Intelligence · Est. Greater Noida, UP</span>
+  </footer>
+  <span class="side-vertical">Sign in to begin</span>
 </div>
 
 <div id="view-app" class="shell" hidden>
@@ -507,6 +570,6 @@ body.dark .tt-per{background:#4a5fa8;color:#fff}
 <div id="certModal" class="modal" hidden><div style="display:grid;gap:14px;justify-items:center;"><div id="certHost"></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;" class="no-print"><button class="btn btn-primary" id="certPrint">Print / Save PDF</button><a id="certVerifyLink" class="btn btn-ghost" target="_blank">Verify URL</a><button class="btn btn-ghost" id="certClose">Close</button></div></div></div>
 <div id="toastBox" class="toast-container"></div>
 
-<script src="app.js?v=99"></script>
+<script src="app.js?v=100"></script>
 </body>
 </html>
