@@ -468,18 +468,8 @@ admin: {
           </div>
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
-          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🎓 Internal Marks Weights (SPR) — raw marks ko report card ke /<span id="setOutOfLbl">25</span> me convert karta hai</label>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
-            <label style="display:grid;gap:4px;font-size:.75rem;">Out of<input class="input" type="number" id="wOutOf" min="1" max="100" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">ST-1 max<input class="input" type="number" id="wSt1Max" min="1" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">ST-1 weight<input class="input" type="number" id="wSt1W" min="0" step="0.5" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">ST-2 max<input class="input" type="number" id="wSt2Max" min="1" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">ST-2 weight<input class="input" type="number" id="wSt2W" min="0" step="0.5" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">PUT max<input class="input" type="number" id="wPutMax" min="1" style="max-width:80px;" /></label>
-            <label style="display:grid;gap:4px;font-size:.75rem;">PUT weight<input class="input" type="number" id="wPutW" min="0" step="0.5" style="max-width:80px;" /></label>
-            <button class="btn btn-primary btn-sm" id="wSave">Save Weights</button>
-          </div>
-          <p class="muted small" style="margin-top:6px;">BCA/BBA default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25 (college internal 25 + university semester exam 75 = 100). B.Tech ka alag hai to yahan badal do.</p>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">📝 Marks Policy — entry-only</label>
+          <p class="muted small" style="margin-top:4px;">System marks sirf <strong>record</strong> karta hai, calculate nahi karta. College apna internal (e.g. /25) khud calculate karke Marks Entry me <strong>Exam = "Internal", Max = 25</strong> likh ke enter kar deti hai — SPR me wahi entries waise ki waisi dikhti hain.</p>
         </div>
         </div>
         </div></div>
@@ -515,22 +505,6 @@ admin: {
       $('#setMoreSave').addEventListener('click', safe(async () => {
         const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value), academicYear: $('#setAY').value, dwrCompileTime: $('#setDwrT').value, dwrPeriods: Number($('#setDwrP').value) }) });
         state.settings = await api('/api/settings');
-        toast(r.message);
-      }));
-      const wdef = resolveWeights(null);
-      $('#wOutOf').value = wdef.outOf; $('#setOutOfLbl').textContent = wdef.outOf;
-      const wp = (ex) => (wdef.parts || []).find((p) => p.exam === ex) || {};
-      $('#wSt1Max').value = wp('ST1').max ?? 50; $('#wSt1W').value = wp('ST1').weight ?? 8;
-      $('#wSt2Max').value = wp('ST2').max ?? 50; $('#wSt2W').value = wp('ST2').weight ?? 8;
-      $('#wPutMax').value = wp('PUT').max ?? 75; $('#wPutW').value = wp('PUT').weight ?? 9;
-      $('#wSave').addEventListener('click', safe(async () => {
-        const internalWeights = { outOf: Number($('#wOutOf').value), parts: [
-          { exam: 'ST1', label: 'ST-1', max: Number($('#wSt1Max').value), weight: Number($('#wSt1W').value) },
-          { exam: 'ST2', label: 'ST-2', max: Number($('#wSt2Max').value), weight: Number($('#wSt2W').value) },
-          { exam: 'PUT', label: 'PUT', max: Number($('#wPutMax').value), weight: Number($('#wPutW').value) } ] };
-        const r = await api('/api/admin/settings', { method:'PATCH', body: JSON.stringify({ threshold: Number($('#setTh').value), internalWeights }) });
-        state.settings = await api('/api/settings');
-        $('#setOutOfLbl').textContent = internalWeights.outOf;
         toast(r.message);
       }));
       loadDefaulters();
@@ -810,28 +784,40 @@ admin: {
 teacher: {
   mark: {
     html: () => `
-      <div class="card"><h2>Class & Session</h2>
-        <div class="filter-grid">
-          <label>${t('program')}<select class="input" id="mProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
-          <label>${t('branch')}<select class="input" id="mBranch"></select></label>
-          <label>${t('semester')}<select class="input" id="mSem"></select></label>
-          <label>${t('section')}<select class="input" id="mSec"><option value="">All</option>${secOptions()}</select></label>
-          <label>${t('subject')}
-            <select class="input" id="tSubjectSelect" hidden></select>
-            <input class="input" id="tSubject" list="subjectList" placeholder="e.g. Data Structures" />
-            <datalist id="subjectList"><option>Data Structures</option><option>DBMS</option><option>Operating Systems</option><option>Digital Electronics</option></datalist></label>
-          <label>${t('date')}<input class="input" type="date" id="tDate" /></label>
-          <button class="btn btn-primary" id="loadBtn">${t('load')} →</button></div>
-        <p class="muted small" id="subjectHint" style="margin-top:10px;"></p></div>
+      <div class="card">
+        <div class="card-head"><h2>Mark Attendance</h2><span class="badge-soft">Session setup</span></div>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Class details</b><small>Kis class ka session hai — program, subject aur date chuno</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Program</span><select class="input" id="mProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Branch</span><select class="input" id="mBranch"></select></label>
+              <label class="f"><span>Semester</span><select class="input" id="mSem"></select></label>
+              <label class="f"><span>Section</span><select class="input" id="mSec"><option value="">All</option>${secOptions()}</select><small class="hint">Khaali = saari sections</small></label>
+              <label class="f"><span>Subject</span>
+                <select class="input" id="tSubjectSelect" hidden></select>
+                <input class="input" id="tSubject" list="subjectList" placeholder="e.g. Data Structures" />
+                <datalist id="subjectList"><option>Data Structures</option><option>DBMS</option><option>Operating Systems</option><option>Digital Electronics</option></datalist>
+                <small class="hint">Assigned lock ho to dropdown dikhega</small></label>
+              <label class="f"><span>Date</span><input class="input" type="date" id="tDate" /><small class="hint">Aaj ka lecture — date same rakho</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small" id="subjectHint"></span>
+            <button class="btn btn-primary" id="loadBtn">${t('load')} →</button>
+          </div>
+        </div></div>
       <div class="card" id="markCard" hidden>
-        <div class="mark-header">
-          <div><h2 id="classListTitle">—</h2><span class="muted small" id="classListDate"></span></div>
+        <div class="card-head"><h2 id="classListTitle">—</h2>
           <div class="mark-actions">
-            <span id="markCounts"></span>
-            <button class="btn btn-ghost btn-sm mic-btn" id="micBtn">🎙️</button>
-            <button class="btn btn-ghost btn-sm" id="pickBtn">🎯</button>
-            <button class="btn btn-ghost btn-sm" id="allPresentBtn">✓ ${t('allPresent')}</button>
-            <button class="btn btn-primary" id="submitBtn">💾 ${t('save')}</button></div></div>
+            <span class="muted small" id="classListDate"></span>
+            <span id="markCounts"></span></div></div>
+        <div class="entry-actions" style="border-top:none;padding-top:0;margin-bottom:14px;">
+          <button class="btn btn-ghost btn-sm mic-btn" id="micBtn" title="Voice commands">🎙️ Voice</button>
+          <button class="btn btn-ghost btn-sm" id="pickBtn" title="Random picker">🎯 Random</button>
+          <button class="btn btn-ghost btn-sm" id="allPresentBtn">✓ ${t('allPresent')}</button>
+          <span class="spacer"></span>
+          <button class="btn btn-primary" id="submitBtn">💾 ${t('save')}</button></div>
         <input class="input" id="tNote" placeholder="📝 Session note (optional)" style="margin-bottom:14px;" />
         <div id="studentList" class="student-list"></div>
         <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -872,18 +858,28 @@ teacher: {
   },
   marks: {
     html: () => `
-      <div class="card"><h2>Marks Entry (MST / Quiz / Assignment)</h2>
-        <div class="filter-grid">
-          <label>${t('program')}<select class="input" id="mkProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
-          <label>${t('branch')}<select class="input" id="mkBranch"></select></label>
-          <label>${t('semester')}<select class="input" id="mkSem"></select></label>
-          <label>${t('section')}<select class="input" id="mkSec"><option value="">All</option>${secOptions()}</select></label>
-          <label>${t('subject')}<input class="input" id="mkSubject" placeholder="e.g. DBMS" /></label>
-          <label>Exam<input class="input" id="mkExam" placeholder="e.g. MST-1" /></label>
-          <label>Max<input class="input" type="number" id="mkMax" value="30" min="1" /></label>
-          <button class="btn btn-primary" id="mkLoad">${t('load')} →</button></div>
-        <p class="muted small" style="margin-top:10px;">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> (rollNo prefilled) → Excel me sirf score bharo → 📥 Import → 💾 Save.</p></div>
-      <div class="card" id="mkCard" hidden><h2 id="mkTitle">Scores</h2>
+      <div class="card">
+        <div class="card-head"><h2>Marks Entry</h2><span class="badge-soft">Record-only · no auto calc</span></div>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Class &amp; exam details</b><small>Kaunsi class, kaunsa exam, kitne max marks — system sirf entries record karta hai</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Program</span><select class="input" id="mkProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Branch</span><select class="input" id="mkBranch"></select></label>
+              <label class="f"><span>Semester</span><select class="input" id="mkSem"></select></label>
+              <label class="f"><span>Section</span><select class="input" id="mkSec"><option value="">All</option>${secOptions()}</select><small class="hint">Khaali = saari sections</small></label>
+              <label class="f"><span>Subject</span><input class="input" id="mkSubject" list="mkSubList" placeholder="e.g. DBMS" /><datalist id="mkSubList"><option>DBMS</option><option>Data Structures</option><option>Operating Systems</option></datalist></label>
+              <label class="f"><span>Exam</span><input class="input" id="mkExam" list="mkExamList" placeholder="e.g. Internal" /><datalist id="mkExamList"><option>MST-1</option><option>MST-2</option><option>ST-1</option><option>ST-2</option><option>PUT</option><option>Internal</option><option>Practical</option><option>Quiz</option><option>Assignment</option></datalist><small class="hint">College ka calculated internal — Exam="Internal" likh ke enter karo</small></label>
+              <label class="f"><span>Max marks</span><input class="input" type="number" id="mkMax" value="30" min="1" /><small class="hint">Internal ho to 25 rakho</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> → Excel me sirf score bharo → 📥 Import → 💾 Save</span>
+            <button class="btn btn-primary" id="mkLoad">${t('load')} →</button>
+          </div>
+        </div></div>
+      <div class="card" id="mkCard" hidden>
+        <div class="card-head"><h2 id="mkTitle">Scores</h2><span class="badge-soft">Jaisi entry, waisi record</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" id="mkTemplate">⬇️ Template (rollNo prefilled)</button>
           <input type="file" id="mkFile" class="input" style="max-width:260px;" accept=".xlsx,.xls,.csv" />
@@ -901,19 +897,32 @@ teacher: {
   },
   assn: {
     html: () => `
-      <div class="card"><h2>Assignments — create & track submissions</h2>
-        <div class="filter-grid">
-          <label>${t('program')}<select class="input" id="asProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
-          <label>${t('branch')}<select class="input" id="asBranch"></select></label>
-          <label>${t('semester')}<select class="input" id="asSem"></select></label>
-          <label>${t('section')}<select class="input" id="asSec"><option value="">All</option>${secOptions()}</select></label>
-          <label>${t('subject')}<input class="input" id="asSubject" placeholder="e.g. DBMS" /></label>
-          <label>Title<input class="input" id="asTitle" placeholder="e.g. Unit-2 Worksheet" /></label>
-          <label>Unit (optional)<input class="input" id="asUnit" placeholder="e.g. Unit 2" /></label>
-          <label>Due date<input class="input" type="date" id="asDue" /></label>
-          <button class="btn btn-primary" id="asCreate">＋ Create</button>
-        </div>
-        <p class="muted small" style="margin-top:10px;">💡 Student panel pe sirf <strong>submitted X/Y counts</strong> dikhte hain — scores nahi (teacher ki privacy rule). Ek subject ke saare unit-wise assignments yahi banao — SPR me count auto aa jayega.</p></div>
+      <div class="card">
+        <div class="card-head"><h2>Assignments</h2><span class="badge-soft">Create &amp; track submissions</span></div>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Class</b><small>Kis class ke liye assignment hai</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Program</span><select class="input" id="asProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Branch</span><select class="input" id="asBranch"></select></label>
+              <label class="f"><span>Semester</span><select class="input" id="asSem"></select></label>
+              <label class="f"><span>Section</span><select class="input" id="asSec"><option value="">All</option>${secOptions()}</select><small class="hint">Khaali = saari sections</small></label>
+            </div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">2</span><div><b>Assignment details</b><small>Subject + title — SPR me submission count auto dikh jayega</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Subject <em>*</em></span><input class="input" id="asSubject" placeholder="e.g. DBMS" /></label>
+              <label class="f"><span>Title <em>*</em></span><input class="input" id="asTitle" placeholder="e.g. Unit-2 Worksheet" /></label>
+              <label class="f"><span>Unit (optional)</span><input class="input" id="asUnit" placeholder="e.g. Unit 2" /></label>
+              <label class="f"><span>Due date</span><input class="input" type="date" id="asDue" /><small class="hint">Students ko deadline dikhegi</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small">Ek subject ke saare unit-wise assignments yahi banao — SPR me count auto aata hai</span>
+            <button class="btn btn-primary" id="asCreate">＋ Create Assignment</button>
+          </div>
+        </div></div>
       <p class="muted small" id="asSummary" style="margin:10px 2px;"></p>
       <div id="asList"></div>
       <div id="asManage"></div>`,
@@ -926,17 +935,25 @@ teacher: {
   },
   progress: {
     html: () => `
-      <div class="card"><h2>Student Progress Report (SPR)</h2>
-        <div class="filter-grid">
-          <label>${t('program')}<select class="input" id="pgProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
-          <label>${t('branch')}<select class="input" id="pgBranch"></select></label>
-          <label>${t('semester')}<select class="input" id="pgSem"></select></label>
-          <label>${t('section')}<select class="input" id="pgSec"><option value="">All</option>${secOptions()}</select></label>
-          <button class="btn btn-primary" id="pgLoad">${t('load')} →</button>
-          <button class="btn btn-ghost" id="pgCsv">⬇️ CSV</button>
-          <button class="btn btn-ghost" id="pgPrint">🖨️ ${t('print')}</button>
-        </div>
-        <p class="muted small" id="pgNote" style="margin-top:8px;"></p></div>
+      <div class="card">
+        <div class="card-head"><h2>Student Progress Report (SPR)</h2><span class="badge-soft">Entry-only · no auto calc</span></div>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Class</b><small>Jis class ki progress report chahiye wo chuno — marks entries jaisi hain waisi hi dikhengi</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Program</span><select class="input" id="pgProgram">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select></label>
+              <label class="f"><span>Branch</span><select class="input" id="pgBranch"></select></label>
+              <label class="f"><span>Semester</span><select class="input" id="pgSem"></select></label>
+              <label class="f"><span>Section</span><select class="input" id="pgSec"><option value="">All</option>${secOptions()}</select><small class="hint">Khaali = saari sections</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small" id="pgNote"></span>
+            <button class="btn btn-ghost" id="pgCsv">⬇️ CSV</button>
+            <button class="btn btn-ghost" id="pgPrint">🖨️ ${t('print')}</button>
+            <button class="btn btn-primary" id="pgLoad">${t('load')} →</button>
+          </div>
+        </div></div>
       <div id="pgBody"></div>
       <div id="pgDetail"></div>`,
     init: () => {
@@ -950,13 +967,20 @@ teacher: {
   },
   dwr: {
     html: () => `
-      <div class="card"><h2>${t('dwr')} — Daily Work Report</h2>
-        <div class="filter-grid">
-          <label>${t('date')}<input type="date" class="input" id="dwrDate" /></label>
-          <button class="btn btn-primary" id="dwrLoad">${t('load')} →</button>
-        </div>
-        <p class="muted small" style="margin-top:8px;">💡 Har lecture ke baad 1 min me bhar do — Present count attendance se <strong>auto-fill</strong> hota hai. Compile time (4:30 PM) ke baad sab lectures ka combined report Principal ko chala jata hai.</p>
-      </div>
+      <div class="card">
+        <div class="card-head"><h2>${t('dwr')}</h2><span class="badge-soft">Daily Work Report</span></div>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Pick a date</b><small>Har lecture ke baad 1 min me bhar do — Present count attendance se auto-fill hota hai</small></div></div>
+            <div class="entry-grid">
+              <label class="f"><span>Date</span><input type="date" class="input" id="dwrDate" /><small class="hint">Aaj ya kisi purani date ka report</small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small">Compile time (4:30 PM) ke baad sab lectures ka combined report Principal ko chala jata hai</span>
+            <button class="btn btn-primary" id="dwrLoad">${t('load')} →</button>
+          </div>
+        </div></div>
       <p class="muted small" id="dwrSummary" style="margin:10px 2px;"></p>
       <div id="dwrList"></div>`,
     init: () => {
@@ -971,6 +995,7 @@ teacher: {
   },
   sessions: {
     html: () => `<div class="card"><div class="card-head"><h2>My Sessions</h2>
+      <span class="badge-soft">Attendance sessions taught by me</span>
       <button class="btn btn-ghost btn-sm" id="exportBtn">📊 Excel</button></div>
       <div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Class</th><th>Subject</th><th>Note</th><th>P/L/T</th><th>%</th></tr></thead>
@@ -1030,34 +1055,50 @@ student: {
   },
   assn: {
     html: () => `
-      <div class="card"><h2>My Assignments</h2>
+      <div class="card">
+        <div class="card-head"><h2>My Assignments</h2><span class="badge-soft">Submission tracker</span></div>
         <p class="muted small" id="saSum" style="margin-bottom:10px;"></p>
         <div id="saPending"></div>
         <div class="table-wrap" style="margin-top:10px;"><table>
           <thead><tr><th>Subject</th><th>Submitted</th><th>Progress</th></tr></thead>
           <tbody id="saBody"></tbody></table></div></div>
-      <div class="card"><h2>Results (SGPA / CGPA)</h2>
+      <div class="card">
+        <div class="card-head"><h2>Results (SGPA / CGPA)</h2><span class="badge-soft">Manual entry</span></div>
         <p class="muted small">Ye exam cell manually enter karta hai — system auto-calculate nahi karta.</p>
         <div id="saResults" class="muted small">Loading…</div></div>`,
     init: () => loadStudentAssn(),
   },
   selfmark: {
     html: () => `
-      <div class="card center" style="max-width:540px;margin:0 auto;">
-        <h2>Self Mark Attendance</h2>
-        <p class="muted small">QR scan karne se Session auto-fill hota hai. 6-digit <strong>rotating code</strong> teacher ki screen se lo — har 30 sec badalta hai!</p>
-        <input class="input" id="smSessionInput" placeholder="Session ID (QR se auto)" style="margin-bottom:10px;" />
-        <input class="input big-code-input" id="smCodeInput" maxlength="6" inputmode="numeric" placeholder="______" style="margin-bottom:12px;" />
-        <div style="margin-bottom:12px;">
-          <label style="display:inline-flex;gap:8px;align-items:center;font-size:.85rem;font-weight:600;">
-            <input type="checkbox" id="smSelfie" /> 🤳 Selfie / Face proof</label></div>
-        <video id="smVideo" class="selfie-video" autoplay playsinline muted hidden style="margin:0 auto 12px;"></video>
-        <div id="faceStatus" class="muted small" style="margin-bottom:10px;"></div>
-        <button class="btn btn-primary btn-block" id="smGo">✅ Mark Me Present</button>
-        <div style="margin-top:14px;border-top:1px dashed var(--border-strong);padding-top:12px;">
+      <div class="card" style="max-width:560px;margin:0 auto;">
+        <div class="card-head"><h2>Self Mark Attendance</h2><span class="badge-soft">Rotating QR</span></div>
+        <p class="muted small" style="margin-bottom:4px;">QR scan karne se Session auto-fill hota hai. 6-digit <strong>rotating code</strong> teacher ki screen se lo — har 30 sec badalta hai!</p>
+        <div class="entry-form">
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Session</b><small>QR scan karo ya teacher ka session ID daalo</small></div></div>
+            <div class="entry-grid"><label class="f" style="grid-column:1/-1;"><span>Session ID</span><input class="input" id="smSessionInput" placeholder="Session ID (QR se auto)" /></label></div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">2</span><div><b>6-digit code</b><small>Teacher ki screen par dikh raha rotating code — 30 sec me badalta hai</small></div></div>
+            <div class="entry-grid"><label class="f" style="grid-column:1/-1;"><span>Rotating code</span><input class="input big-code-input" id="smCodeInput" maxlength="6" inputmode="numeric" placeholder="______" /></label></div>
+          </div>
+          <div class="entry-sec">
+            <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Face proof (optional)</b><small>Selfie on karo — face registered ho to proxy impossible</small></div></div>
+            <div class="entry-grid">
+              <label class="f" style="grid-column:1/-1;">
+                <span style="display:inline-flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="smSelfie" /> 🤳 Selfie / Face proof</span>
+                <video id="smVideo" class="selfie-video" autoplay playsinline muted hidden></video>
+                <small class="hint" id="faceStatus"></small></label>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <span class="spacer muted small" id="smStatus"></span>
+            <button class="btn btn-primary" id="smGo">✅ Mark Me Present</button>
+          </div>
+        </div>
+        <div style="border-top:1px dashed var(--border-strong);padding-top:12px;margin-top:6px;">
           <button class="btn btn-ghost btn-sm" id="faceRegBtn">🧠 Register My Face (one-time)</button>
-          <p class="muted small" style="margin-top:6px;">Face register karne ke baad selfie match zaroori hogi — proxy impossible!</p></div>
-        <p class="muted small" id="smStatus" style="margin-top:10px;"></p></div>`,
+          <p class="muted small" style="margin-top:6px;">Face register karne ke baad selfie match zaroori hogi — proxy impossible!</p></div></div>`,
     init: () => {
       $('#smGo').addEventListener('click', safe(doSelfMark));
       $('#faceRegBtn').addEventListener('click', safe(registerFace));
@@ -1072,15 +1113,30 @@ student: {
     },
   },
   leave: {
-    html: () => `<div class="card" style="max-width:560px;"><h2>New Leave</h2>
-      <form id="leaveForm" style="display:grid;gap:12px;">
-        <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">${t('date')}<input class="input" type="date" id="lvDate" required /></label>
-        <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Type
-          <select class="input" id="lvType"><option value="casual">Casual</option><option value="medical">🩺 Medical</option><option value="duty">🎯 Duty</option></select></label>
-        <label style="display:grid;gap:6px;font-size:.8rem;font-weight:600;">Reason
-          <textarea class="input" id="lvReason" rows="3"></textarea></label>
-        <button class="btn btn-primary" style="justify-self:start;">Submit →</button></form></div>
-      <div class="card"><h2>My Applications</h2><div id="myLeaves" class="muted small">Loading…</div></div>`,
+    html: () => `<div class="card">
+      <div class="card-head"><h2>New Leave Application</h2><span class="badge-soft">Admin review karega</span></div>
+      <form id="leaveForm" class="entry-form">
+        <div class="entry-sec">
+          <div class="entry-sec-head"><span class="sec-no">1</span><div><b>Leave details</b><small>Kis date aur kis type ka leave hai</small></div></div>
+          <div class="entry-grid">
+            <label class="f"><span>Date <em>*</em></span><input class="input" type="date" id="lvDate" required /><small class="hint">Jis din attendance nahi lag payegi</small></label>
+            <label class="f"><span>Type</span>
+              <select class="input" id="lvType"><option value="casual">Casual</option><option value="medical">🩺 Medical</option><option value="duty">🎯 Duty</option></select><small class="hint">Medical/Duty leave approved ho to absent count nahi hota</small></label>
+          </div>
+        </div>
+        <div class="entry-sec">
+          <div class="entry-sec-head"><span class="sec-no">2</span><div><b>Reason</b><small>Chhota sa reason likh do — admin isi se approve karega</small></div></div>
+          <div class="entry-grid">
+            <label class="f" style="grid-column:1/-1;"><span>Reason</span><textarea class="input" id="lvReason" rows="3" placeholder="e.g. Doctor appointment / family function"></textarea></label>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <span class="spacer">* required fields</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-reset="leaveForm">Clear form</button>
+          <button class="btn btn-primary">Submit Application →</button>
+        </div>
+      </form></div>
+      <div class="card"><div class="card-head"><h2>My Applications</h2><span class="badge-soft">Status track</span></div><div id="myLeaves" class="muted small">Loading…</div></div>`,
     init: () => {
       $('#leaveForm').addEventListener('submit', safe(async (e) => {
         e.preventDefault();
@@ -2252,13 +2308,17 @@ async function loadDwrPrincipal() {
   }).join('') : '<div class="card"><p class="muted">Is date ke liye koi Daily Work Report nahi mila.</p></div>';
 }
 
-/* ================= v9.1: SPR + Assignments + Archive ================= */
-function resolveWeights(program) {
-  const raw = (state.settings && state.settings.internalWeights) || {};
-  const def = raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw.default
-    : { outOf: 25, parts: [ { exam:'ST1', label:'ST-1', max:50, weight:8 }, { exam:'ST2', label:'ST-2', max:50, weight:8 }, { exam:'PUT', label:'PUT', max:75, weight:9 } ] };
-  const ov = program && raw.programs && raw.programs[program];
-  return ov && Array.isArray(ov.parts) && ov.parts.length ? ov : def;
+/* ================= SPR (entry-only) + Assignments + Archive ================= */
+/* v16: marks entries jaisi enter hui waisi dikhti hain — koi calculation nahi */
+function mkPill(m) {
+  const cls = m.status === 'scored' ? 'pill-soft' : m.status === 'absent' ? 'pill-warn' : 'pill-bad';
+  const val = m.status === 'scored' ? `${m.score}/${m.max}` : m.status.toUpperCase();
+  return `<span class="pill ${cls}" title="${esc(m.exam)}">${esc(m.exam)}: ${val}</span>`;
+}
+function sprCell(x) {
+  if (!x) return '—';
+  const mk = (x.marks || []).length ? (x.marks || []).map(mkPill).join(' ') : '<span class="muted small">no entry</span>';
+  return `${mk} <span class="muted small" title="assignments submitted">📚${x.asgnDone}/${x.asgnTotal}</span> ${x.attPct != null ? `<span class="pill pill-${pctClass(x.attPct)}" title="subject attendance">${x.attPct}%</span>` : ''}`;
 }
 function renderResults(results) {
   if (!results || !results.length) return '<p class="muted small">Abhi koi result enter nahi hua.</p>';
@@ -2331,16 +2391,10 @@ async function loadStudentAssn() {
   $('#saResults').innerHTML = renderResults(d.results);
 }
 /* ---- teacher/admin: SPR ---- */
-function sprCell(x) {
-  if (!x) return '—';
-  return `<span class="pill pill-soft" title="internal marks">${x.internal}/${x.outOf}</span> <span class="muted small" title="assignments submitted">📚${x.asgnDone}/${x.asgnTotal}</span> ${x.attPct != null ? `<span class="pill pill-${pctClass(x.attPct)}" title="attendance">${x.attPct}%</span>` : ''}${x.missing && x.missing.length ? ` <span class="muted small" title="pending exams: ${esc(x.missing.join(', '))}">⏳${x.missing.length}</span>` : ''}`;
-}
 async function loadProgressClass() {
   const program = $('#pgProgram').value, branch = $('#pgBranch').value, semester = $('#pgSem').value, section = $('#pgSec').value;
   const d = await api(`/api/progress/class?program=${encodeURIComponent(program)}&branch=${encodeURIComponent(branch)}&semester=${semester}&section=${encodeURIComponent(section)}`);
-  const w = d.weights || {};
-  const wTxt = (w.parts || []).map((p) => `${p.label || p.exam} ${p.max}→${p.weight}`).join(' + ');
-  $('#pgNote').innerHTML = `AY ${esc(d.academicYear)} · Internal = out of <strong>${w.outOf}</strong> (${esc(wTxt)}). ST1/ST2/PUT marks Marks Entry se auto aate hain — exam me "ST-1", "ST-2", "PUT" likho. Absent/Debarred bhi wahi se set hota hai.`;
+  $('#pgNote').innerHTML = `AY ${esc(d.academicYear)} · <strong>Entry-only</strong> — system calculate nahi karta. Jo exam entries Marks Entry me hain (ST-1, MST-1, Internal…) wahi yahan dikhti hain. College apna internal khud calculate karke "Internal" exam entry daalti hai.`;
   if (!d.rows.length) { $('#pgBody').innerHTML = '<div class="card"><p class="muted">Is class me koi active student nahi mila.</p></div>'; return; }
   $('#pgBody').innerHTML = `<div class="card"><div class="table-wrap"><table>
     <thead><tr><th>Roll</th><th>Name</th>${d.subjects.map((s) => `<th>${esc(s)}</th>`).join('')}<th>Att%</th><th>Result</th><th class="no-print"></th></tr></thead>
@@ -2350,7 +2404,7 @@ async function loadProgressClass() {
       <td><span class="pill pill-${pctClass(r.att.pct)}">${r.att.pct}%</span></td>
       <td>${r.results.length ? `<span class="pill pill-good" title="latest semester result">S${r.results[r.results.length-1].semester}: ${r.results[r.results.length-1].sgpa ?? '—'}</span>` : '<span class="muted small">—</span>'}</td>
       <td class="table-actions no-print"><button class="btn btn-ghost btn-sm" data-pgd="${r.id}">📋 Detail</button></td></tr>`).join('')}</tbody></table></div>
-    <p class="muted small" style="margin-top:8px;">Har cell me: internal (/25) · 📚 assignments submitted · attendance % · ⏳ = pending exams.</p></div>`;
+    <p class="muted small" style="margin-top:8px;">Har cell me: marks entries (exam: score/max) · 📚 assignments submitted · attendance %.</p></div>`;
   $('#pgBody').querySelectorAll('[data-pgd]').forEach((b) => b.addEventListener('click', safe(() => showProgressStudent(b.dataset.pgd))));
 }
 async function showProgressStudent(id) {
@@ -2365,16 +2419,12 @@ async function showProgressStudent(id) {
     <p class="muted small">AY ${esc(d.academicYear)} · Overall attendance: <strong>${row.att.pct}%</strong> (${row.att.attended}/${row.att.total})</p>
     ${d.subjects.map((s) => {
       const x = row.subjects[s]; if (!x) return '';
-      const exams = ['ST1', 'ST2', 'PUT', 'FINAL'].filter((e) => x.exams[e]).map((e) => {
-        const m = x.exams[e];
-        return `<span class="pill ${m.status === 'scored' ? 'pill-soft' : m.status === 'absent' ? 'pill-warn' : 'pill-bad'}">${e}: ${m.status === 'scored' ? m.score + '/' + m.max : m.status.toUpperCase()}</span>`;
-      }).join(' ');
-      const other = (x.other || []).map((m) => `<span class="pill pill-soft">${esc(m.exam)}: ${m.score}/${m.max}</span>`).join(' ');
+      const entries = (x.marks || []).map(mkPill).join(' ') || '<span class="muted small">Koi marks entry nahi</span>';
       return `<div style="border-top:1px dashed var(--border-strong);padding:10px 0;">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
           <strong>${esc(s)}</strong>
-          <span><span class="pill pill-good">Internal ${x.internal}/${x.outOf}</span> ${x.missing.length ? `<span class="muted small">(pending: ${esc(x.missing.join(', '))})</span>` : ''}</span></div>
-        <div style="margin-top:6px;">${exams || '<span class="muted small">Koi ST/PUT marks nahi</span>'} ${other}</div>
+          <span class="muted small">entry-only — as recorded</span></div>
+        <div style="margin-top:6px;">${entries}</div>
         <div style="margin-top:6px;" class="muted small">📚 Assignments: ${x.asgnDone}/${x.asgnTotal} · 🎯 Attendance: ${x.attPct != null ? x.attPct + '%' : '—'} (${x.attAttended}/${x.attTotal})</div></div>`;
     }).join('')}
     <div style="border-top:1px dashed var(--border-strong);padding:10px 0;"><strong>🎓 Results (manual entry)</strong>

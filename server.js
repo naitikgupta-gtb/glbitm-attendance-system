@@ -237,56 +237,10 @@ async function getDwrConfig() {
   return { compileTime: m.dwr_compile_time || '16:30', periods: Math.min(12, Math.max(1, Number(m.dwr_periods) || 7)) };
 }
 
-/* ---------------- v9.1: SPR — internal marks engine ----------------
-   College rule (BCA/BBA): raw ST1=50, ST2=50, PUT=75 → report card me out of 25.
-   B.Tech alag ho sakta hai — isliye weights settings me configurable (key: internal_weights).
-   Default: ST1 50→8 + ST2 50→8 + PUT 75→9 = 25. Admin Overview se edit hota hai. */
-const DEFAULT_WEIGHTS = { outOf: 25, parts: [
-  { exam: 'ST1', label: 'ST-1', max: 50, weight: 8 },
-  { exam: 'ST2', label: 'ST-2', max: 50, weight: 8 },
-  { exam: 'PUT', label: 'PUT', max: 75, weight: 9 },
-] };
-function examCategory(exam) {
-  const e = String(exam || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!e) return null;
-  if (e.includes('PUT') || e.includes('PREUNI')) return 'PUT';
-  if (e.includes('FINAL') || e.includes('ENDSEM') || e.includes('UNIVERSITY') || e.includes('EXTERNAL') || e === 'UNIV' || e === 'SEM') return 'FINAL';
-  const m = e.match(/(?:ST|MST|SST|SESS|SES|SESSIONAL|SA|UT|T|AL)(\d)$/);
-  if (m) return m[1] === '1' ? 'ST1' : m[1] === '2' ? 'ST2' : null;
-  return null;
-}
-async function getWeightsRaw() {
-  const r = await sql`SELECT value FROM settings WHERE key = 'internal_weights'`;
-  try { const v = JSON.parse(r[0]?.value); if (v && typeof v === 'object') return v; } catch {}
-  return {};
-}
-/* v9.1.1: settings UI ke liye — agar admin ne abhi tak save nahi kiya to DEFAULT dikhao (khali {} nahi) */
-async function getWeightsForSettings() {
-  const raw = await getWeightsRaw();
-  return raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw : { default: DEFAULT_WEIGHTS };
-}
-async function getInternalWeights(program) {
-  const raw = await getWeightsRaw();
-  const base = raw.default && Array.isArray(raw.default.parts) && raw.default.parts.length ? raw.default : DEFAULT_WEIGHTS;
-  const ov = program && raw.programs && raw.programs[program];
-  return ov && Array.isArray(ov.parts) && ov.parts.length ? ov : base;
-}
-/* marksByExam: { ST1: {score, max, status}, ... } → { internal, outOf, missing[] } */
-function computeInternal(marksByExam, weights) {
-  const outOf = Number(weights.outOf) > 0 ? Number(weights.outOf) : 25;
-  let sum = 0; const missing = []; const details = [];
-  for (const part of weights.parts || []) {
-    const raw = marksByExam[part.exam];
-    const status = raw ? String(raw.status || 'scored') : null;
-    if (!raw) { missing.push(part.exam); details.push({ exam: part.exam, label: part.label || part.exam, missing: true }); continue; }
-    if (status !== 'scored') { details.push({ exam: part.exam, label: part.label || part.exam, status }); continue; }
-    const max = Number(raw.max) > 0 ? Number(raw.max) : Number(part.max);
-    const earned = Math.max(0, Math.min(1, Number(raw.score) / max)) * Number(part.weight);
-    sum += earned;
-    details.push({ exam: part.exam, label: part.label || part.exam, score: Number(raw.score), max, earned: Math.round(earned * 10) / 10, weight: Number(part.weight) });
-  }
-  return { internal: Math.round(sum * 10) / 10, outOf, missing, details };
-}
+/* ---------------- v16.0.0: marks = ENTRY-ONLY (no auto calculation) ----------------
+   Ye system marks sirf RECORD karta hai — koi internal/25 conversion NAHI.
+   College apne hisaab se internal calculate karke Marks Entry me manually enter karti hai
+   (e.g. Exam = "Internal", Max = 25). SPR me wahi raw entries dikhti hain. */
 async function getResults(studentId) {
   return sql`SELECT semester, sgpa, cgpa, remark, ts FROM results WHERE student_id = ${studentId} ORDER BY semester`;
 }
@@ -424,7 +378,7 @@ app.post('/api/me/face', requireAuth, H(async (req, res) => {
 }));
 
 /* ================= SETTINGS & HOLIDAYS & SECTIONS ================= */
-app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig(), internalWeights: await getWeightsForSettings() })));
+app.get('/api/settings', requireAuth, H(async (req, res) => res.json({ threshold: await getThreshold(), sections: await getSections(), academicYear: await getAcademicYear(), dwr: await getDwrConfig() })));
 app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req, res) => {
   const t = Number((req.body || {}).threshold);
   if (!Number.isFinite(t) || t < 40 || t > 95) return res.status(400).json({ error: 'Threshold 40–95 ke beech rakho.' });
@@ -435,17 +389,6 @@ app.patch('/api/admin/settings', requireAuth, requireRole('admin'), H(async (req
   if (b.academicYear && /^\d{4}-\d{2}$/.test(String(b.academicYear))) { await sql`INSERT INTO settings (key, value) VALUES ('academic_year', ${String(b.academicYear)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · AY ${b.academicYear}`; }
   if (b.dwrCompileTime && /^\d{2}:\d{2}$/.test(String(b.dwrCompileTime))) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_compile_time', ${String(b.dwrCompileTime)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · DWR compile ${b.dwrCompileTime}`; }
   if (b.dwrPeriods && Number(b.dwrPeriods) >= 1 && Number(b.dwrPeriods) <= 12) { await sql`INSERT INTO settings (key, value) VALUES ('dwr_periods', ${String(Number(b.dwrPeriods))}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`; extra += ` · periods ${Number(b.dwrPeriods)}`; }
-  if (b.internalWeights && typeof b.internalWeights === 'object') {
-    const w = b.internalWeights;
-    const partsOk = Array.isArray(w.parts) && w.parts.length >= 1 && w.parts.length <= 6
-      && w.parts.every((p) => ['ST1', 'ST2', 'PUT', 'FINAL'].includes(String(p.exam)) && Number(p.max) > 0 && Number(p.weight) >= 0);
-    if (!(Number(w.outOf) > 0 && Number(w.outOf) <= 100 && partsOk))
-      return res.status(400).json({ error: 'Weights invalid: outOf (1-100) + parts (exam ST1/ST2/PUT/FINAL, max>0, weight>=0) chahiye.' });
-    const clean = { outOf: Number(w.outOf), parts: w.parts.map((p) => ({ exam: String(p.exam), label: String(p.label || p.exam).slice(0, 12), max: Number(p.max), weight: Number(p.weight) })) };
-    const prev = await getWeightsRaw();
-    await sql`INSERT INTO settings (key, value) VALUES ('internal_weights', ${JSON.stringify({ ...prev, default: clean })}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
-    extra += ' · internal weights';
-  }
   await addAudit('SETTINGS', req.user.username, `threshold=${t}${extra}`);
   res.json({ ok: true, threshold: t, message: `Threshold set to ${t}%.${extra}` });
 }));
@@ -1301,12 +1244,12 @@ app.get('/api/assignments/child', requireAuth, requireRole('parent'), H(async (r
   res.json(await assignmentsFor(child));
 }));
 
-/* ================= v9.1: STUDENT PROGRESS REPORT (SPR) =================
-   Teacher/Admin: per-subject ST1/ST2/PUT raw + status + internal (/25 via weights) + assignment counts + attendance%.
-   Student (/mine): SIRF assignment counts + manual results — koi score/internal leak nahi (teacher ki privacy rule). */
+/* ================= STUDENT PROGRESS REPORT (SPR) — v16 entry-only =================
+   Teacher/Admin: per-subject RAW marks entries (exam, score/max, status — jaisi enter hui waisi) + assignment counts + attendance%.
+   Koi internal/25 calculation NAHI — college apne calculated internal ko "Internal" exam entry ke roop me khud enter karti hai.
+   Student (/mine): SIRF assignment counts + manual results — koi score leak nahi (teacher ki privacy rule). */
 async function buildProgress(program, branch, semester, section, onlyStudentId = null) {
   const ay = await getAcademicYear();
-  const weights = await getInternalWeights(program);
   let students;
   if (onlyStudentId) {
     students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch, u.program, u.branch, u.semester FROM users u WHERE u.id = ${onlyStudentId}`;
@@ -1316,7 +1259,7 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
     students = await sql`SELECT u.id, u.name, u.roll_no AS "rollNo", u.section, u.batch FROM users u WHERE u.role = 'student' AND u.program = ${program} AND u.branch = ${branch} AND u.semester = ${semester} AND ${isActiveUser('u.status')}${secF} ORDER BY u.roll_no, u.name`;
   }
   const ids = students.map((s) => s.id);
-  if (!ids.length) return { academicYear: ay, weights, subjects: [], rows: [] };
+  if (!ids.length) return { academicYear: ay, subjects: [], rows: [] };
 
   const attRows = await sql`SELECT e.student_id, r.subject, COUNT(*)::int AS total,
       COALESCE(SUM(CASE WHEN e.status IN ('present','late') THEN 1 ELSE 0 END), 0)::int AS attended
@@ -1327,8 +1270,8 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
   const attTotal = new Map();
   for (const r of attRows) { const t = attTotal.get(r.student_id) || { total: 0, attended: 0 }; t.total += r.total; t.attended += r.attended; attTotal.set(r.student_id, t); }
 
-  /* v9.1.1: ORDER BY ts — agar ek hi category me do rows hain (e.g. 'MST-1' + 'ST1' dono → ST1) to LATEST deterministic jeete */
-  const mkRows = await sql`SELECT m.student_id, m.subject, m.exam, m.score, m.max, m.status FROM marks m WHERE m.student_id IN ${sql(ids)} ORDER BY m.ts NULLS LAST, m.id`;
+  /* v16: sab raw entries — jo exam names enter hue wo waise hi (MST-1, ST-1, PUT, Internal, …) */
+  const mkRows = await sql`SELECT m.student_id, m.subject, m.exam, m.score, m.max, m.status FROM marks m WHERE m.student_id IN ${sql(ids)} ORDER BY m.subject, m.exam`;
   let asnRows;
   if (onlyStudentId) {
     const st = students[0];
@@ -1358,10 +1301,8 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
   const mkMap = new Map();
   for (const m of mkRows) {
     const key = `${m.student_id}|${m.subject}`;
-    const g = mkMap.get(key) || { exams: {}, other: [] };
-    const cat = examCategory(m.exam);
-    if (cat) g.exams[cat] = { score: Number(m.score), max: Number(m.max), status: String(m.status || 'scored') };
-    else g.other.push({ exam: m.exam, score: Number(m.score), max: Number(m.max), status: String(m.status || 'scored') });
+    const g = mkMap.get(key) || { marks: [] };
+    g.marks.push({ exam: m.exam, score: Number(m.score), max: Number(m.max), status: String(m.status || 'scored') });
     mkMap.set(key, g);
   }
 
@@ -1373,15 +1314,14 @@ async function buildProgress(program, branch, semester, section, onlyStudentId =
     const t = attTotal.get(s.id) || { total: 0, attended: 0 };
     const subj = {};
     for (const sub of subjects) {
-      const g = mkMap.get(`${s.id}|${sub}`) || { exams: {}, other: [] };
-      const internal = computeInternal(g.exams, weights);
+      const g = mkMap.get(`${s.id}|${sub}`) || { marks: [] };
       const a = attMap.get(`${s.id}|${sub}`);
       const ac = asnCount.get(`${s.id}|${sub}`) || { done: 0, total: asnTotalBySub.get(sub) || 0 };
-      subj[sub] = { internal: internal.internal, outOf: internal.outOf, missing: internal.missing, exams: g.exams, other: g.other, asgnDone: ac.done, asgnTotal: ac.total, attTotal: a ? a.total : 0, attAttended: a ? a.attended : 0, attPct: a && a.total ? Math.round((a.attended / a.total) * 100) : null };
+      subj[sub] = { marks: g.marks, asgnDone: ac.done, asgnTotal: ac.total, attTotal: a ? a.total : 0, attAttended: a ? a.attended : 0, attPct: a && a.total ? Math.round((a.attended / a.total) * 100) : null };
     }
     return { id: s.id, rollNo: s.rollNo || '', name: s.name, section: s.section || '', batch: s.batch || '', att: { total: t.total, attended: t.attended, pct: t.total ? Math.round((t.attended / t.total) * 100) : 0 }, subjects: subj, results: resMap.get(s.id) || [] };
   });
-  return { academicYear: ay, weights, subjects, rows };
+  return { academicYear: ay, subjects, rows };
 }
 app.get('/api/progress/class', requireAuth, requireRole('teacher', 'admin'), H(async (req, res) => {
   const program = String(req.query.program || ''), branch = String(req.query.branch || '');
@@ -1394,12 +1334,12 @@ app.get('/api/progress/class.csv', requireAuth, requireRole('teacher', 'admin'),
   const semester = Number(req.query.semester), section = String(req.query.section || '');
   if (!program || !semester) return res.status(400).json({ error: 'Program + semester required.' });
   const data = await buildProgress(program, branch, semester, section);
-  const rows = [['Roll No', 'Name', ...data.subjects.flatMap((s) => [`${s} Internal (/${data.weights.outOf})`, `${s} Assignments`, `${s} Att%`]), 'Overall Att%', 'SGPA (latest)', 'CGPA (latest)']];
+  const rows = [['Roll No', 'Name', ...data.subjects.flatMap((s) => [`${s} Marks (entries)`, `${s} Assignments`, `${s} Att%`]), 'Overall Att%', 'SGPA (latest)', 'CGPA (latest)']];
   for (const r of data.rows) {
     const line = [r.rollNo, r.name];
     for (const s of data.subjects) {
       const x = r.subjects[s];
-      line.push(x ? `${x.internal}${x.missing.length ? ' (' + x.missing.join('+') + ' pending)' : ''}` : '', x ? `${x.asgnDone}/${x.asgnTotal}` : '', x && x.attPct != null ? x.attPct : '');
+      line.push(x ? (x.marks || []).map((m) => `${m.exam} ${m.status === 'scored' ? m.score + '/' + m.max : m.status.toUpperCase()}`).join(' | ') : '(no entry)', x ? `${x.asgnDone}/${x.asgnTotal}` : '', x && x.attPct != null ? x.attPct : '');
     }
     const last = r.results[r.results.length - 1] || {};
     line.push(r.att.pct, last.sgpa ?? '', last.cgpa ?? '');
@@ -1412,7 +1352,7 @@ app.get('/api/progress/student', requireAuth, requireRole('teacher', 'admin'), H
   const stu = (await sql`SELECT * FROM users WHERE id = ${sid} AND role = 'student'`)[0];
   if (!stu) return res.status(404).json({ error: 'Student not found.' });
   const data = await buildProgress(stu.program, stu.branch || '', stu.semester, stu.section || '', sid);
-  res.json({ academicYear: data.academicYear, weights: data.weights, subjects: data.subjects,
+  res.json({ academicYear: data.academicYear, subjects: data.subjects,
     student: { id: stu.id, name: stu.name, rollNo: stu.roll_no, program: stu.program, branch: stu.branch, semester: stu.semester, section: stu.section, batch: stu.batch || '', status: stu.status || 'active' },
     row: data.rows[0] || null });
 }));

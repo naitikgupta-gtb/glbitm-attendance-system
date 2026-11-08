@@ -91,7 +91,7 @@ const server = http.createServer((req, res) => {
       if (p === '/api/me/sessions') return send({ sessions: SESSIONS });
       if (p === '/api/me/attendance') {
         return send({
-          percentage: 87, present: 167, absent: 25, total: 192,
+          percentage: 87, threshold: 75, attended: 167, present: 145, late: 22, absent: 25, total: 192,
           subjects: [
             { subject: 'Data Structures', percentage: 95, present: 38, total: 40 },
             { subject: 'DBMS', percentage: 91, present: 32, total: 35 },
@@ -105,6 +105,54 @@ const server = http.createServer((req, res) => {
           ]),
         });
       }
+      /* ---- v16 SPA preview stubs ---- */
+      if (p === '/api/progress/class') {
+        return send({
+          academicYear: '2026-27',
+          subjects: ['DBMS', 'Data Structures'],
+          rows: STUDENTS.slice(0, 4).map((s, i) => ({
+            id: s.id, rollNo: s.rollNo, name: s.name, section: 'A', batch: '',
+            att: { total: 40, attended: 36 - i, pct: 90 - i * 2 },
+            results: i === 0 ? [{ semester: 2, sgpa: 8.4, cgpa: 8.1, remark: '' }] : [],
+            subjects: {
+              'DBMS': { marks: [{ exam: 'MST-1', score: 24 - i, max: 30, status: 'scored' }, { exam: 'Internal', score: 21 - i, max: 25, status: 'scored' }], asgnDone: 3, asgnTotal: 4, attPct: 92 - i },
+              'Data Structures': { marks: [{ exam: 'ST-1', score: 41 - i, max: 50, status: 'scored' }, { exam: 'Internal', score: 20, max: 25, status: 'scored' }, { exam: 'PUT', score: 0, max: 75, status: i % 2 ? 'absent' : 'scored' }], asgnDone: 2, asgnTotal: 4, attPct: 85 - i },
+            },
+          })),
+        });
+      }
+      if (p === '/api/progress/student') {
+        return send({
+          academicYear: '2026-27',
+          subjects: ['DBMS', 'Data Structures'],
+          student: { id: 's1', name: 'Aarav Sharma', rollNo: '2214401', program: 'B.Tech', branch: 'CSE', semester: 3, section: 'A', batch: '', status: 'active' },
+          row: {
+            att: { total: 40, attended: 36, pct: 90 }, results: [{ semester: 2, sgpa: 8.4, cgpa: 8.1, remark: '' }],
+            subjects: {
+              'DBMS': { marks: [{ exam: 'MST-1', score: 24, max: 30, status: 'scored' }, { exam: 'Internal', score: 21, max: 25, status: 'scored' }], asgnDone: 3, asgnTotal: 4, attPct: 92, attAttended: 30, attTotal: 33 },
+              'Data Structures': { marks: [{ exam: 'ST-1', score: 41, max: 50, status: 'scored' }, { exam: 'Internal', score: 20, max: 25, status: 'scored' }], asgnDone: 2, asgnTotal: 4, attPct: 85, attAttended: 28, attTotal: 33 },
+            },
+          },
+        });
+      }
+      if (p === '/api/marks/class') return send({ items: STUDENTS.slice(0, 4).map((s, i) => ({ student_id: s.id, score: 22 - i, max: 25, status: 'scored' })) });
+      if (p === '/api/marks/bulk' || p === '/api/marks/save') return send({ ok: true, message: 'Marks saved.' });
+      if (p === '/api/assignments') return send({ items: [
+        { id: 'a1', subject: 'DBMS', title: 'Unit-2 Worksheet', unit: 'Unit 2', dueDate: '2026-11-15', teacherName: 'Dr. Meera Kapoor', done: 4, strength: 6 },
+        { id: 'a2', subject: 'Data Structures', title: 'Linked List Lab', unit: 'Unit 3', dueDate: '2026-11-20', teacherName: 'Dr. Meera Kapoor', done: 6, strength: 6 },
+      ] });
+      if (p === '/api/assignments/mine') return send({
+        academicYear: '2026-27',
+        subjects: [ { subject: 'DBMS', done: 3, total: 4 }, { subject: 'Data Structures', done: 2, total: 2 } ],
+        pending: [ { title: 'Unit-2 Worksheet', subject: 'DBMS', dueDate: '2026-11-15' } ],
+        items: [], results: [{ semester: 2, sgpa: 8.4, cgpa: 8.1, remark: '' }],
+      });
+      if (p === '/api/leaves') return send({ items: [ { id: 'l1', date: '2026-11-05', type: 'medical', reason: 'Fever', status: 'pending' } ] });
+      if (p === '/api/dwr/mine') return send({ day: new Date().toLocaleDateString('en-IN', { weekday: 'long' }), academicYear: '2026-27', items: [
+        { period: 1, subject: 'DBMS', program: 'B.Tech', branch: 'CSE', semester: 3, section: 'A', autoPresent: 55, autoTotal: 62, entry: null },
+        { period: 3, subject: 'Data Structures', program: 'B.Tech', branch: 'CSE', semester: 3, section: 'A', autoPresent: 58, autoTotal: 62, entry: { present_count: 58, total_count: 62, taught: 'Trees', updated_at: 'x' } },
+      ] });
+      if (p === '/api/leaderboard') return send({ items: [ { name: 'Aarav Sharma', pct: 95 }, { name: 'Diya Patel', pct: 93 } ] });
       console.log('[mock] unmatched:', req.method, p, '(role:', role + ')');
       return send({ items: [], report: [], users: [], sessions: [], students: [], teachers: [], user: USERS[role], threshold: 75 });
     });
