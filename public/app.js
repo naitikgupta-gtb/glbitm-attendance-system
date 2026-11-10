@@ -5,7 +5,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const thisMonth = () => todayISO().slice(0, 7);
-const safe = (fn) => async (...a) => { try { await fn(...a); } catch (err) { toast(err.message, 'error'); } };
+const safe = (fn) => async (...a) => { try { await fn(...a); } catch (err) { routeErr(err); } };
 const classLabel = (u) => `${u.program || '—'}${u.branch && u.branch !== 'General' ? ' · ' + u.branch : ''}`;
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DAYS_SHORT = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -27,11 +27,35 @@ const t = (k) => (LANG[state.lang] && LANG[state.lang][k]) || LANG.en[k] || k;
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`; el.textContent = msg;
-  $('#toastBox').appendChild(el);
+  const box = $('#toastBox'); if (box) box.appendChild(el);
   setTimeout(() => el.classList.add('show'), 10);
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 4200);
 }
+/* v106: null-DOM error router — stale/mixed cache self-heal (purge SW+caches, reload once), else quiet notice */
+let _healing = false;
+function routeErr(err) {
+  const m = (err && err.message) || String(err);
+  if (!/properties of null|properties of undefined/.test(m)) { toast(m, 'error'); return; }
+  healReload();
+}
+function healReload() {
+  if (_healing) return;
+  _healing = true;
+  try {
+    if (sessionStorage.getItem('ams_healed')) { toast('Kuch section load nahi hua — page reload karke dobara try karo.', 'error'); _healing = false; return; }
+    sessionStorage.setItem('ams_healed', '1');
+    const purge = (window.caches && caches.keys) ? caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))).catch(() => {}) : Promise.resolve();
+    const unreg = (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) ? navigator.serviceWorker.getRegistrations().then((rs) => Promise.all(rs.map((r) => r.unregister()))).catch(() => {}) : Promise.resolve();
+    let done = false;
+    const finish = () => { if (done) return; done = true; location.reload(); };
+    Promise.all([purge, unreg]).then(finish, finish);
+    setTimeout(finish, 1500);
+  } catch { _healing = false; }
+}
+window.addEventListener('error', (e) => { if (e && e.message && /properties of null|properties of undefined/.test(e.message) && state && state.user) healReload(); });
+window.addEventListener('unhandledrejection', (e) => { const m = e && e.reason && (e.reason.message || String(e.reason)); if (m && /properties of null|properties of undefined/.test(m) && state && state.user) healReload(); });
 function countUp(el, val, suffix = '') {
+  if (!el) return;
   const dur = 900, start = performance.now();
   const step = (tm) => { const p = Math.min(1, (tm - start) / dur); el.textContent = Math.round(val * (1 - Math.pow(1 - p, 3))) + suffix; if (p < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
@@ -279,10 +303,9 @@ function go(id) {
   state.section = id; state.focusIdx = 0;
   document.querySelectorAll('#navLinks .nav-link').forEach((b) => b.classList.toggle('active', b.dataset.nav === id));
   const def = SECTIONS[state.user.role][id];
-  $('#pageTitle').textContent = NAV_TITLES[id] || id;
-  $('#pageTitle').className = 'grad-text';
-  $('#pageContent').innerHTML = def.html();
-  if (def.init) Promise.resolve(def.init()).catch((e) => toast(e.message, 'error'));
+  const pt = $('#pageTitle'); if (pt) { pt.textContent = NAV_TITLES[id] || id; pt.className = 'grad-text'; }
+  const pc = $('#pageContent'); if (pc) pc.innerHTML = def.html();
+  if (def.init) Promise.resolve(def.init()).catch((e) => routeErr(e));
 }
 const refresh = () => go(state.section);
 document.addEventListener('keydown', (e) => {
