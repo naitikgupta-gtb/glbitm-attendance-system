@@ -36,21 +36,10 @@ function countUp(el, val, suffix = '') {
   const step = (tm) => { const p = Math.min(1, (tm - start) / dur); el.textContent = Math.round(val * (1 - Math.pow(1 - p, 3))) + suffix; if (p < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
-function confetti() {
-  const c = document.createElement('canvas');
-  c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:999';
-  document.body.appendChild(c); c.width = innerWidth; c.height = innerHeight;
-  const x = c.getContext('2d');
-  const P = [...Array(130)].map(() => ({ x: Math.random()*c.width, y: -20 - Math.random()*c.height/2, r: 4+Math.random()*6, c: `hsl(${Math.random()*360},90%,60%)`, vy: 2+Math.random()*4, vx: -1+Math.random()*2, a: Math.random()*6 }));
-  let tm = 0;
-  (function f(){ tm++; x.clearRect(0,0,c.width,c.height);
-    P.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.a+=.1; x.save(); x.translate(p.x,p.y); x.rotate(p.a); x.fillStyle=p.c; x.fillRect(-p.r/2,-p.r/2,p.r,p.r*.6); x.restore(); });
-    tm < 180 ? requestAnimationFrame(f) : c.remove(); })();
-}
 const DEVICE_ID = (() => { let d = localStorage.getItem('ams_device'); if (!d) { d = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()); localStorage.setItem('ams_device', d); } return d; })();
 
 /* ================= logo & campus ================= */
-const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#24387f" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
+const GL_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32 2 58 12v22c0 15-11 25-26 28C17 59 6 49 6 34V12Z" fill="#1f1b16" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#fff">GL</text></svg>`;
 function mountLogo(el) {
   const img = document.createElement('img');
   img.src = 'assets/logo.png'; img.alt = 'GLBITM';
@@ -84,7 +73,7 @@ const mySubjects = () => (Array.isArray(state.user && state.user.subjects) ? sta
  $('#langBtn').addEventListener('click', () => {
   state.lang = state.lang === 'en' ? 'hi' : 'en';
   localStorage.setItem('ams_lang', state.lang);
-  toast(state.lang === 'hi' ? 'भाषा: हिंदी 🌐' : 'Language: English 🌐', 'info');
+  toast(state.lang === 'hi' ? 'भाषा: हिंदी' : 'Language: English', 'info');
   if (state.user) { buildNav(); go(state.section); }
 });
 
@@ -122,7 +111,7 @@ function bindLogin() {
   /* v12: generic show/hide + clear-form wiring for entry forms (delegated) */
   document.addEventListener('click', (e) => {
     const pw = e.target.closest('.pw-toggle[data-target]');
-    if (pw) { const inp = document.getElementById(pw.dataset.target); if (inp) { inp.type = inp.type === 'password' ? 'text' : 'password'; pw.textContent = inp.type === 'password' ? '👁' : '🙈'; } return; }
+    if (pw) { const inp = document.getElementById(pw.dataset.target); if (inp) { inp.type = inp.type === 'password' ? 'text' : 'password'; pw.textContent = inp.type === 'password' ? '' : ''; } return; }
     const clr = e.target.closest('[data-reset]');
     if (clr) { const f = document.getElementById(clr.dataset.reset); if (f) { f.reset(); toast('Form cleared', 'info'); } }
   });
@@ -137,7 +126,7 @@ function bindLogin() {
         if (!r.ok) throw new Error(data.error || `OTP failed (${r.status}).`);
         pending2fa = null;
         saveSession(data.token, data.user); startApp();
-        toast(`Welcome, ${data.user.name.split(' ')[0]}! 👋`);
+        toast(`Signed in as ${data.user.name}`);
       } else {
         btn.textContent = 'Signing in… (cold start? 30–50s)';
         const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('#username').value, password: $('#password').value }) });
@@ -150,13 +139,13 @@ function bindLogin() {
           $('#loginStep1').hidden = true;
           const demoBox = document.querySelector('.demo-box'); if (demoBox) demoBox.hidden = true;
           $('#loginStep2').hidden = false;
-          $('#otpHint').textContent = data.devCode ? `📧 Console mode — OTP: ${data.devCode}` : '📧 OTP email par bheja gaya (5 min).';
+          $('#otpHint').textContent = data.devCode ? ` Console mode — OTP: ${data.devCode}` : ' OTP email par bheja gaya (5 min).';
           btn.textContent = 'Verify OTP →'; btn.disabled = false;
           setTimeout(() => $('#otpInput').focus(), 50);
           return;
         }
         saveSession(data.token, data.user); startApp();
-        toast(`Welcome, ${data.user.name.split(' ')[0]}! 👋`);
+        toast(`Signed in as ${data.user.name}`);
       }
     } catch (ex) { err.textContent = ex.message; err.hidden = false; }
     btn.disabled = false;
@@ -167,7 +156,7 @@ function bindLogin() {
     if (st.needsSetup) {
       const box = document.createElement('div');
       box.style.cssText = 'background:var(--green-soft);color:var(--green);text-align:left;cursor:pointer;margin-top:14px;padding:14px;border-radius:10px;font-size:.86rem;';
-      box.innerHTML = '<strong>⚙️ First-time Setup:</strong> Abhi koi admin nahi hai. Click karke pehla admin account banao →';
+      box.innerHTML = '<strong> First-time Setup:</strong> Abhi koi admin nahi hai. Click karke pehla admin account banao →';
       box.addEventListener('click', openSetupWizard);
       const demo = document.querySelector('.demo-box');
       if (demo) demo.before(box); else $('.auth-card').appendChild(box);
@@ -189,7 +178,7 @@ function openSetupWizard() {
           <input class="input" id="suUser" placeholder="Admin username" />
           <input class="input" id="suPass" type="password" placeholder="Password (min 8 chars)" />
           <input class="input" id="suEmail" type="email" placeholder="Email (optional, for alerts)" />
-          <button class="btn btn-primary btn-block" id="suGo">👑 Create Admin Account</button>
+          <button class="btn btn-primary btn-block" id="suGo"> Create Admin Account</button>
           <button class="btn btn-ghost btn-block" id="suCancel">Cancel</button>
         </div>
       </div>
@@ -301,13 +290,13 @@ async function checkNotifications() {
       const th = st.threshold || 75;
       if (st.total > 0 && st.percentage < th && localStorage.getItem('ams_lowwarn') !== String(st.percentage)) {
         localStorage.setItem('ams_lowwarn', String(st.percentage));
-        new Notification('⚠️ Low Attendance — GLBITM', { body: `Attendance ${st.percentage}% (${th}% chahiye)!` });
+        new Notification(' Low Attendance — GLBITM', { body: `Attendance ${st.percentage}% (${th}% chahiye)!` });
       }
     }
     const { items } = await api('/api/announcements');
     if (items.length && items[0].id !== localStorage.getItem('ams_lastAnn')) {
       localStorage.setItem('ams_lastAnn', items[0].id);
-      new Notification('📢 New Announcement — GLBITM', { body: items[0].title });
+      new Notification(' New Announcement — GLBITM', { body: items[0].title });
     }
   } catch {}
 }
@@ -315,7 +304,7 @@ async function renderAnnouncements() {
   try {
     const { items } = await api('/api/announcements');
     const bar = $('#annBar'); if (!bar) return;
-    bar.innerHTML = items.length ? `<div class="notice-board">${items.slice(0,3).map((a,i) => `<div class="sticky-note ${i%2?'tilt-r':''}"><i class="pin"></i><strong>📌 ${esc(a.title)}</strong><span class="muted small">${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
+    bar.innerHTML = items.length ? `<div class="notice-board">${items.slice(0,3).map((a,i) => `<div class="sticky-note ${i%2?'tilt-r':''}"><i class="pin"></i><strong> ${esc(a.title)}</strong><span class="muted small">${esc(a.body)} · ${a.ts.slice(0,10)}</span></div>`).join('')}</div>` : '';
   } catch {}
 }
 
@@ -395,8 +384,8 @@ admin: {
         <div class="filter-grid">
           <label>${t('date')}<input type="date" class="input" id="dwrpDate" /></label>
           <button class="btn btn-primary" id="dwrpLoad">${t('load')} →</button>
-          <button class="btn btn-ghost" id="dwrpPrint">🖨️ ${t('print')}</button>
-          <button class="btn btn-ghost" id="dwrpCsv">⬇️ CSV</button>
+          <button class="btn btn-ghost" id="dwrpPrint"> ${t('print')}</button>
+          <button class="btn btn-ghost" id="dwrpCsv"> CSV</button>
         </div>
         <p class="muted small" id="dwrpSummary" style="margin-top:8px;"></p>
       </div>
@@ -423,15 +412,15 @@ admin: {
           </div>
         </div>
         <div class="bento-rail">
-          <div class="card"><h2>🎓 Bulk Promotion</h2>
+          <div class="card"><h2>Bulk promotion</h2>
             <div class="rail-row">
               <select class="input" id="promoProg" style="flex:1;min-width:150px;"><option value="">All Programs</option>${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
               <button class="btn btn-primary" id="promoBtn">Promote</button></div>
             <p class="rail-hint">Saal khatam → final-year alumni, baaki semester +1.</p></div>
-          <div class="card"><h2>💾 Backup &amp; Restore</h2>
+          <div class="card"><h2> Backup &amp; Restore</h2>
             <div class="rail-row">
-              <button class="btn btn-ghost" id="backupBtn">⬇️ Backup</button>
-              <button class="btn btn-danger" id="restoreBtn">📤 Restore</button></div>
+              <button class="btn btn-ghost" id="backupBtn"> Backup</button>
+              <button class="btn btn-danger" id="restoreBtn"> Restore</button></div>
             <p class="rail-hint">Rollover se pehle ek backup zaroor le lo.</p></div>
         </div>
       </div>
@@ -445,7 +434,7 @@ admin: {
           <span class="muted small">Yahi % eligibility, defaulters, colors — sab jagah use hota hai.</span>
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
-          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">🏫 Sections (comma-separated — koi bhi naam)</label>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;"> Sections (comma-separated — koi bhi naam)</label>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <input class="input" id="setSecs" style="max-width:360px;" placeholder="e.g. A, B, C, AI-1, CSE-STAR" />
             <button class="btn btn-primary btn-sm" id="secSave">Save Sections</button>
@@ -468,16 +457,16 @@ admin: {
           </div>
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-strong);">
-          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;">📝 Marks Policy — entry-only</label>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;"> Marks Policy — entry-only</label>
           <p class="muted small" style="margin-top:4px;">System marks sirf <strong>record</strong> karta hai, calculate nahi karta. College apna internal (e.g. /25) khud calculate karke Marks Entry me <strong>Exam = "Internal", Max = 25</strong> likh ke enter kar deti hai — SPR me wahi entries waise ki waisi dikhti hain.</p>
         </div>
         </div>
         </div></div>
-      <div class="card def-card"><div class="card-head"><h2>Defaulters + 🔮 Risk Prediction</h2>
-        <button class="btn btn-ghost btn-sm" id="mailDefBtn">📧 Email Defaulters</button></div>
+      <div class="card def-card"><div class="card-head"><h2>Defaulters +  Risk Prediction</h2>
+        <button class="btn btn-ghost btn-sm" id="mailDefBtn"> Email Defaulters</button></div>
         <div id="defList"><p class="muted">Loading…</p></div></div>
       <div class="card"><div class="card-head"><h2>Administrators</h2>
-        <span class="muted small">Last admin protected 🛡️</span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>`,
+        <span class="muted small">Last admin protected </span></div><div id="adminsList"><p class="muted">Loading…</p></div></div>`,
     init: async () => {
       const s = await api('/api/reports/summary');
       state.settings.threshold = s.threshold;
@@ -511,7 +500,7 @@ admin: {
       loadAdmins();
       $('#mailDefBtn').addEventListener('click', safe(async () => toast((await api('/api/reports/email-defaulters', { method:'POST' })).message, 'info')));
       $('#promoBtn').addEventListener('click', safe(async () => {
-        if (!confirm('⚠️ Semester +1. Continue?')) return;
+        if (!confirm(' Semester +1. Continue?')) return;
         toast((await api('/api/admin/promote', { method:'POST', body: JSON.stringify({ program: $('#promoProg').value }) })).message);
         loadDefaulters();
       }));
@@ -547,27 +536,27 @@ admin: {
             <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Login account</b><small>Student portal ke liye credentials</small></div></div>
             <div class="entry-grid">
               <label class="f"><span>Username <em>*</em></span><input class="input" id="stUsername" placeholder="e.g. aarav.sharma" required /><small class="hint">Login me yahi use hoga</small></label>
-              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="stPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="stPassword">👁</button></div><small class="hint">Min 6 characters recommended</small></label>
+              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="stPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="stPassword"></button></div><small class="hint">Min 6 characters recommended</small></label>
             </div>
           </div>
           <div class="entry-actions">
             <span class="spacer">* required fields</span>
             <button type="button" class="btn btn-ghost btn-sm" data-reset="addStudentForm">Clear form</button>
-            <button class="btn btn-primary">＋ Add student</button>
+            <button class="btn btn-primary"> Add student</button>
           </div>
         </form>
       </div>
       <div class="card"><h2>Bulk Import — Excel (.xlsx) ya CSV</h2>
-        <p class="muted small">Best tarika: <strong>⬇️ Template</strong> download karo → Instructions sheet padho → bharo → upload. <code>role</code> column me "teacher" likhoge to wo teacher banega!</p>
+        <p class="muted small">Best tarika: <strong> Template</strong> download karo → Instructions sheet padho → bharo → upload. <code>role</code> column me "teacher" likhoge to wo teacher banega!</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button class="btn btn-ghost btn-sm" id="tplBtn">⬇️ User Template</button>
+          <button class="btn btn-ghost btn-sm" id="tplBtn"> User Template</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <input type="file" id="bulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
-          <button class="btn btn-primary" id="bulkBtn">📥 Import</button></div>
+          <button class="btn btn-primary" id="bulkBtn">Import</button></div>
         <div id="bulkResult" class="muted small" style="margin-top:10px;"></div></div>
       <div class="card"><h2>Enrolled Students</h2>
-        <input class="input search-input" id="stSearch" placeholder="🔍 Search name / roll / class…" />
+        <input class="input search-input" id="stSearch" placeholder=" Search name / roll / class…" />
         <div class="table-wrap"><table>
           <thead><tr><th>Roll</th><th>Name</th><th>Username</th><th>Class</th><th>Sem/Sec</th><th></th></tr></thead>
           <tbody id="studentsBody"></tbody></table></div></div>`,
@@ -603,27 +592,27 @@ admin: {
             <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Login account</b><small>Teacher portal ke liye credentials</small></div></div>
             <div class="entry-grid">
               <label class="f"><span>Username <em>*</em></span><input class="input" id="tcUsername" placeholder="e.g. meera.verma" required /><small class="hint">Login me yahi use hoga</small></label>
-              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="tcPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="tcPassword">👁</button></div><small class="hint">Min 6 characters recommended</small></label>
+              <label class="f"><span>Password <em>*</em></span><div class="password-wrap"><input class="input" id="tcPassword" type="password" placeholder="••••••••" required autocomplete="new-password" /><button type="button" class="pw-toggle" data-target="tcPassword"></button></div><small class="hint">Min 6 characters recommended</small></label>
             </div>
           </div>
           <div class="entry-actions">
             <span class="spacer">* required fields</span>
             <button type="button" class="btn btn-ghost btn-sm" data-reset="addTeacherForm">Clear form</button>
-            <button class="btn btn-primary">＋ Add teacher</button>
+            <button class="btn btn-primary"> Add teacher</button>
           </div>
         </form>
       </div>
       <div class="card"><h2>Bulk Import Teachers — Excel (.xlsx) ya CSV</h2>
         <p class="muted small">Columns: <code>name,username,password,program,branch,email,subjects</code></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button class="btn btn-ghost btn-sm" id="tTplBtn">⬇️ Teacher Template</button>
+          <button class="btn btn-ghost btn-sm" id="tTplBtn"> Teacher Template</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <input type="file" id="tBulkFile" class="input" style="max-width:300px;" accept=".xlsx,.xls,.csv" />
-          <button class="btn btn-primary" id="tBulkBtn">📥 Import Teachers</button></div>
+          <button class="btn btn-primary" id="tBulkBtn">Import teachers</button></div>
         <div id="tBulkResult" class="muted small" style="margin-top:10px;"></div></div>
       <div class="card"><h2>Teaching Staff</h2>
-        <input class="input search-input" id="tcSearch" placeholder="🔍 Search…" />
+        <input class="input search-input" id="tcSearch" placeholder=" Search…" />
         <div class="table-wrap"><table>
           <thead><tr><th>Name</th><th>Username</th><th>Dept</th><th>Subjects</th><th></th></tr></thead>
           <tbody id="teachersBody"></tbody></table></div></div>`,
@@ -647,15 +636,15 @@ admin: {
           <label>Period<select class="input" id="ttPeriod">${[1,2,3,4,5,6,7,8].map((n)=>`<option value="${n}">P${n}</option>`).join('')}</select></label>
           <label>Teacher<select class="input" id="ttTeacher"></select></label>
           <input class="input" id="ttSubject" placeholder="Subject" required />
-          <button class="btn btn-primary">＋ Add Slot</button>
+          <button class="btn btn-primary"> Add Slot</button>
         </form></div>
       <div class="card"><h2>Holiday Calendar</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
           <input class="input" type="date" id="holDate" style="max-width:180px;" />
           <input class="input" id="holTitle" placeholder="Holiday title" style="max-width:220px;" />
-          <button class="btn btn-primary btn-sm" id="holAdd">＋ Add Holiday</button></div>
+          <button class="btn btn-primary btn-sm" id="holAdd"> Add Holiday</button></div>
         <div id="holList" class="muted small">Loading…</div></div>
-      <div class="card"><h2>Weekly Timetable (🔄 = substitution)</h2>
+      <div class="card"><h2>Weekly Timetable ( = substitution)</h2>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
           <select class="input" id="vtProgram" style="max-width:150px;">${Object.keys(PROGRAMS).map((p)=>`<option>${p}</option>`).join('')}</select>
           <select class="input" id="vtBranch" style="max-width:220px;"></select>
@@ -676,12 +665,12 @@ admin: {
           program: $('#ttProgram').value, branch: $('#ttBranch').value, semester: $('#ttSem').value,
           section: $('#ttSec').value, day: $('#ttDay').value, period: Number($('#ttPeriod').value),
           subject: $('#ttSubject').value.trim(), teacherId: $('#ttTeacher').value }) });
-        toast('Slot added 🗓️'); loadAdminTimetable();
+        toast('Slot added '); loadAdminTimetable();
       }));
       $('#holAdd').addEventListener('click', safe(async () => {
         if (!$('#holDate').value) return toast('Date chuno.', 'error');
         await api('/api/holidays', { method:'POST', body: JSON.stringify({ date: $('#holDate').value, title: $('#holTitle').value || 'Holiday' }) });
-        toast('Holiday added 🏛️'); $('#holDate').value = ''; $('#holTitle').value = ''; loadHolidays();
+        toast('Holiday added '); $('#holDate').value = ''; $('#holTitle').value = ''; loadHolidays();
       }));
       return Promise.all([loadAdminTimetable(), loadHolidays()]);
     },
@@ -690,15 +679,15 @@ admin: {
     html: () => `
       <div class="card"><div class="card-head"><h2>Global Report</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm" id="excelBtn">📊 Excel</button>
-          <button class="btn btn-ghost btn-sm" id="printBtn">🖨️ Print / PDF</button></div></div>
+          <button class="btn btn-ghost btn-sm" id="excelBtn">Excel</button>
+          <button class="btn btn-ghost btn-sm" id="printBtn"> Print / PDF</button></div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
           <label style="font-size:.78rem;font-weight:600;display:grid;gap:4px;">From<input class="input" type="date" id="repFrom" style="max-width:170px;" /></label>
           <label style="font-size:.78rem;font-weight:600;display:grid;gap:4px;">To<input class="input" type="date" id="repTo" style="max-width:170px;" /></label>
           <button class="btn btn-primary btn-sm" id="repApply">Apply Range</button>
           <button class="btn btn-ghost btn-sm" id="repClear">Clear</button>
           <span class="muted small" id="repRangeNote"></span></div>
-        <input class="input search-input" id="repSearch" placeholder="🔍 Search student…" />
+        <input class="input search-input" id="repSearch" placeholder=" Search student…" />
         <div class="table-wrap"><table>
           <thead><tr><th>Roll</th><th>Name</th><th>Class</th><th>Sessions</th><th>P/L/A</th><th>%</th></tr></thead>
           <tbody id="reportBody"></tbody></table></div></div>
@@ -746,7 +735,7 @@ admin: {
       $('#annForm').addEventListener('submit', safe(async (e) => {
         e.preventDefault();
         const r = await api('/api/announcements', { method:'POST', body: JSON.stringify({ title: $('#annTitle').value, body: $('#annBody').value }) });
-        toast(r.emailed ? `Published 📢 (${r.emailed} emails)` : 'Published 📢');
+        toast(r.emailed ? `Published  (${r.emailed} emails)` : 'Published ');
         $('#annTitle').value = ''; $('#annBody').value = '';
         loadAnnList(); renderAnnouncements();
       }));
@@ -762,12 +751,12 @@ admin: {
   archive: {
     html: () => `
       <div class="card"><h2>Academic Year Rollover</h2>
-        <p class="muted small">Saal khatam hone par: final-year students <strong>alumni</strong> bante hain (poora record archive me safe), baaki sab <strong>semester +1</strong>, aur naya academic year set hota hai. Rollover se pehle <strong>Overview → ⬇️ Backup</strong> le lo.</p>
+        <p class="muted small">Saal khatam hone par: final-year students <strong>alumni</strong> bante hain (poora record archive me safe), baaki sab <strong>semester +1</strong>, aur naya academic year set hota hai. Rollover se pehle <strong>Overview →  Backup</strong> le lo.</p>
         <div id="roBox" class="muted small">Loading…</div></div>
       <div class="card"><h2>Alumni & Past Batches</h2>
         <p class="muted small">Purane batch search karo — e.g. 2020 ka BCA batch. Har student ka attendance, marks, results permanent milta hai.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px;">
-          <input class="input" id="arQ" placeholder="🔍 Name ya roll no…" style="max-width:240px;" />
+          <input class="input" id="arQ" placeholder=" Name ya roll no…" style="max-width:240px;" />
           <button class="btn btn-primary btn-sm" id="arSearch">Search</button>
           <span class="muted small" id="arNote"></span></div>
         <div id="arBatches" class="muted small">Loading…</div></div>
@@ -813,16 +802,16 @@ teacher: {
             <span class="muted small" id="classListDate"></span>
             <span id="markCounts"></span></div></div>
         <div class="entry-actions" style="border-top:none;padding-top:0;margin-bottom:14px;">
-          <button class="btn btn-ghost btn-sm mic-btn" id="micBtn" title="Voice commands">🎙️ Voice</button>
-          <button class="btn btn-ghost btn-sm" id="pickBtn" title="Random picker">🎯 Random</button>
-          <button class="btn btn-ghost btn-sm" id="allPresentBtn">✓ ${t('allPresent')}</button>
+          <button class="btn btn-ghost btn-sm mic-btn" id="micBtn" title="Voice commands"> Voice</button>
+          <button class="btn btn-ghost btn-sm" id="pickBtn" title="Random picker">Random</button>
+          <button class="btn btn-ghost btn-sm" id="allPresentBtn">${t('allPresent')}</button>
           <span class="spacer"></span>
-          <button class="btn btn-primary" id="submitBtn">💾 ${t('save')}</button></div>
-        <input class="input" id="tNote" placeholder="📝 Session note (optional)" style="margin-bottom:14px;" />
+          <button class="btn btn-primary" id="submitBtn"> ${t('save')}</button></div>
+        <input class="input" id="tNote" placeholder=" Session note (optional)" style="margin-bottom:14px;" />
         <div id="studentList" class="student-list"></div>
         <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-primary" id="openSM">📲 Open Rotating-QR Self-Marking</button>
-          <span class="muted small">Code har 30 sec badalta hai — screenshot share se dhokha nahi hoga 😄</span></div>
+          <button class="btn btn-primary" id="openSM"> Open Rotating-QR Self-Marking</button>
+          <span class="muted small">Code har 30 sec badalta hai — screenshot share se dhokha nahi hoga </span></div>
         <div id="smPanel" hidden style="margin-top:16px;padding:18px;border:1px dashed var(--border-strong);border-radius:14px;">
           <div class="sm-panel">
             <div class="center"><div id="qrBox"></div>
@@ -832,10 +821,10 @@ teacher: {
               <p class="muted small" id="smCountdown"></p>
               <p class="muted small">Students: <strong>Self Mark</strong> section me session + code daalo (QR scan = auto session).</p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-                <button class="btn btn-danger btn-sm" id="smCloseBtn">⏹ Close</button>
+                <button class="btn btn-danger btn-sm" id="smCloseBtn"> Close</button>
                 <span id="smLive" class="muted small"></span></div>
               <div id="smLiveList" style="margin-top:10px;max-height:180px;overflow-y:auto;"></div></div></div></div>
-        <div class="kbd-hint">⌨️ <kbd>↑</kbd><kbd>↓</kbd> · <kbd>P</kbd>/<kbd>L</kbd>/<kbd>A</kbd> · <kbd>Enter</kbd> save · 🎙️ "present/late/absent/next/save"</div></div>`,
+        <div class="kbd-hint"> <kbd>↑</kbd><kbd>↓</kbd> · <kbd>P</kbd>/<kbd>L</kbd>/<kbd>A</kbd> · <kbd>Enter</kbd> save ·  "present/late/absent/next/save"</div></div>`,
     init: () => {
       const picker = wireProgramPicker($('#mProgram'), $('#mBranch'), $('#mSem'), '');
       picker.set(state.user.program || 'B.Tech', state.user.branch || 'CSE', 1);
@@ -845,7 +834,7 @@ teacher: {
         $('#tSubject').hidden = true;
         const sel = $('#tSubjectSelect'); sel.hidden = false;
         sel.innerHTML = subs.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-        $('#subjectHint').textContent = `🔒 Only: ${subs.join(', ')}.`;
+        $('#subjectHint').textContent = ` Only: ${subs.join(', ')}.`;
       } else $('#subjectHint').textContent = 'Any subject allowed.';
       $('#loadBtn').addEventListener('click', safe(loadRoster));
       $('#allPresentBtn').addEventListener('click', () => { state.roster.forEach((s) => state.marks.set(s.id, 'present')); renderRoster(); });
@@ -874,18 +863,18 @@ teacher: {
             </div>
           </div>
           <div class="entry-actions">
-            <span class="spacer muted small">💡 Pro flow: Load karo → <strong>⬇️ Template</strong> → Excel me sirf score bharo → 📥 Import → 💾 Save</span>
+            <span class="spacer muted small">Flow: Load karo → <strong>Template</strong> → Excel me sirf score bharo → Import → Save</span>
             <button class="btn btn-primary" id="mkLoad">${t('load')} →</button>
           </div>
         </div></div>
       <div class="card" id="mkCard" hidden>
         <div class="card-head"><h2 id="mkTitle">Scores</h2><span class="badge-soft">Jaisi entry, waisi record</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-          <button class="btn btn-ghost btn-sm" id="mkTemplate">⬇️ Template (rollNo prefilled)</button>
+          <button class="btn btn-ghost btn-sm" id="mkTemplate"> Template (rollNo prefilled)</button>
           <input type="file" id="mkFile" class="input" style="max-width:260px;" accept=".xlsx,.xls,.csv" />
-          <button class="btn btn-ghost btn-sm" id="mkImport">📥 Import scores from file</button></div>
+          <button class="btn btn-ghost btn-sm" id="mkImport">Import scores from file</button></div>
         <div id="mkList" class="student-list"></div>
-        <button class="btn btn-primary" id="mkSave" style="margin-top:14px;">💾 ${t('save')} Marks</button></div>`,
+        <button class="btn btn-primary" id="mkSave" style="margin-top:14px;"> ${t('save')} Marks</button></div>`,
     init: () => {
       const picker = wireProgramPicker($('#mkProgram'), $('#mkBranch'), $('#mkSem'), '');
       picker.set(state.user.program || 'B.Tech', state.user.branch || 'CSE', 1);
@@ -920,7 +909,7 @@ teacher: {
           </div>
           <div class="entry-actions">
             <span class="spacer muted small">Ek subject ke saare unit-wise assignments yahi banao — SPR me count auto aata hai</span>
-            <button class="btn btn-primary" id="asCreate">＋ Create Assignment</button>
+            <button class="btn btn-primary" id="asCreate"> Create Assignment</button>
           </div>
         </div></div>
       <p class="muted small" id="asSummary" style="margin:10px 2px;"></p>
@@ -949,8 +938,8 @@ teacher: {
           </div>
           <div class="entry-actions">
             <span class="spacer muted small" id="pgNote"></span>
-            <button class="btn btn-ghost" id="pgCsv">⬇️ CSV</button>
-            <button class="btn btn-ghost" id="pgPrint">🖨️ ${t('print')}</button>
+            <button class="btn btn-ghost" id="pgCsv"> CSV</button>
+            <button class="btn btn-ghost" id="pgPrint"> ${t('print')}</button>
             <button class="btn btn-primary" id="pgLoad">${t('load')} →</button>
           </div>
         </div></div>
@@ -996,7 +985,7 @@ teacher: {
   sessions: {
     html: () => `<div class="card"><div class="card-head"><h2>My Sessions</h2>
       <span class="badge-soft">Attendance sessions taught by me</span>
-      <button class="btn btn-ghost btn-sm" id="exportBtn">📊 Excel</button></div>
+      <button class="btn btn-ghost btn-sm" id="exportBtn">Excel</button></div>
       <div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>Class</th><th>Subject</th><th>Note</th><th>P/L/T</th><th>%</th></tr></thead>
       <tbody id="sessionsBody"></tbody></table></div></div>`,
@@ -1021,13 +1010,13 @@ student: {
         <div class="sh-main">
           <h2>${t('attendance')}</h2>
           <p class="muted small" id="ringMsg"></p>
-          <p id="streakLine" style="font-weight:700;margin:0;"></p>
+          <p id="streakLine" style="font-weight:500;margin:0;"></p>
           <div class="ring-stats">
             <div><strong id="statPresent">0</strong><span>${t('present')}</span></div>
             <div><strong id="statLate">0</strong><span>${t('late')}</span></div>
             <div><strong id="statAbsent">0</strong><span>${t('absent')}</span></div>
             <div><strong id="statTotal">0</strong><span>Classes</span></div></div>
-          <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:4px;">🧾 Attendance Certificate</button></div>
+          <button class="btn btn-ghost btn-sm" id="certBtn" style="margin-top:4px;"> Attendance Certificate</button></div>
         <div class="sh-side">
           <div><h2>Badges</h2><div id="badgeList" class="badges"></div></div>
           <div><h2>Pattern Detection</h2><div id="patternBox" class="muted small">Loading…</div></div></div>
@@ -1047,7 +1036,7 @@ student: {
           <div class="card"><h2>Results</h2><div id="attResults" class="muted small">Loading…</div></div>
           <div class="card"><h2>What-if</h2><div id="whatifBody" class="muted small">No data yet.</div></div>
         </div></div>
-      <div class="card"><div class="card-head"><h2>Recent Log</h2><span class="muted small">Absent pe "⚠️ Fix" — admin approve karega</span></div>
+      <div class="card"><div class="card-head"><h2>Recent Log</h2><span class="muted small">Absent pe " Fix" — admin approve karega</span></div>
         <div class="table-wrap"><table>
         <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th></th></tr></thead>
         <tbody id="logBody"></tbody></table></div></div>`,
@@ -1086,23 +1075,23 @@ student: {
             <div class="entry-sec-head"><span class="sec-no">3</span><div><b>Face proof (optional)</b><small>Selfie on karo — face registered ho to proxy impossible</small></div></div>
             <div class="entry-grid">
               <label class="f" style="grid-column:1/-1;">
-                <span style="display:inline-flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="smSelfie" /> 🤳 Selfie / Face proof</span>
+                <span style="display:inline-flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="smSelfie" />  Selfie / Face proof</span>
                 <video id="smVideo" class="selfie-video" autoplay playsinline muted hidden></video>
                 <small class="hint" id="faceStatus"></small></label>
             </div>
           </div>
           <div class="entry-actions">
             <span class="spacer muted small" id="smStatus"></span>
-            <button class="btn btn-primary" id="smGo">✅ Mark Me Present</button>
+            <button class="btn btn-primary" id="smGo"> Mark Me Present</button>
           </div>
         </div>
         <div style="border-top:1px dashed var(--border-strong);padding-top:12px;margin-top:6px;">
-          <button class="btn btn-ghost btn-sm" id="faceRegBtn">🧠 Register My Face (one-time)</button>
+          <button class="btn btn-ghost btn-sm" id="faceRegBtn"> Register My Face (one-time)</button>
           <p class="muted small" style="margin-top:6px;">Face register karne ke baad selfie match zaroori hogi — proxy impossible!</p></div></div>`,
     init: () => {
       $('#smGo').addEventListener('click', safe(doSelfMark));
       $('#faceRegBtn').addEventListener('click', safe(registerFace));
-      $('#faceStatus').textContent = state.user.hasFace ? '🧠 Face registered ✓ (verification active)' : 'Face registered nahi hai — selfie-only mode.';
+      $('#faceStatus').textContent = state.user.hasFace ? ' Face registered ✓ (verification active)' : 'Face registered nahi hai — selfie-only mode.';
       $('#smSelfie').addEventListener('change', async (e) => {
         const v = $('#smVideo');
         if (e.target.checked) {
@@ -1121,7 +1110,7 @@ student: {
           <div class="entry-grid">
             <label class="f"><span>Date <em>*</em></span><input class="input" type="date" id="lvDate" required /><small class="hint">Jis din attendance nahi lag payegi</small></label>
             <label class="f"><span>Type</span>
-              <select class="input" id="lvType"><option value="casual">Casual</option><option value="medical">🩺 Medical</option><option value="duty">🎯 Duty</option></select><small class="hint">Medical/Duty leave approved ho to absent count nahi hota</small></label>
+              <select class="input" id="lvType"><option value="casual">Casual</option><option value="medical">Medical</option><option value="duty">Duty</option></select><small class="hint">Medical/Duty leave approved ho to absent count nahi hota</small></label>
           </div>
         </div>
         <div class="entry-sec">
@@ -1191,16 +1180,16 @@ async function loadAdmins() {
       <div class="avatar sm">${esc(u.name.charAt(0).toUpperCase())}</div>
       <strong style="flex:1;">${esc(u.name)}${state.user.id === u.id ? ' <span class="pill pill-soft" style="font-size:.62rem">YOU</span>' : ''}</strong>
       <span class="muted small">@${esc(u.username)}</span>
-      <button class="btn btn-danger btn-sm" data-demote="${u.id}">⬇️ Demote</button>
+      <button class="btn btn-danger btn-sm" data-demote="${u.id}"> Demote</button>
     </div>`).join('') || '<p class="muted small">Koi admin nahi?</p>';
   host.querySelectorAll('[data-demote]').forEach((b) => b.addEventListener('click', () => demoteAdmin(b.dataset.demote)));
 }
 async function promoteToAdmin(id) {
   const u = [...studentCache, ...teacherCache].find((x) => x.id === id); if (!u) return;
-  if (!confirm(`👑 ${u.name} ko ADMIN banao? Ye user full console access payega.`)) return;
+  if (!confirm(` ${u.name} ko ADMIN banao? Ye user full console access payega.`)) return;
   try {
     await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role: 'admin' }) });
-    toast(`${u.name} ab ADMIN hai 👑`);
+    toast(`${u.name} ab ADMIN hai `);
     if ($('#studentsBody')) loadAdminStudents();
     if ($('#teachersBody')) loadAdminTeachers();
     if ($('#adminsList')) loadAdmins();
@@ -1209,8 +1198,8 @@ async function promoteToAdmin(id) {
 async function demoteAdmin(id) {
   const { users } = await api('/api/users?role=admin');
   const u = users.find((x) => x.id === id); if (!u) return;
-  if (users.length <= 1) return toast('🛡️ Last admin demote nahi ho sakta — pehle kisi aur ko admin banao.', 'error');
-  const newRole = prompt(`🛡️ ${u.name} ka naya role? (teacher / student)`, 'teacher');
+  if (users.length <= 1) return toast(' Last admin demote nahi ho sakta — pehle kisi aur ko admin banao.', 'error');
+  const newRole = prompt(` ${u.name} ka naya role? (teacher / student)`, 'teacher');
   if (newRole === null) return;
   if (!['teacher', 'student'].includes(newRole.trim().toLowerCase())) return toast('Sirf teacher ya student likho.', 'error');
   try {
@@ -1231,7 +1220,7 @@ async function addStudent(e) {
     program: $('#stProgram').value, branch: $('#stBranch').value, semester: $('#stSem').value,
     section: $('#stSec').value, email: $('#stEmail').value.trim(), cardId: $('#stCard').value.trim(), batch: $('#stBatch').value.trim(),
     username: $('#stUsername').value.trim(), password: $('#stPassword').value }) });
-  toast('Student added ✅'); e.target.reset(); refresh();
+  toast('Student added '); e.target.reset(); refresh();
 }
 async function addTeacher(e) {
   e.preventDefault();
@@ -1239,7 +1228,7 @@ async function addTeacher(e) {
     role:'teacher', name: $('#tcName').value.trim(), program: $('#tcProgram').value, branch: $('#tcBranch').value,
     email: $('#tcEmail').value.trim(), subjects: $('#tcSubjects').value.split(',').map((s)=>s.trim()).filter(Boolean),
     username: $('#tcUsername').value.trim(), password: $('#tcPassword').value }) });
-  toast('Teacher added ✅'); e.target.reset(); refresh();
+  toast('Teacher added '); e.target.reset(); refresh();
 }
 async function bulkImportStudents() {
   const f = $('#bulkFile').files[0];
@@ -1300,7 +1289,7 @@ function downloadStudentTemplate() {
     ['username UNIQUE hona chahiye. password min 4 chars.'],
   ]);
   makeWorkbook([['Data', ws, null], ['Instructions', help, [{ wch: 70 }, { wch: 30 }]]], 'GLBITM-user-import-template.xlsx');
-  toast('Template downloaded — Instructions sheet padhna!');
+  toast('Template downloaded — Instructions sheet padhna.');
 }
 function downloadTeacherTemplate() {
   if (!window.XLSX) return toast('Excel library load nahi hui (CDN).', 'error');
@@ -1318,7 +1307,7 @@ function downloadTeacherTemplate() {
     ['username UNIQUE hona chahiye — duplicate skip honge'],
   ]);
   makeWorkbook([['Teachers', ws, null], ['Instructions', help, [{ wch: 70 }, { wch: 30 }]]], 'GLBITM-teacher-import-template.xlsx');
-  toast('Teacher template downloaded!');
+  toast('Teacher template downloaded.');
 }
 async function removeUser(id) {
   if (!confirm('Remove permanently?')) return;
@@ -1340,20 +1329,20 @@ async function editStudent(id) {
   const email = prompt('Email:', u.email); if (email === null) return;
   const card = prompt('RFID Card ID:', u.cardId); if (card === null) return;
   await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ name, rollNo: roll, semester: sem, section: sec, batch, email, cardId: card }) });
-  toast('Updated ✏️'); loadAdminStudents();
+  toast('Updated '); loadAdminStudents();
 }
 async function editTeacher(id) {
   const u = teacherCache.find((x) => x.id === id); if (!u) return;
   const name = prompt('Name:', u.name); if (name === null) return;
   const subjects = prompt('Subjects (blank = any):', (u.subjects || []).join(', ')); if (subjects === null) return;
   await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ name, subjects: subjects.split(',').map((s)=>s.trim()).filter(Boolean) }) });
-  toast('Updated ✏️'); loadAdminTeachers();
+  toast('Updated '); loadAdminTeachers();
 }
 async function resetPassword(id) {
   const u = [...studentCache, ...teacherCache].find((x) => x.id === id); if (!u) return;
   const pw = prompt(`New password for ${u.name}:`); if (pw === null) return;
   await api(`/api/users/${id}`, { method:'PATCH', body: JSON.stringify({ password: pw }) });
-  toast('Password reset ✅');
+  toast('Password reset ');
 }
 async function createParent(id) {
   const u = studentCache.find((x) => x.id === id); if (!u) return;
@@ -1361,21 +1350,21 @@ async function createParent(id) {
   const pw = prompt('Parent password (min 4):'); if (!pw) return;
   try {
     await api('/api/users', { method:'POST', body: JSON.stringify({ role:'parent', username: un, password: pw, parentOf: id }) });
-    toast('👨‍👩‍👧 Parent account created! Login share karo.');
+    toast(' Parent account created! Login share karo.');
   } catch (e) { toast(e.message, 'error'); }
 }
 async function loadAdminStudents() {
   const { users } = await api('/api/users?role=student');
   studentCache = users;
   $('#studentsBody').innerHTML = users.length ? users.map((u) => `
-    <tr><td>${esc(u.rollNo || '—')}</td><td>${esc(u.name)}${u.hasFace ? ' <span class="pill pill-good" style="font-size:.6rem">🧠 face</span>' : ''}</td><td>${esc(u.username)}</td>
+    <tr><td>${esc(u.rollNo || '—')}</td><td>${esc(u.name)}${u.hasFace ? ' <span class="pill pill-good" style="font-size:.6rem"> face</span>' : ''}</td><td>${esc(u.username)}</td>
     <td>${esc(classLabel(u))}</td><td>${u.semester ?? '—'}${u.section ? ' / ' + esc(u.section) : ''}</td>
     <td class="table-actions">
-      <button class="btn btn-ghost btn-sm" data-idcard="${u.id}">🪪</button>
-      <button class="btn btn-ghost btn-sm" data-parent="${u.id}" title="Create parent login">👨‍👩‍👧</button>
-      <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️</button>
-      <button class="btn btn-ghost btn-sm" data-pw="${u.id}">🔑</button>
-      <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>
+      <button class="btn btn-ghost btn-sm" data-idcard="${u.id}"></button>
+      <button class="btn btn-ghost btn-sm" data-parent="${u.id}" title="Create parent login"></button>
+      <button class="btn btn-ghost btn-sm" data-edit="${u.id}"></button>
+      <button class="btn btn-ghost btn-sm" data-pw="${u.id}"></button>
+      <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin"></button>
       <button class="btn btn-danger btn-sm" data-del="${u.id}">✕</button></td></tr>`).join('')
     : '<tr><td colspan="6" class="empty">No students.</td></tr>';
   $('#studentsBody').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeUser(b.dataset.del)));
@@ -1395,9 +1384,9 @@ async function loadAdminTeachers() {
       <td>${esc(u.program)}${u.branch && u.branch !== 'General' ? ' · ' + esc(u.branch) : ''}</td>
       <td>${pills ? `<div class="subject-pills">${pills}</div>` : '<span class="muted small">Any</span>'}</td>
       <td class="table-actions">
-        <button class="btn btn-ghost btn-sm" data-edit="${u.id}">✏️</button>
-        <button class="btn btn-ghost btn-sm" data-pw="${u.id}">🔑</button>
-        <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin">👑</button>
+        <button class="btn btn-ghost btn-sm" data-edit="${u.id}"></button>
+        <button class="btn btn-ghost btn-sm" data-pw="${u.id}"></button>
+        <button class="btn btn-ghost btn-sm" data-prom="${u.id}" title="Make Admin"></button>
         <button class="btn btn-danger btn-sm" data-del="${u.id}">✕</button></td></tr>`;
   }).join('') : '<tr><td colspan="5" class="empty">No teachers.</td></tr>';
   $('#teachersBody').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeUser(b.dataset.del)));
@@ -1419,17 +1408,17 @@ async function loadDefaulters() {
     ? bad.map((r) => {
         const rr = recentRate(r);
         const proj = rr !== null ? Math.round(((r.attended + rr * 10) / (r.total + 10)) * 100) : null;
-        const risk = proj !== null && proj < th ? '<span class="risk-flag">📉 risk</span>' : '';
+        const risk = proj !== null && proj < th ? '<span class="risk-flag"> risk</span>' : '';
         return `<div class="def-row"><span><strong>${esc(r.name)}</strong>${risk} <span class="muted small">${esc(r.rollNo || '')} · ${esc(classLabel(r))} · Sem ${r.semester}</span></span><span class="pill pill-${pctClass(r.percentage)}">${r.percentage}%</span></div>`;
       }).join('')
-    : `<p class="muted">✅ Sab safe (${th}%+).</p>`;
+    : `<p class="muted"> Sab safe (${th}%+).</p>`;
 }
 async function restoreBackup() {
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.json';
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
-    if (!confirm('⚠️ Database REPLACE hoga?')) return;
+    if (!confirm(' Database REPLACE hoga?')) return;
     try { const r = await api('/api/admin/restore', { method:'POST', body: await f.text() }); toast(r.message); clearSession(); location.reload(); }
     catch (e) { toast(e.message, 'error'); }
   };
@@ -1465,7 +1454,7 @@ function renderTT(items, opts = {}) {
   if (!items.length) return '<p class="muted small">Koi slots nahi.</p>';
   const today = DAYS_SHORT[new Date().getDay()];
   const holidays = opts.holidays || [];
-  if (holidays.includes(todayISO())) return `<div class="holiday-banner">🏛️ Aaj Holiday hai — ${esc(holidayTitle(todayISO()))}. Classes nahi.</div>` + DAYS.map((day) => {
+  if (holidays.includes(todayISO())) return `<div class="holiday-banner"> Aaj Holiday hai — ${esc(holidayTitle(todayISO()))}. Classes nahi.</div>` + DAYS.map((day) => {
     const di = items.filter((i) => i.day === day); if (!di.length) return '';
     return `<div class="tt-day">${day}</div>` + di.map((i) => `<div class="tt-row"><span class="tt-per">P${i.period}</span><strong style="flex:1;">${esc(i.subject)}</strong><span class="muted small">${esc(i.teacherName || 'TBA')}</span></div>`).join('');
   }).join('');
@@ -1477,7 +1466,7 @@ function renderTT(items, opts = {}) {
         <span class="tt-per">P${i.period}</span>
         <strong style="flex:1;">${esc(i.subject)}</strong>
         <span class="muted small">${esc(i.teacherName || 'TBA')}</span>
-        ${opts.admin ? `<button class="btn btn-ghost btn-sm" data-ttsub="${i.id}" title="Substitution">🔄</button>
+        ${opts.admin ? `<button class="btn btn-ghost btn-sm" data-ttsub="${i.id}" title="Substitution"></button>
         <button class="btn btn-danger btn-sm" data-ttdel="${i.id}">✕</button>` : ''}</div>`).join('');
   }).join('');
 }
@@ -1508,20 +1497,20 @@ async function loadAdminReport() {
     report.forEach((r) => { (map[r.program || '?'] = map[r.program || '?'] || []).push(r.percentage); });
     const progs = Object.keys(map);
     _charts.push(new Chart($('#branchChart'), { type:'bar',
-      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: ['#4a6ac7','#5eb2e8','#38b2a3','#9b8aec','#f0b057','#ef8ed9','#24387f'], borderRadius: 6 }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
+      data: { labels: progs, datasets: [{ data: progs.map((b) => Math.round(map[b].reduce((a,v)=>a+v,0)/map[b].length)), backgroundColor: '#8a847a', borderRadius: 4 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(138,132,122,.14)' }, ticks: { color: '#8a847a', font: { family: 'IBM Plex Mono', size: 10 } } }, x: { grid: { display: false }, ticks: { color: '#8a847a', font: { family: 'IBM Plex Mono', size: 10 } } } } } }));
     try {
       const { items } = await api('/api/reports/correlation' + q);
       if (items.length) {
         _charts.push(new Chart($('#corrChart'), { type:'scatter',
-          data: { datasets: [{ label: 'Student', data: items.map((i) => ({ x: i.pct, y: i.marksPct })), backgroundColor: 'rgba(74,106,199,.65)' }] },
+          data: { datasets: [{ label: 'Student', data: items.map((i) => ({ x: i.pct, y: i.marksPct })), backgroundColor: 'rgba(138,132,122,.7)' }] },
           options: { scales: { x: { title: { display: true, text: 'Attendance %' }, min: 0, max: 100 }, y: { title: { display: true, text: 'Avg Marks %' }, min: 0, max: 100 } } } }));
         const n = items.length;
         const mx = items.reduce((a,i)=>a+i.pct,0)/n, my = items.reduce((a,i)=>a+i.marksPct,0)/n;
         const num = items.reduce((a,i)=>a+(i.pct-mx)*(i.marksPct-my),0);
         const den = Math.sqrt(items.reduce((a,i)=>a+(i.pct-mx)**2,0) * items.reduce((a,i)=>a+(i.marksPct-my)**2,0)) || 1;
         const r2 = (num/den).toFixed(2);
-        $('#corrNote').innerHTML = `Correlation coefficient: <strong>${r2}</strong> ${r2 > 0.5 ? '— attendance aur marks ka strong link! 📈' : r2 > 0.2 ? '— mild link.' : '— kam link (ya data kam hai).'}`;
+        $('#corrNote').innerHTML = `Correlation coefficient: <strong>${r2}</strong> ${r2 > 0.5 ? '— attendance aur marks ka strong link! ' : r2 > 0.2 ? '— mild link.' : '— kam link (ya data kam hai).'}`;
       } else $('#corrNote').textContent = 'Marks data nahi — teacher se marks entry karwao.';
     } catch {}
   }
@@ -1557,7 +1546,7 @@ async function loadRegister() {
         ${r.cells.map((c) => `<td><span class="pill ${cellCls(c)}" style="padding:1px 7px;font-size:.62rem;">${c ? abbr(c) : '·'}</span></td>`).join('')}
         <td>${r.P}</td><td>${r.L}</td><td>${r.A}</td>
         <td>${r.pct != null ? `<span class="pill pill-${pctClass(r.pct)}">${r.pct}%</span>` : '—'}</td></tr>`).join('')}</tbody></table></div>
-    <button class="btn btn-ghost btn-sm" id="regPrint" style="margin-top:12px;">🖨️ Print Register</button>`;
+    <button class="btn btn-ghost btn-sm" id="regPrint" style="margin-top:12px;"> Print Register</button>`;
   $('#regPrint').addEventListener('click', () => {
     const w = window.open('', '_blank', 'width=1000,height=700');
     w.document.write(`<html><head><title>Register ${esc(subject)} ${month}</title><style>
@@ -1604,7 +1593,7 @@ async function loadAnnList() {
   const { items } = await api('/api/announcements');
   $('#annList').innerHTML = items.length ? items.map((a) => `
     <div class="ann-item" style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-      <span><strong>📢 ${esc(a.title)}</strong> <span class="muted small">— ${esc(a.body)} · ${a.ts.slice(0,10)}</span></span>
+      <span><strong> ${esc(a.title)}</strong> <span class="muted small">— ${esc(a.body)} · ${a.ts.slice(0,10)}</span></span>
       <button class="btn btn-danger btn-sm" data-adel="${a.id}">Delete</button></div>`).join('')
     : '<p class="muted small">None yet.</p>';
   $('#annList').querySelectorAll('[data-adel]').forEach((b) => b.addEventListener('click', safe(async () => {
@@ -1612,23 +1601,23 @@ async function loadAnnList() {
   })));
 }
 const AUDIT_STYLE = {
-  LOGIN_OK:['pill-good','🔓 Login'], LOGIN_FAIL:['pill-bad','⛔ Failed'], LOCKED:['pill-bad','🔒 Locked'],
-  OTP_SENT:['pill-soft','✉️ OTP'], LOGOUT:['pill-soft','🚪 Logout'], USER_ADD:['pill-good','＋ User'],
-  USER_DEL:['pill-bad','🗑 Removed'], USER_EDIT:['pill-warn','✏️ Edited'], USER_BULK:['pill-good','📥 Bulk'],
-  ATT_SAVE:['pill-soft','✅ Attendance'], ATT_EDIT_LATE:['pill-warn','⏰ Late edit'], SELFMARK:['pill-good','📲 Self'],
-  SM_OPEN:['pill-soft','📲 Open'], PROXY_FLAG:['pill-bad','🚨 Proxy'], FACE_OK:['pill-good','🧠 Face ok'],
-  FACE_FAIL:['pill-bad','🧠 Face FAIL'], FACE_REG:['pill-good','🧠 Face reg'], FACE_DEL:['pill-warn','🧠 Face del'],
-  PROMOTE:['pill-good','🎓 Promote'], TT_ADD:['pill-soft','🗓️ Slot'], TT_DEL:['pill-warn','🗑 Slot del'],
-  TT_SUB:['pill-warn','🔄 Substitute'], LEAVE_NEW:['pill-soft','📝 Leave'], LEAVE_OK:['pill-good','✓ Leave'],
-  LEAVE_NO:['pill-bad','✕ Leave'], FIX_REQ:['pill-soft','⚠️ Fix req'], FIX_OK:['pill-good','✓ Fixed'],
-  FIX_NO:['pill-bad','✕ Fix no'], ANN_ADD:['pill-good','📢 Notice'], MARKS:['pill-soft','📝 Marks'],
-  BACKUP:['pill-soft','💾 Backup'], RESTORE:['pill-warn','📤 Restore'], CHANGE_PW:['pill-warn','🔑 PW'],
-  MAIL_DEFAULTERS:['pill-soft','📧 Mail'], RFID:['pill-soft','📶 RFID'], CERT:['pill-soft','🧾 Cert'],
-  HOLIDAY_ADD:['pill-soft','🏛️ Holiday'], HOLIDAY_DEL:['pill-warn','🗑 Holiday'], SETTINGS:['pill-warn','⚙️ Settings'],
-  SECTIONS:['pill-warn','🏫 Sections'], SETUP_ADMIN:['pill-good','👑 First admin'],
-  ROLE_PROMOTE:['pill-good','👑 Admin bana'], ROLE_DEMOTE:['pill-warn','⬇️ Demote'], PROFILE_EDIT:['pill-soft','✏️ Profile'],
-  ASSIGN_ADD:['pill-good','📚 Assignment'], ASSIGN_DEL:['pill-warn','🗑 Assn del'], ASSIGN_SUB:['pill-soft','📚 Subs'],
-  RESULT_SET:['pill-soft','🎓 Results'], ROLLOVER:['pill-warn','🎓 Rollover'],
+  LOGIN_OK:['pill-good','Login'], LOGIN_FAIL:['pill-bad','Failed'], LOCKED:['pill-bad','Locked'],
+  OTP_SENT:['pill-soft','OTP'], LOGOUT:['pill-soft','Logout'], USER_ADD:['pill-good','User'],
+  USER_DEL:['pill-bad','Removed'], USER_EDIT:['pill-warn','Edited'], USER_BULK:['pill-good','Bulk'],
+  ATT_SAVE:['pill-soft','Attendance'], ATT_EDIT_LATE:['pill-warn','Late edit'], SELFMARK:['pill-good','Self'],
+  SM_OPEN:['pill-soft','Open'], PROXY_FLAG:['pill-bad','Proxy'], FACE_OK:['pill-good','Face ok'],
+  FACE_FAIL:['pill-bad','Face fail'], FACE_REG:['pill-good','Face reg'], FACE_DEL:['pill-warn','Face del'],
+  PROMOTE:['pill-good','Promote'], TT_ADD:['pill-soft','Slot'], TT_DEL:['pill-warn','Slot del'],
+  TT_SUB:['pill-warn','Substitute'], LEAVE_NEW:['pill-soft','Leave'], LEAVE_OK:['pill-good','✓ Leave'],
+  LEAVE_NO:['pill-bad','✕ Leave'], FIX_REQ:['pill-soft','Fix req'], FIX_OK:['pill-good','✓ Fixed'],
+  FIX_NO:['pill-bad','✕ Fix no'], ANN_ADD:['pill-good','Notice'], MARKS:['pill-soft','Marks'],
+  BACKUP:['pill-soft','Backup'], RESTORE:['pill-warn','Restore'], CHANGE_PW:['pill-warn','PW'],
+  MAIL_DEFAULTERS:['pill-soft','Mail'], RFID:['pill-soft','RFID'], CERT:['pill-soft','Cert'],
+  HOLIDAY_ADD:['pill-soft','Holiday'], HOLIDAY_DEL:['pill-warn','Holiday'], SETTINGS:['pill-warn','Settings'],
+  SECTIONS:['pill-warn','Sections'], SETUP_ADMIN:['pill-good','First admin'],
+  ROLE_PROMOTE:['pill-good','Admin bana'], ROLE_DEMOTE:['pill-warn','Demote'], PROFILE_EDIT:['pill-soft','Profile'],
+  ASSIGN_ADD:['pill-good','Assignment'], ASSIGN_DEL:['pill-warn','Assn del'], ASSIGN_SUB:['pill-soft','Subs'],
+  RESULT_SET:['pill-soft','Results'], ROLLOVER:['pill-warn','Rollover'],
 };
 async function loadAudit() {
   const { logs } = await api('/api/admin/audit');
@@ -1656,7 +1645,7 @@ async function loadRoster() {
   $('#tNote').value = (record && record.note) || '';
   $('#markCard').hidden = false;
   renderRoster();
-  if (locked) toast('🔒 24h+ purana session — edit lock (admin hi kar sakta hai).', 'info');
+  if (locked) toast(' 24h+ purana session — edit lock (admin hi kar sakta hai).', 'info');
   else if (record) toast('Existing session loaded.');
 }
 function renderRoster() {
@@ -1685,7 +1674,7 @@ async function saveAttendance() {
     program: $('#mProgram').value, branch: $('#mBranch').value, semester: $('#mSem').value, section: $('#mSec').value,
     subject: getSubject(), date: $('#tDate').value, note: $('#tNote').value, entries }) });
   toast(res.message || 'Saved.');
-  if (entries.every((e) => e.status !== 'absent')) { confetti(); toast('🎉 Perfect attendance!'); }
+  if (entries.every((e) => e.status !== 'absent')) { toast('Perfect attendance — poore class present.'); }
 }
 function pickRandom() {
   if (!state.roster.length) return toast('Pehle students load karo.', 'error');
@@ -1693,7 +1682,7 @@ function pickRandom() {
   const names = state.roster.map((s) => s.name);
   let i = 0;
   const iv = setInterval(() => { $('#pickName').textContent = names[i++ % names.length]; }, 70);
-  setTimeout(() => { clearInterval(iv); $('#pickName').textContent = names[Math.floor(Math.random()*names.length)]; confetti(); }, 1400);
+  setTimeout(() => { clearInterval(iv); $('#pickName').textContent = names[Math.floor(Math.random()*names.length)]; }, 1400);
 }
 async function openSelfMark() {
   if (!state.roster.length) return toast('Pehle students load karo.', 'error');
@@ -1714,7 +1703,7 @@ async function openSelfMark() {
     try {
       const { code } = await api(`/api/selfmark/rotate?session=${state.smSession}`);
       $('#smCode').textContent = code;
-      $('#smCountdown').textContent = `⏱️ ${30 - Math.floor(Date.now()/1000) % 30}s me naya code`;
+      $('#smCountdown').textContent = ` ${30 - Math.floor(Date.now()/1000) % 30}s me naya code`;
     } catch { $('#smCode').textContent = 'EXPIRED'; }
   };
   await rotate();
@@ -1725,7 +1714,7 @@ function startSMPoll() {
   state.smTimer = setInterval(safe(async () => {
     if (!state.smSession) return;
     const r = await api(`/api/selfmark/status?session=${state.smSession}`);
-    $('#smLive').textContent = r.closed ? '⏰ Expired' : `${r.items.length} self-marked`;
+    $('#smLive').textContent = r.closed ? ' Expired' : `${r.items.length} self-marked`;
     $('#smLiveList').innerHTML = r.items.map((i) => `<div class="tt-row" style="padding:5px 10px;">
       <strong style="flex:1;">${esc(i.name)}</strong><span class="muted small">${esc(i.rollNo || '')}</span>
       ${i.flagged ? '<span class="pill pill-bad">flagged</span>' : '<span class="pill pill-good">✓</span>'}</div>`).join('');
@@ -1756,7 +1745,7 @@ function toggleVoice() {
     else if (/save|submit/.test(said)) safe(saveAttendance)();
   };
   recog.onend = () => { if (state.voiceOn) { try { recog.start(); } catch {} } };
-  try { recog.start(); state.voiceOn = true; $('#micBtn').classList.add('rec'); toast('🎙️ Voice ON', 'info'); } catch {}
+  try { recog.start(); state.voiceOn = true; $('#micBtn').classList.add('rec'); toast(' Voice ON', 'info'); } catch {}
 }
 function stopVoice() { if (recog) { try { recog.stop(); } catch {} recog = null; } state.voiceOn = false; const b = $('#micBtn'); if (b) b.classList.remove('rec'); }
 async function loadSessions() {
@@ -1788,7 +1777,7 @@ async function loadMarksRoster() {
       <option value="scored" ${mst === 'scored' ? 'selected' : ''}>Scored</option>
       <option value="absent" ${mst === 'absent' ? 'selected' : ''}>Absent</option>
       <option value="debarred" ${mst === 'debarred' ? 'selected' : ''}>Debarred</option></select>
-    <input class="input" style="max-width:110px;text-align:center;font-weight:700;" type="number" min="0" max="${max}" step="0.5"
+    <input class="input" style="max-width:110px;text-align:center;font-weight:500;" type="number" min="0" max="${max}" step="0.5"
       data-mk="${s.id}" value="${ex.score ?? ''}" placeholder="—" /></div>`;
   }).join('');
 }
@@ -1803,10 +1792,10 @@ function downloadMarksTemplate() {
     ['1. rollNo column ko EDIT MAT karo — wahi student match hota hai.'],
     ['2. Sirf "score" column me number bharo (max ' + ($('#mkMax').value || 30) + ').'],
     ['3. Khaali score = us student ka skip.'],
-    ['4. Save (.xlsx) → 📥 Import scores from file → 💾 Save Marks.'],
+    ['4. Save (.xlsx) → Import scores from file → Save marks.'],
   ]);
   makeWorkbook([['Marks', ws, null], ['Instructions', help, [{ wch: 66 }]]], `marks-${($('#mkSubject').value.trim() || 'subject')}-${($('#mkExam').value.trim() || 'exam')}.xlsx`);
-  toast('Template downloaded — rollNo already bhare hain!');
+  toast('Template downloaded — rollNo already bhare hain.');
 }
 async function importMarksFile() {
   const f = $('#mkFile').files[0];
@@ -1844,8 +1833,8 @@ async function importMarksFile() {
     if (score === '') { noScore++; continue; }
     inp.value = Number(score); matched++;
   }
-  const missMsg = missing.length ? ` · ⚠️ ${missing.length} rollNo class me nahi mile (${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''})` : '';
-  toast(`✅ ${matched} scores fill hue${noScore ? ` · ${noScore} khaali score skip` : ''}${missMsg}`, matched ? 'success' : 'error');
+  const missMsg = missing.length ? ` ·  ${missing.length} rollNo class me nahi mile (${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''})` : '';
+  toast(` ${matched} scores fill hue${noScore ? ` · ${noScore} khaali score skip` : ''}${missMsg}`, matched ? 'success' : 'error');
 }
 async function saveMarks() {
   const entries = [...$('#mkList').querySelectorAll('[data-mk]')]
@@ -1878,7 +1867,7 @@ async function captureDescriptor(statusEl) {
     v.srcObject = state.smStream;
     await new Promise((r) => setTimeout(r, 800));
   }
-  statusEl.textContent = '🧠 Face scan ho raha hai… camera dekho.';
+  statusEl.textContent = ' Face scan ho raha hai… camera dekho.';
   await ensureFaceLib();
   const det = await faceapi.detectSingleFace($('#smVideo'), new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceLandmarks().withFaceDescriptor();
   if (!det) throw new Error('Face detect nahi hua — light me camera dekho.');
@@ -1890,10 +1879,10 @@ async function registerFace() {
     const descriptor = await captureDescriptor(st);
     const r = await api('/api/me/face', { method:'POST', body: JSON.stringify({ descriptor }) });
     state.user.hasFace = true;
-    st.textContent = '🧠 Face registered ✓ — ab verification active hai.';
+    st.textContent = ' Face registered ✓ — ab verification active hai.';
     toast(r.message);
   } catch (e) {
-    st.textContent = e.message.includes('Failed to load') || e.message.includes('face-api') ? '⚠️ Face library load nahi hui (internet?) — selfie-only mode.' : e.message;
+    st.textContent = e.message.includes('Failed to load') || e.message.includes('face-api') ? ' Face library load nahi hui (internet?) — selfie-only mode.' : e.message;
     toast(st.textContent, 'error');
   }
 }
@@ -1909,7 +1898,7 @@ async function doSelfMark() {
   if (!session) return toast('Session ID daalo (QR scan karo ya teacher se lo).', 'error');
   if (!/^\d{6}$/.test(code)) return toast('6-digit rotating code daalo.', 'error');
   const statusEl = $('#smStatus');
-  statusEl.textContent = '📍 Location…';
+  statusEl.textContent = ' Location…';
   let lat, lng;
   if (navigator.geolocation) {
     try { const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })); lat = pos.coords.latitude; lng = pos.coords.longitude; } catch {}
@@ -1919,7 +1908,7 @@ async function doSelfMark() {
     if (state.user.hasFace) { face = await captureDescriptor(statusEl); selfie = captureSelfie(); }
     else if ($('#smSelfie').checked && state.smStream) { selfie = captureSelfie(); }
   } catch (e) { statusEl.textContent = e.message; return toast(e.message, 'error'); }
-  statusEl.textContent = '⏳ Marking…';
+  statusEl.textContent = ' Marking…';
   try {
     const r = await api('/api/selfmark/mark', { method:'POST', body: JSON.stringify({ session, code, lat, lng, selfie, face, device: DEVICE_ID }) });
     confetti();
@@ -1943,12 +1932,12 @@ function calcStreak(logs) {
 }
 function calcBadges(stats) {
   const b = [];
-  if (stats.percentage === 100 && stats.total >= 5) b.push(['💯', 'Century Club']);
+  if (stats.percentage === 100 && stats.total >= 5) b.push(['', 'Century Club']);
   const st = calcStreak(stats.logs);
-  if (st >= 3) b.push(['🔥', `${st}-day Streak`]);
+  if (st >= 3) b.push(['', `${st}-day Streak`]);
   const last30 = [...dayMap(stats.logs).entries()].filter(([d]) => (new Date() - new Date(d)) / 86400000 <= 30);
-  if (last30.length >= 5 && last30.every(([, v]) => v.a === v.t)) b.push(['🌟', 'Perfect Month']);
-  if (stats.total >= 20) b.push(['📚', 'Dedicated 20+']);
+  if (last30.length >= 5 && last30.every(([, v]) => v.a === v.t)) b.push(['', 'Perfect Month']);
+  if (stats.total >= 20) b.push(['', 'Dedicated 20+']);
   return b;
 }
 function detectPatterns(stats) {
@@ -1960,15 +1949,15 @@ function detectPatterns(stats) {
     (sj[l.subject] = sj[l.subject] || { a: 0, t: 0 }); sj[l.subject].t++; if (l.status === 'absent') sj[l.subject].a++;
   }
   const worstDay = Object.entries(wd).filter(([, v]) => v.a >= 2).sort((x, y) => y[1].a / y[1].t - x[1].a / x[1].t)[0];
-  if (worstDay) out.push(`📅 <strong>${worstDay[0]}s</strong> me sabse zyada absent (${worstDay[1].a}/${worstDay[1].t}).`);
+  if (worstDay) out.push(` <strong>${worstDay[0]}s</strong> me sabse zyada absent (${worstDay[1].a}/${worstDay[1].t}).`);
   const worstSub = Object.entries(sj).filter(([, v]) => v.a >= 2).sort((x, y) => y[1].a / y[1].t - x[1].a / x[1].t)[0];
-  if (worstSub) out.push(`📚 <strong>${esc(worstSub[0])}</strong> me attendance gir rahi hai.`);
+  if (worstSub) out.push(` <strong>${esc(worstSub[0])}</strong> me attendance gir rahi hai.`);
   const rr = recentRate(stats);
   const th = stats.threshold || state.settings.threshold;
   if (rr !== null && rr < th / 100 && stats.total >= 5)
-    out.push(`🔮 <strong style="color:var(--red)">Risk:</strong> 10 class baad ~${Math.round(((stats.attended + rr * 10) / (stats.total + 10)) * 100)}% ho jayegi (${th}% se neeche!).`);
-  else if (rr !== null && rr >= 0.9) out.push('🔮 Recent trend excellent! 🚀');
-  return out.length ? out.map((o) => `<p style="margin-bottom:8px;">${o}</p>`).join('') : '<p>Koi pattern nahi — regular ho. 👍</p>';
+    out.push(` <strong style="color:var(--red)">Risk:</strong> 10 class baad ~${Math.round(((stats.attended + rr * 10) / (stats.total + 10)) * 100)}% ho jayegi (${th}% se neeche!).`);
+  else if (rr !== null && rr >= 0.9) out.push(' Recent trend excellent! ');
+  return out.length ? out.map((o) => `<p style="margin-bottom:8px;">${o}</p>`).join('') : '<p>Koi pattern nahi — regular ho. </p>';
 }
 async function loadStudentAll() {
   const stats = await api('/api/me/attendance');
@@ -1979,26 +1968,26 @@ async function loadStudentAll() {
   $('#statPresent').textContent = stats.present; $('#statLate').textContent = stats.late;
   $('#statAbsent').textContent = stats.absent; $('#statTotal').textContent = stats.total;
   $('#eligPill').innerHTML = stats.total === 0 ? '' :
-    `<span class="pill ${stats.percentage >= th ? 'pill-good' : 'pill-bad'}" style="margin-bottom:8px;">${stats.percentage >= th ? '🎓 Exam Eligible ✓' : `⛔ NOT Eligible (${th}% chahiye)`}</span>`;
+    `<span class="pill ${stats.percentage >= th ? 'pill-good' : 'pill-bad'}" style="margin-bottom:8px;">${stats.percentage >= th ? 'Exam eligible' : `Not eligible (${th}% chahiye)`}</span>`;
   const msg = $('#ringMsg');
   if (!stats.total) msg.textContent = 'No data yet.';
-  else if (stats.percentage >= th) msg.textContent = `Above ${th}%! 🎉`;
+  else if (stats.percentage >= th) msg.textContent = `Above ${th}%`;
   else { const need = Math.max(0, Math.ceil((th * stats.total - 100 * stats.attended) / (100 - th))); msg.textContent = `Next ${need} classes attend karo — recover hoge.`; }
   const st = calcStreak(stats.logs);
-  $('#streakLine').textContent = st > 0 ? `🔥 ${st}-day streak!` : '';
+  $('#streakLine').textContent = st > 0 ? ` ${st}-day streak!` : '';
   if (window.Chart) {
     _charts.push(new Chart($('#pieChart'), { type:'doughnut',
-      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#1f9d6d','#e9a23b','#e64c4c'], borderWidth: 0 }] },
-      options: { plugins: { legend: { position:'bottom', labels: { color:'#8e97b3', font: { size: 11 } } } }, cutout: '65%' } }));
+      data: { labels: ['Present','Late','Absent'], datasets: [{ data: [stats.present, stats.late, stats.absent], backgroundColor: ['#1a7f4e','#b98a1e','#b3261e'], borderWidth: 0 }] },
+      options: { plugins: { legend: { position:'bottom', labels: { color:'#8a847a', font: { size: 11 } } } }, cutout: '65%' } }));
     const days = [...dayMap(stats.logs).entries()].sort((a, b) => a[0].localeCompare(b[0]));
     let a = 0, t2 = 0;
     const pts = days.map(([d, v]) => { a += v.a; t2 += v.t; return { d, p: Math.round((a / t2) * 100) }; });
     _charts.push(new Chart($('#trendChart'), { type:'line',
-      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#24387f', backgroundColor: 'rgba(36,56,127,.12)', fill: true, tension: .35, pointRadius: 3 }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } } }));
+      data: { labels: pts.map((p) => p.d.slice(5)), datasets: [{ data: pts.map((p) => p.p), borderColor: '#a33b32', backgroundColor: 'rgba(163,59,50,.10)', fill: true, tension: .35, pointRadius: 3 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: 'rgba(138,132,122,.14)' }, ticks: { color: '#8a847a', font: { family: 'IBM Plex Mono', size: 10 } } }, x: { grid: { display: false }, ticks: { color: '#8a847a', font: { family: 'IBM Plex Mono', size: 10 } } } } } }));
   }
   const badges = calcBadges(stats);
-  $('#badgeList').innerHTML = badges.length ? badges.map((b) => `<span class="badge-chip">${b[0]} ${esc(b[1])}</span>`).join('') : '<span class="muted small">None yet 💯🔥🌟</span>';
+  $('#badgeList').innerHTML = badges.length ? badges.map((b) => `<span class="badge-chip">${b[0]} ${esc(b[1])}</span>`).join('') : '<span class="muted small">None yet </span>';
   $('#patternBox').innerHTML = detectPatterns(stats);
   $('#subjectList').innerHTML = stats.subjects.length ? stats.subjects.map((s) => {
     const attended = s.present + s.late;
@@ -2018,12 +2007,12 @@ async function loadStudentAll() {
   $('#heat').innerHTML = cells;
   try {
     const lb = await api('/api/leaderboard');
-    const medal = (i) => ['🥇','🥈','🥉'][i] || `<span class="lb-rank">${i+1}</span>`;
+    const medal = (i) => ['','',''][i] || `<span class="lb-rank">${i+1}</span>`;
     $('#lbList').innerHTML = lb.top.length ? lb.top.map((r, i) => `
       <div class="lb-row ${state.user.name === r.name ? 'me' : ''}">${medal(i)}
       <strong style="flex:1;">${esc(r.name)}</strong><span class="muted small">${esc(r.label)}</span>
       <span class="pill pill-${pctClass(r.pct)}">${r.pct}%</span></div>`).join('')
-      + (lb.myRank > 5 ? `<p class="muted small center" style="margin-top:8px;">#${lb.myRank}/${lb.classSize} 💪</p>` : '')
+      + (lb.myRank > 5 ? `<p class="muted small center" style="margin-top:8px;">#${lb.myRank}/${lb.classSize} </p>` : '')
       : '<p class="muted small">Empty.</p>';
   } catch {}
   try {
@@ -2034,7 +2023,7 @@ async function loadStudentAll() {
       <span class="pill ${s.total && s.done >= s.total ? 'pill-good' : 'pill-warn'}">${s.done}/${s.total} submitted</span></div>`).join('')
       : '<p class="muted small">Koi assignment nahi.</p>';
     $('#attResults').innerHTML = renderResults(p.results);
-    $('#myMarks').innerHTML = '📋 Test/PUT scores teacher ki <strong>Progress Report</strong> me hote hain — student panel pe privacy ke liye nahi dikhte.';
+    $('#myMarks').innerHTML = ' Test/PUT scores teacher ki <strong>Progress Report</strong> me hote hain — student panel pe privacy ke liye nahi dikhte.';
   } catch {}
   const wi = $('#whatifBody');
   if (stats.total > 0) {
@@ -2053,7 +2042,7 @@ async function loadStudentAll() {
   $('#logBody').innerHTML = stats.logs.length ? stats.logs.slice(0, 25).map((l) => `
     <tr><td>${l.date}</td><td>${esc(l.subject)}</td>
     <td><span class="pill ${pill(l.status)}">${label(l.status)}</span></td>
-    <td>${l.status === 'absent' ? `<button class="btn btn-ghost btn-sm" data-fix="${l.entryId}">⚠️ Fix</button>` : ''}</td></tr>`).join('')
+    <td>${l.status === 'absent' ? `<button class="btn btn-ghost btn-sm" data-fix="${l.entryId}"> Fix</button>` : ''}</td></tr>`).join('')
     : '<tr><td colspan="4" class="empty">No records.</td></tr>';
   $('#logBody').querySelectorAll('[data-fix]').forEach((b) => b.addEventListener('click', safe(async () => {
     const reason = prompt('Reason (teacher se baat ki etc.):') || '';
@@ -2081,7 +2070,7 @@ async function makeCertificate() {
       <h3 style="font-family:Georgia;">Attendance Certificate</h3>
       <p>This certifies that <strong>${esc(state.user.name)}</strong> (${esc(state.user.rollNo || '—')}),<br/>
       ${esc(classLabel(state.user))} · Semester ${state.user.semester ?? '—'}</p>
-      <p style="font-size:2rem;font-weight:800;color:#24387f;margin:8px 0;">${st.percentage}%</p>
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:1.9rem;font-weight:500;color:var(--ink);margin:8px 0;">${st.percentage}%</p>
       <p class="muted small">Certificate ID: <strong>${esc(r.id)}</strong> · Issued ${todayISO()}</p>
       <canvas id="certQR" style="margin-top:10px;"></canvas></div>`;
   $('#certVerifyLink').href = r.url;
@@ -2099,8 +2088,8 @@ async function loadParentChild() {
   $('#ringPct').textContent = stats.percentage + '%';
   $('#statPresent').textContent = stats.present; $('#statLate').textContent = stats.late;
   $('#statAbsent').textContent = stats.absent; $('#statTotal').textContent = stats.total;
-  $('#pcElig').innerHTML = `<span class="pill ${stats.percentage >= th ? 'pill-good' : 'pill-bad'}">${stats.percentage >= th ? '🎓 Exam Eligible ✓' : '⛔ NOT Eligible'}</span>`;
-  $('#pcMsg').textContent = stats.total === 0 ? 'No data yet.' : stats.percentage >= th ? `Above ${th}% — badhiya! 🎉` : `${th}% se neeche hai — teacher se milein.`;
+  $('#pcElig').innerHTML = `<span class="pill ${stats.percentage >= th ? 'pill-good' : 'pill-bad'}">${stats.percentage >= th ? 'Exam eligible' : 'Not eligible'}</span>`;
+  $('#pcMsg').textContent = stats.total === 0 ? 'No data yet.' : stats.percentage >= th ? `Above ${th}% — badhiya.` : `${th}% se neeche hai — teacher se milein.`;
   $('#pcSubjects').innerHTML = stats.subjects.length ? stats.subjects.map((s) => `
     <div class="subject-item"><div class="subject-head"><strong>${esc(s.subject)}</strong>
     <span class="pill pill-${pctClass(s.percentage)}">${s.percentage}%</span></div>
@@ -2131,26 +2120,26 @@ let cmdSel = 0;
 function cmdItems() {
   const nav = NAVS[state.user.role].map(([id, icon]) => ({ icon, label: `Go to ${navLabel(id)}`, run: () => go(id) }));
   const extra = [
-    { icon: '🌐', label: 'Toggle Hindi / English', run: () => $('#langBtn').click() },
-    { icon: '🌙', label: 'Toggle theme', run: () => setTheme(!document.body.classList.contains('dark')) },
-    { icon: '🚪', label: 'Log out', run: () => $('#logoutBtn').click() },
+    { icon: '', label: 'Toggle Hindi / English', run: () => $('#langBtn').click() },
+    { icon: '', label: 'Toggle theme', run: () => setTheme(!document.body.classList.contains('dark')) },
+    { icon: '', label: 'Log out', run: () => $('#logoutBtn').click() },
   ];
   if (state.user.role === 'admin') extra.unshift(
-    { icon: '📊', label: 'Export Excel (current range)', run: () => downloadFile('/api/reports/export' + rangeQ(), `attendance-${todayISO()}.csv`) },
-    { icon: '💾', label: 'Download backup', run: () => downloadFile('/api/admin/backup', `glbajaj-backup-${todayISO()}.json`) },
-    { icon: '🖨️', label: 'Print report', run: () => { go('reports'); setTimeout(() => window.print(), 400); } },
-    { icon: '🎓', label: 'Year rollover wizard', run: () => go('archive') },
-    { icon: '🗃️', label: 'Alumni archive search', run: () => go('archive') },
+    { icon: '', label: 'Export Excel (current range)', run: () => downloadFile('/api/reports/export' + rangeQ(), `attendance-${todayISO()}.csv`) },
+    { icon: '', label: 'Download backup', run: () => downloadFile('/api/admin/backup', `glbajaj-backup-${todayISO()}.json`) },
+    { icon: '', label: 'Print report', run: () => { go('reports'); setTimeout(() => window.print(), 400); } },
+    { icon: '', label: 'Year rollover wizard', run: () => go('archive') },
+    { icon: '', label: 'Alumni archive search', run: () => go('archive') },
   );
   if (state.user.role === 'teacher') extra.unshift(
-    { icon: '✏️', label: 'Mark today attendance', run: () => { go('mark'); setTimeout(() => safe(loadRoster)(), 250); } },
-    { icon: '📝', label: 'Enter marks', run: () => go('marks') },
-    { icon: '🎓', label: 'Open progress report (SPR)', run: () => go('progress') },
-    { icon: '📚', label: 'Manage assignments', run: () => go('assn') },
+    { icon: '', label: 'Mark today attendance', run: () => { go('mark'); setTimeout(() => safe(loadRoster)(), 250); } },
+    { icon: '', label: 'Enter marks', run: () => go('marks') },
+    { icon: '', label: 'Open progress report (SPR)', run: () => go('progress') },
+    { icon: '', label: 'Manage assignments', run: () => go('assn') },
   );
   if (state.user.role === 'student') extra.unshift(
-    { icon: '📲', label: 'Self-mark attendance', run: () => go('selfmark') },
-    { icon: '🧾', label: 'Get attendance certificate', run: () => safe(makeCertificate)() },
+    { icon: '', label: 'Self-mark attendance', run: () => go('selfmark') },
+    { icon: '', label: 'Get attendance certificate', run: () => safe(makeCertificate)() },
   );
   return [...nav, ...extra];
 }
@@ -2221,7 +2210,7 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); defe
   stopSMStream(); clearSession(); location.href = '/';
 });
  $('#keyBtn').addEventListener('click', safe(async () => {
-  const opt = prompt('1️⃣ Password change\n2️⃣ 2FA ON/OFF\n3️⃣ Edit my name/email\n\nType 1, 2 or 3:');
+  const opt = prompt('1⃣ Password change\n2⃣ 2FA ON/OFF\n3⃣ Edit my name/email\n\nType 1, 2 or 3:');
   if (opt === '1') {
     const oldPw = prompt('Current password:'); if (oldPw === null) return;
     const newPw = prompt('New password (min 4):'); if (newPw === null) return;
@@ -2258,7 +2247,7 @@ async function loadDwrMine() {
     const cls = `${esc(it.program)}${it.branch && it.branch !== 'General' ? ' · ' + esc(it.branch) : ''} · Sem ${it.semester}${it.section ? ' · Sec ' + esc(it.section) : ''}`;
     return `<div class="card dwr-card">
       <div class="card-head"><h2>Period ${it.period} · ${esc(it.subject)}</h2>
-        <span class="muted small">${cls}${it.autoPresent != null ? ' · ✅ attendance auto' : ''}${e.updated_at ? ' · saved' : ''}</span></div>
+        <span class="muted small">${cls}${it.autoPresent != null ? ' ·  attendance auto' : ''}${e.updated_at ? ' · saved' : ''}</span></div>
       <div class="filter-grid">
         <label>Present<input class="input" type="number" min="0" id="dwrP${i}" value="${esc(present)}" placeholder="present" /></label>
         <label>Total<input class="input" type="number" min="0" id="dwrT${i}" value="${esc(total)}" placeholder="total" /></label>
@@ -2267,7 +2256,7 @@ async function loadDwrMine() {
         <label>Submit by<input class="input" type="date" id="dwrDue${i}" value="${esc(e.assignment_due || '')}" /></label>
         <label style="grid-column:1/-1;">Remarks<input class="input" id="dwrRem${i}" value="${esc(e.remarks || '')}" placeholder="Note for principal (optional)" /></label>
       </div>
-      <button class="btn btn-primary btn-sm" style="margin-top:10px;" id="dwrSave${i}">💾 Save Period ${it.period}</button>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px;" id="dwrSave${i}"> Save Period ${it.period}</button>
     </div>`;
   }).join('');
   items.forEach((it, i) => {
@@ -2277,7 +2266,7 @@ async function loadDwrMine() {
         taught: $('#dwrTaught' + i).value, presentCount: $('#dwrP' + i).value, totalCount: $('#dwrT' + i).value,
         assignmentTitle: $('#dwrAsn' + i).value, assignmentDue: $('#dwrDue' + i).value, remarks: $('#dwrRem' + i).value,
       }) });
-      toast(`Period ${it.period} report saved ✅`);
+      toast(`Period ${it.period} report saved `);
       loadDwrMine();
     }));
   });
@@ -2298,8 +2287,8 @@ async function loadDwrPrincipal() {
   $('#dwrpBody').innerHTML = byClass.size ? [...byClass.entries()].map(([key, cls]) => {
     const day = dayMap.get(key);
     const pill = day ? (day.status === 'sent'
-      ? '<span class="pill pill-soft">✅ Compiled</span>'
-      : `<span class="pill pill-soft">⏳ ${day.filled}/${day.expected || '?'} filled</span>`) : '';
+      ? '<span class="pill pill-soft"> Compiled</span>'
+      : `<span class="pill pill-soft"> ${day.filled}/${day.expected || '?'} filled</span>`) : '';
     return `<div class="card dwr-report"><div class="card-head"><h2>${esc(cls.label)} ${pill}</h2></div>
       <div class="table-wrap"><table>
         <thead><tr><th>P#</th><th>Subject</th><th>Teacher</th><th>Present/Total</th><th>Topics Taught</th><th>Assignment</th><th>Due</th><th>Remarks</th></tr></thead>
@@ -2318,7 +2307,7 @@ function mkPill(m) {
 function sprCell(x) {
   if (!x) return '—';
   const mk = (x.marks || []).length ? (x.marks || []).map(mkPill).join(' ') : '<span class="muted small">no entry</span>';
-  return `${mk} <span class="muted small" title="assignments submitted">📚${x.asgnDone}/${x.asgnTotal}</span> ${x.attPct != null ? `<span class="pill pill-${pctClass(x.attPct)}" title="subject attendance">${x.attPct}%</span>` : ''}`;
+  return `${mk} <span class="muted small" title="assignments submitted">${x.asgnDone}/${x.asgnTotal}</span> ${x.attPct != null ? `<span class="pill pill-${pctClass(x.attPct)}" title="subject attendance">${x.attPct}%</span>` : ''}`;
 }
 function renderResults(results) {
   if (!results || !results.length) return '<p class="muted small">Abhi koi result enter nahi hua.</p>';
@@ -2336,9 +2325,9 @@ async function loadAssnList() {
       <h2>${esc(a.subject)} — ${esc(a.title)}</h2>
       <span class="muted small">${a.unit ? esc(a.unit) + ' · ' : ''}${a.dueDate ? 'due ' + esc(a.dueDate) + ' · ' : ''}${esc(a.teacherName || '')}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <span class="pill ${a.strength && a.done >= a.strength ? 'pill-good' : 'pill-soft'}">📚 ${a.done}/${a.strength} submitted</span>
-        <button class="btn btn-primary btn-sm" data-asub="${a.id}">✅ Mark submissions</button>
-        <button class="btn btn-danger btn-sm" data-adel="${a.id}">🗑 Delete</button></div></div>`).join('')
+        <span class="pill ${a.strength && a.done >= a.strength ? 'pill-good' : 'pill-soft'}"> ${a.done}/${a.strength} submitted</span>
+        <button class="btn btn-primary btn-sm" data-asub="${a.id}"> Mark submissions</button>
+        <button class="btn btn-danger btn-sm" data-adel="${a.id}"> Delete</button></div></div>`).join('')
     : '<div class="card"><p class="muted">Is class ke liye koi assignment nahi — upar se create karo.</p></div>';
   $('#asList').querySelectorAll('[data-adel]').forEach((b) => b.addEventListener('click', safe(async () => {
     if (!confirm('Delete assignment + uski submissions?')) return;
@@ -2352,7 +2341,7 @@ async function createAssignment() {
   await api('/api/assignments', { method: 'POST', body: JSON.stringify({
     program: $('#asProgram').value, branch: $('#asBranch').value, semester: $('#asSem').value, section: $('#asSec').value,
     subject, title, unit: $('#asUnit').value, dueDate: $('#asDue').value }) });
-  toast('Assignment created 📚');
+  toast('Assignment created ');
   $('#asTitle').value = ''; $('#asUnit').value = ''; $('#asDue').value = '';
   loadAssnList();
 }
@@ -2360,7 +2349,7 @@ async function manageAssnSubs(id) {
   const d = await api(`/api/assignments/${id}/submissions`);
   const host = $('#asManage');
   host.innerHTML = `<div class="card"><div class="card-head"><h2>Submissions — ${esc(d.assignment.title)}</h2>
-    <div><button class="btn btn-primary btn-sm" id="asSaveSubs">💾 Save</button>
+    <div><button class="btn btn-primary btn-sm" id="asSaveSubs"> Save</button>
     <button class="btn btn-ghost btn-sm" id="asCloseSubs">Close</button></div></div>
     <p class="muted small">${esc(d.assignment.subject)}${d.assignment.dueDate ? ' · due ' + esc(d.assignment.dueDate) : ''} — jisne notebook/file submit ki, tick karo.</p>
     <div class="student-list">${d.students.map((s) => `
@@ -2381,7 +2370,7 @@ async function loadStudentAssn() {
   const d = await api('/api/assignments/mine');
   const done = d.subjects.reduce((a, s) => a + s.done, 0), tot = d.subjects.reduce((a, s) => a + s.total, 0);
   $('#saSum').textContent = d.items.length ? `AY ${d.academicYear} · total ${done}/${tot} submitted` : 'Abhi koi assignment nahi aayi.';
-  $('#saPending').innerHTML = d.pending.length ? `<strong class="small">⏳ Pending (${d.pending.length}):</strong>` +
+  $('#saPending').innerHTML = d.pending.length ? `<strong class="small"> Pending (${d.pending.length}):</strong>` +
     d.pending.slice(0, 8).map((p) => `<div class="tt-row" style="padding:6px 10px;"><strong style="flex:1;">${esc(p.title)}</strong>
       <span class="muted small">${esc(p.subject)}${p.dueDate ? ' · due ' + esc(p.dueDate) : ''}</span></div>`).join('') : '';
   $('#saBody').innerHTML = d.subjects.length ? d.subjects.map((s) => `<tr><td>${esc(s.subject)}</td>
@@ -2403,8 +2392,8 @@ async function loadProgressClass() {
       ${d.subjects.map((s) => `<td>${sprCell(r.subjects[s])}</td>`).join('')}
       <td><span class="pill pill-${pctClass(r.att.pct)}">${r.att.pct}%</span></td>
       <td>${r.results.length ? `<span class="pill pill-good" title="latest semester result">S${r.results[r.results.length-1].semester}: ${r.results[r.results.length-1].sgpa ?? '—'}</span>` : '<span class="muted small">—</span>'}</td>
-      <td class="table-actions no-print"><button class="btn btn-ghost btn-sm" data-pgd="${r.id}">📋 Detail</button></td></tr>`).join('')}</tbody></table></div>
-    <p class="muted small" style="margin-top:8px;">Har cell me: marks entries (exam: score/max) · 📚 assignments submitted · attendance %.</p></div>`;
+      <td class="table-actions no-print"><button class="btn btn-ghost btn-sm" data-pgd="${r.id}"> Detail</button></td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small" style="margin-top:8px;">Har cell me: marks entries (exam: score/max) ·  assignments submitted · attendance %.</p></div>`;
   $('#pgBody').querySelectorAll('[data-pgd]').forEach((b) => b.addEventListener('click', safe(() => showProgressStudent(b.dataset.pgd))));
 }
 async function showProgressStudent(id) {
@@ -2414,7 +2403,7 @@ async function showProgressStudent(id) {
   if (!row) { host.innerHTML = '<div class="card"><p class="muted">Data nahi mila.</p></div>'; return; }
   host.innerHTML = `<div class="card"><div class="card-head"><h2>${esc(st.name)} <span class="muted small">${esc(st.rollNo || '')} · ${esc(st.program)}${st.branch && st.branch !== 'General' ? ' · ' + esc(st.branch) : ''} · Sem ${st.semester}${st.section ? ' · ' + esc(st.section) : ''}${st.batch ? ' · Batch ' + esc(st.batch) : ''}</span></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
-      <button class="btn btn-primary btn-sm" id="pgrSet">🎓 Set SGPA/CGPA</button>
+      <button class="btn btn-primary btn-sm" id="pgrSet"> Set SGPA/CGPA</button>
       <button class="btn btn-ghost btn-sm" id="pgrClose">Close</button></div></div>
     <p class="muted small">AY ${esc(d.academicYear)} · Overall attendance: <strong>${row.att.pct}%</strong> (${row.att.attended}/${row.att.total})</p>
     ${d.subjects.map((s) => {
@@ -2425,9 +2414,9 @@ async function showProgressStudent(id) {
           <strong>${esc(s)}</strong>
           <span class="muted small">entry-only — as recorded</span></div>
         <div style="margin-top:6px;">${entries}</div>
-        <div style="margin-top:6px;" class="muted small">📚 Assignments: ${x.asgnDone}/${x.asgnTotal} · 🎯 Attendance: ${x.attPct != null ? x.attPct + '%' : '—'} (${x.attAttended}/${x.attTotal})</div></div>`;
+        <div style="margin-top:6px;" class="muted small"> Assignments: ${x.asgnDone}/${x.asgnTotal} ·  Attendance: ${x.attPct != null ? x.attPct + '%' : '—'} (${x.attAttended}/${x.attTotal})</div></div>`;
     }).join('')}
-    <div style="border-top:1px dashed var(--border-strong);padding:10px 0;"><strong>🎓 Results (manual entry)</strong>
+    <div style="border-top:1px dashed var(--border-strong);padding:10px 0;"><strong> Results (manual entry)</strong>
       <div style="margin-top:6px;">${row.results.length ? row.results.map((r) => `<span class="pill pill-soft">Sem ${r.semester}: SGPA ${r.sgpa ?? '—'} · CGPA ${r.cgpa ?? '—'}${r.remark ? ' · ' + esc(r.remark) : ''}</span>`).join(' ') : '<span class="muted small">Not entered yet.</span>'}</div></div></div>`;
   host.scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#pgrClose').addEventListener('click', () => { host.innerHTML = ''; });
@@ -2444,13 +2433,13 @@ async function showProgressStudent(id) {
 async function loadRolloverPreview() {
   const d = await api('/api/admin/rollover/preview');
   $('#roBox').innerHTML = `<p>Current AY: <strong>${esc(d.academicYear)}</strong> → next: <strong>${esc(d.nextAY)}</strong></p>
-    <p>🎓 Will graduate (final year, alumni banenge): <strong>${d.willGraduate}</strong> · ⬆️ Will promote (semester +1): <strong>${d.willPromote}</strong></p>
+    <p> Will graduate (final year, alumni banenge): <strong>${d.willGraduate}</strong> ·  Will promote (semester +1): <strong>${d.willPromote}</strong></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px;">
       <label style="display:grid;gap:4px;font-size:.8rem;font-weight:600;">New Academic Year
         <input class="input" id="roNewAY" value="${esc(d.nextAY)}" style="max-width:120px;" /></label>
-      <button class="btn btn-danger" id="roGo">🎓 Run Rollover</button></div>`;
+      <button class="btn btn-danger" id="roGo"> Run Rollover</button></div>`;
   $('#roGo').addEventListener('click', safe(async () => {
-    if (!confirm(`⚠️ ROLLOVER: ${d.willGraduate} graduate + ${d.willPromote} promote + AY → ${$('#roNewAY').value}. Backup le liya?`)) return;
+    if (!confirm(` ROLLOVER: ${d.willGraduate} graduate + ${d.willPromote} promote + AY → ${$('#roNewAY').value}. Backup le liya?`)) return;
     if (!confirm('Last confirm — rollover abhi execute karna hai?')) return;
     const r = await api('/api/admin/rollover', { method: 'POST', body: JSON.stringify({ confirm: true, newAcademicYear: $('#roNewAY').value }) });
     toast(r.message); loadRolloverPreview(); loadArchiveBatches();
@@ -2479,14 +2468,14 @@ async function loadArchiveStudents(program, branch, batch) {
     <tbody>${items.map((s) => `<tr><td>${esc(s.rollNo || '—')}</td><td style="text-align:left;">${esc(s.name)}</td>
     <td>${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · S${s.semester ?? '—'}</td>
     <td>${esc(s.batch || '—')}</td><td>${esc(s.graduatedOn || '—')}</td>
-    <td><button class="btn btn-ghost btn-sm" data-ars="${s.id}">📋 Full record</button></td></tr>`).join('')}</tbody></table></div></div>`
+    <td><button class="btn btn-ghost btn-sm" data-ars="${s.id}"> Full record</button></td></tr>`).join('')}</tbody></table></div></div>`
     : '<div class="card"><p class="muted small">Koi alumni nahi mila.</p></div>';
   $('#arStudents').querySelectorAll('[data-ars]').forEach((b) => b.addEventListener('click', safe(() => showArchiveStudent(b.dataset.ars))));
 }
 async function showArchiveStudent(id) {
   const d = await api(`/api/archive/student/${encodeURIComponent(id)}`);
   const s = d.student, a = d.attendance;
-  $('#arDetail').innerHTML = `<div class="card"><div class="card-head"><h2>${esc(s.name)} <span class="muted small">${esc(s.rollNo || '')} · ${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · Batch ${esc(s.batch || '—')} · ${s.status === 'alumni' ? '🎓 graduated ' + esc(s.graduatedOn || '') : 'active'}</span></h2>
+  $('#arDetail').innerHTML = `<div class="card"><div class="card-head"><h2>${esc(s.name)} <span class="muted small">${esc(s.rollNo || '')} · ${esc(s.program)}${s.branch && s.branch !== 'General' ? ' · ' + esc(s.branch) : ''} · Batch ${esc(s.batch || '—')} · ${s.status === 'alumni' ? ' graduated ' + esc(s.graduatedOn || '') : 'active'}</span></h2>
     <button class="btn btn-ghost btn-sm no-print" id="arClose">Close</button></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
       <span class="pill pill-${pctClass(a.pct)}">Attendance ${a.pct}%</span>
@@ -2494,7 +2483,7 @@ async function showArchiveStudent(id) {
       <span class="pill pill-bad">${a.absent} absent</span><span class="pill pill-soft">${a.total} total</span></div>
     <div class="table-wrap"><table><thead><tr><th>Subject</th><th>Exam</th><th>Score</th><th>Status</th><th>AY</th></tr></thead>
     <tbody>${d.marks.length ? d.marks.map((m) => `<tr><td>${esc(m.subject)}</td><td>${esc(m.exam)}</td><td>${m.score}/${m.max}</td><td>${m.status === 'scored' ? '✓' : esc(m.status)}</td><td>${esc(m.ay || '—')}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">No marks recorded.</td></tr>'}</tbody></table></div>
-    <div style="margin-top:12px;"><strong>🎓 Results:</strong> ${d.results.length ? d.results.map((r) => `<span class="pill pill-soft">Sem ${r.semester}: SGPA ${r.sgpa ?? '—'} · CGPA ${r.cgpa ?? '—'}</span>`).join(' ') : '<span class="muted small">Not entered.</span>'}</div></div>`;
+    <div style="margin-top:12px;"><strong> Results:</strong> ${d.results.length ? d.results.map((r) => `<span class="pill pill-soft">Sem ${r.semester}: SGPA ${r.sgpa ?? '—'} · CGPA ${r.cgpa ?? '—'}</span>`).join(' ') : '<span class="muted small">Not entered.</span>'}</div></div>`;
   $('#arDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#arClose').addEventListener('click', () => { $('#arDetail').innerHTML = ''; });
 }
