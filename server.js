@@ -1436,7 +1436,11 @@ app.get('/api/archive/student/:id', requireAuth, requireRole('admin'), H(async (
     marks, results: await getResults(u.id) });
 }));
 
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(__dirname + '/public', {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
 app.use((req, res) => res.status(404).sendFile(__dirname + '/public/index.html'));
 app.use((err, req, res, next) => {
